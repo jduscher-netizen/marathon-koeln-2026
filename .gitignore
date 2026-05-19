@@ -1,0 +1,5 @@
+.claude/
+server.js
+marathon.html
+*.pdf
+.DS_Store
