@@ -352,7 +352,8 @@ async function ensureStravaToken(){
 async function stravaFetchActivities(){
   if(!await ensureStravaToken()) return;
   const c = sCfg();
-  const after = Math.floor((Date.now() - 30*86400000)/1000);
+  const STRAVA_DAYS = 2;
+  const after = Math.floor((Date.now() - STRAVA_DAYS*86400000)/1000);
   try{
     const r = await fetch(`https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=30`, {
       headers:{"Authorization":"Bearer "+c.accessToken}
@@ -408,6 +409,19 @@ function stravaImportAll(){
   const list = ((DB.strava||{}).pending||[]).slice();
   list.forEach(a => stravaImport(a.id));
 }
+function stravaDismiss(actId){
+  const c = sCfg();
+  c.importedIds = (c.importedIds||[]).concat([actId]);
+  c.pending = (c.pending||[]).filter(x=>x.id!==actId);
+  save(); render();
+}
+function stravaDismissAll(){
+  const c = sCfg();
+  const ids = (c.pending||[]).map(a=>a.id);
+  c.importedIds = (c.importedIds||[]).concat(ids);
+  c.pending = [];
+  save(); render(); toast("Alle vom Vorschlag entfernt");
+}
 function stravaPendingBlock(){
   if(!stravaConnected()) return "";
   const p = (DB.strava.pending||[]);
@@ -416,11 +430,12 @@ function stravaPendingBlock(){
   return `<div class="card" style="border-color:var(--accent)">
     <div class="between" style="margin-bottom:8px"><h2 style="margin:0">🆕 Neue Strava-Aktivitäten</h2>
       <span class="pill run">${p.length}</span></div>
-    ${p.map(a=>{ const isRide=/Ride/.test(a.type); return `<div class="between" style="padding:9px 0;border-bottom:1px solid var(--line);gap:10px">
+    ${p.map(a=>{ const isRide=/Ride/.test(a.type); return `<div class="between" style="padding:9px 0;border-bottom:1px solid var(--line);gap:8px">
       <div style="flex:1;min-width:0"><b>${isRide?"🚴":"🏃"} ${(a.distance/1000).toFixed(1)} km</b>
       <div class="tiny muted">${fmt(a.start_date)} · ${hms(a.moving_time)}${a.average_heartrate?" · "+Math.round(a.average_heartrate)+" bpm":""}${a.name?" · "+a.name:""}</div></div>
-      <button class="btn-sm btn-p" onclick="stravaImport(${a.id})">Übernehmen</button></div>`;}).join("")}
-    ${p.length>1?`<button class="btn-sm" style="width:100%;margin-top:10px" onclick="stravaImportAll()">Alle übernehmen</button>`:""}
+      <button class="btn-sm btn-p" onclick="stravaImport(${a.id})">Übernehmen</button>
+      <button class="btn-sm btn-gh" style="padding:6px 10px" onclick="stravaDismiss(${a.id})" title="Vorschlag entfernen">✕</button></div>`;}).join("")}
+    ${p.length>1?`<div class="acts" style="margin-top:10px"><button class="btn-sm" style="flex:1" onclick="stravaImportAll()">Alle übernehmen</button><button class="btn-sm btn-gh" onclick="stravaDismissAll()">Alle entfernen</button></div>`:""}
   </div>`;
 }
 function cardStrava(){
