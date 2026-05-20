@@ -69,7 +69,9 @@
   .nav a .ni{font-size:1.25rem;line-height:1}
   .nav a.on{color:var(--accent)}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:100}
-  .sheet{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;padding:20px 18px calc(28px + env(safe-area-inset-bottom));border:1px solid var(--line)}
+  .sheet{position:relative;background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;padding:20px 18px calc(28px + env(safe-area-inset-bottom));border:1px solid var(--line);touch-action:pan-y;will-change:transform}
+  .sheet-close{position:absolute;top:8px;right:10px;width:36px;height:36px;border-radius:50%;background:var(--card2);color:var(--mut);border:1px solid var(--line);font-size:1.4rem;font-weight:300;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;z-index:5;cursor:pointer}
+  .sheet-close:active{background:var(--line);color:var(--txt)}
   .sheet h2{font-size:1.05rem}
   .grab{width:38px;height:4px;background:var(--line);border-radius:2px;margin:-6px auto 14px}
   .bar{display:flex;align-items:flex-end;gap:5px;height:130px;margin-top:8px}
@@ -957,7 +959,27 @@ function viewMehr(){
 
 /* ============ MODALS ============ */
 function closeModal(){ document.getElementById("modalRoot").innerHTML=""; }
-function sheet(h){ document.getElementById("modalRoot").innerHTML=`<div class="modal" onclick="if(event.target===this)closeModal()"><div class="sheet"><div class="grab"></div>${h}</div></div>`; }
+function sheet(h){
+  document.getElementById("modalRoot").innerHTML=`<div class="modal" onclick="if(event.target===this)closeModal()"><div class="sheet"><button class="sheet-close" onclick="closeModal()" aria-label="Schließen">×</button><div class="grab"></div>${h}</div></div>`;
+  attachSheetGestures();
+}
+function attachSheetGestures(){
+  const s=document.querySelector(".sheet"); if(!s) return;
+  let startY=0, dy=0, dragging=false;
+  const start=e=>{ if(s.scrollTop>2) return;
+    const t=e.touches?e.touches[0]:e; startY=t.clientY; dy=0; dragging=true; s.style.transition="none"; };
+  const move=e=>{ if(!dragging) return;
+    const t=e.touches?e.touches[0]:e; const d=t.clientY-startY;
+    if(d<0){ dy=0; s.style.transform=""; return; }
+    dy=d; s.style.transform=`translateY(${d}px)`; };
+  const end=()=>{ if(!dragging) return; dragging=false; s.style.transition="transform .22s ease-out";
+    if(dy>110){ s.style.transform="translateY(100%)"; setTimeout(closeModal,220); }
+    else { s.style.transform=""; } dy=0; };
+  s.addEventListener("touchstart",start,{passive:true});
+  s.addEventListener("touchmove",move,{passive:true});
+  s.addEventListener("touchend",end);
+  s.addEventListener("touchcancel",end);
+}
 window._seg={};
 function selSeg(g,b,v){ b.parentNode.querySelectorAll("button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); window._seg[g]=v; }
 
@@ -965,7 +987,14 @@ function selSeg(g,b,v){ b.parentNode.querySelectorAll("button").forEach(x=>x.cla
 function openRun(w,slot){
   const id=runId(w,slot), c=runContent(w,slot), L=DB.logs[id]||{};
   const h=Math.floor((L.sec||0)/3600), m=Math.floor(((L.sec||0)%3600)/60), s=(L.sec||0)%60;
-  sheet(`<h2>${c.title}</h2><div class="sub" style="margin:-6px 0 4px">${c.det}</div>
+  const sk=isSkipped(id);
+  const dt=dateOf(w,effDay(w,slot));
+  sheet(`<h2>${c.title}</h2><div class="sub" style="margin:-6px 0 4px">${c.det} · ${fmtD(dt)}${c.edited?" · angepasst":""}</div>
+    <div class="acts" style="margin:14px 0 4px">
+      <button class="btn-sm" onclick="closeModal();openPlanEdit(${w},'${slot}')">✎ Plan ändern</button>
+      <button class="btn-sm" onclick="closeModal();openMove(${w},'${slot}')">⇄ Verschieben</button>
+      <button class="btn-sm btn-gh" onclick="closeModal();toggleSkip('${id}')">${sk?"Doch laufen":"Überspringen"}</button>
+    </div>
     <button class="btn-sm" style="width:100%;margin:12px 0 2px" onclick="document.getElementById('f_file').click()">📂 Aus Strava/Garmin-Datei füllen (GPX/TCX)</button>
     <input id="f_file" type="file" accept=".gpx,.tcx,.xml" style="display:none" onchange="runImportFile(event)">
     <label>Distanz (km)</label><input id="f_dist" type="number" inputmode="decimal" step="0.1" value="${L.dist||""}" placeholder="z.B. 12.0">
