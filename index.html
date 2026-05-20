@@ -120,12 +120,17 @@
   details .dc table{margin:4px 0 8px}
   details .dc h3{font-size:.82rem;margin:12px 0 4px;color:var(--txt)}
   .zone{display:inline-block;width:26px;text-align:center;border-radius:5px;font-weight:700;font-size:.72rem;padding:2px 0;color:#fff}
+  #syncBadge{position:fixed;top:calc(14px + env(safe-area-inset-top));right:14px;width:34px;height:34px;border-radius:50%;background:var(--card);border:1px solid var(--line);display:none;align-items:center;justify-content:center;font-size:.95rem;font-weight:700;cursor:pointer;z-index:30;transition:.2s}
+  #syncBadge.show{display:flex}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #syncBadge.spin span{display:inline-block;animation:spin 1s linear infinite}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div class="nav" id="nav"></div>
 <div id="modalRoot"></div>
+<div id="syncBadge" onclick="go('mehr')"><span>○</span></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -194,7 +199,98 @@ function load(){
           activities:JSON.parse(JSON.stringify(DEFAULT_ACTS)),
           acts:{}, rides:[], weights, hrBase:null};
 }
-function save(){ localStorage.setItem(LS, JSON.stringify(DB)); }
+function save(){ DB.lastModified=Date.now(); localStorage.setItem(LS, JSON.stringify(DB)); schedulePush(); }
+
+/* ============ CLOUD SYNC (private GitHub Gist) ============ */
+const CK="marathon_koeln_2026_cloud";
+let CLOUD = (()=>{ try{ return JSON.parse(localStorage.getItem(CK))||{}; }catch(e){ return {}; } })();
+function saveCloud(){ localStorage.setItem(CK, JSON.stringify(CLOUD)); }
+const GIST_FILE="marathon-koeln-2026.json";
+let syncState="idle", syncMsg="", cloudBusy=false, _pushT=null;
+function setSync(s,m){ syncState=s; syncMsg=m||""; updateBadge(); }
+function updateBadge(){
+  const b=document.getElementById("syncBadge"); if(!b) return;
+  if(!CLOUD.token){ b.classList.remove("show"); return; }
+  b.classList.add("show"); b.classList.toggle("spin", syncState==="syncing");
+  const ic={idle:["○","var(--mut)"],syncing:["⟳","var(--blue)"],ok:["✓","var(--good)"],err:["⚠","var(--bad)"]}[syncState];
+  b.innerHTML=`<span style="color:${ic[1]}">${ic[0]}</span>`;
+  b.title= syncState==="ok"&&CLOUD.lastSync ? `Sync vor ${Math.max(0,Math.round((Date.now()-CLOUD.lastSync)/60000))} min` : syncState==="err"?("Sync-Fehler: "+syncMsg):"Cloud-Sync";
+}
+function schedulePush(){
+  if(!CLOUD.token||!CLOUD.gistId) return;
+  clearTimeout(_pushT); _pushT=setTimeout(()=>{ if(!cloudBusy) cloudPush(); }, 1500);
+}
+async function ghFetch(path, opts={}){
+  const r=await fetch("https://api.github.com"+path, {...opts, headers:{
+    "Authorization":"token "+CLOUD.token,"Accept":"application/vnd.github+json",
+    "Content-Type":"application/json", ...(opts.headers||{})}});
+  if(!r.ok){ const t=await r.text().catch(()=>""); throw new Error("HTTP "+r.status+(t?": "+t.slice(0,120):"")); }
+  return r.json();
+}
+async function cloudPush(){
+  if(!CLOUD.token||!CLOUD.gistId||cloudBusy) return;
+  cloudBusy=true; setSync("syncing");
+  try{
+    await ghFetch("/gists/"+CLOUD.gistId, {method:"PATCH",
+      body:JSON.stringify({files:{[GIST_FILE]:{content:JSON.stringify(DB)}}})});
+    CLOUD.lastSync=Date.now(); saveCloud(); setSync("ok");
+  }catch(e){ setSync("err", e.message); }
+  finally{ cloudBusy=false; updateBadge(); }
+}
+async function cloudPull(){
+  if(!CLOUD.token||!CLOUD.gistId||cloudBusy) return;
+  cloudBusy=true; setSync("syncing");
+  try{
+    const g=await ghFetch("/gists/"+CLOUD.gistId);
+    const f=g.files&&g.files[GIST_FILE];
+    if(!f) throw new Error("Datei im Gist fehlt");
+    const remote=JSON.parse(f.content);
+    const rT=remote.lastModified||0, lT=DB.lastModified||0;
+    if(rT>lT){
+      DB=remote; localStorage.setItem(LS, JSON.stringify(DB));
+      CLOUD.lastSync=Date.now(); saveCloud();
+      cloudBusy=false; render(); setSync("ok"); toast("Aus Cloud aktualisiert ✓"); return;
+    } else if(lT>rT){
+      cloudBusy=false; await cloudPush(); return;
+    }
+    CLOUD.lastSync=Date.now(); saveCloud(); setSync("ok");
+  }catch(e){ setSync("err", e.message); }
+  finally{ cloudBusy=false; updateBadge(); }
+}
+async function cloudSetup(token, existingId){
+  setSync("syncing");
+  try{
+    // verify token
+    const me=await fetch("https://api.github.com/user",{headers:{Authorization:"token "+token}});
+    if(!me.ok) throw new Error("Token ungültig (HTTP "+me.status+")");
+    const user=(await me.json()).login;
+    if(existingId){
+      CLOUD={token, gistId:existingId, user};
+      const v=await fetch("https://api.github.com/gists/"+existingId,{headers:{Authorization:"token "+token}});
+      if(!v.ok) throw new Error("Gist nicht erreichbar (HTTP "+v.status+")");
+    } else {
+      CLOUD={token};
+      const g=await ghFetch("/gists",{method:"POST",body:JSON.stringify({
+        description:"Marathon Köln 2026 — Trainings-Daten (privat)", public:false,
+        files:{[GIST_FILE]:{content:JSON.stringify(DB)}}})});
+      CLOUD={token, gistId:g.id, user};
+    }
+    saveCloud();
+    await cloudPull();
+    render(); toast("Cloud-Sync aktiv ✓");
+  }catch(e){ CLOUD={}; saveCloud(); setSync("err", e.message); toast("Setup fehlgeschlagen: "+e.message); render(); }
+}
+function cloudDisconnect(){
+  if(!confirm("Cloud-Sync trennen? Der Gist bleibt online (löschbar via gist.github.com).")) return;
+  CLOUD={}; localStorage.removeItem(CK); setSync("idle"); render(); toast("Cloud-Sync getrennt");
+}
+function doCloudSetup(){
+  const tok=document.getElementById("c_tok").value.trim();
+  const gid=document.getElementById("c_gid").value.trim();
+  if(!tok){ toast("Token nötig"); return; }
+  cloudSetup(tok, gid||null);
+}
+setInterval(()=>{ if(CLOUD.token) updateBadge(); }, 30000);
 
 /* ============ DATE HELPERS ============ */
 const MS=86400000;
@@ -672,6 +768,39 @@ function redFlagsBlock(compact){
 }
 
 /* ============ VIEW: MEHR ============ */
+function cardCloud(){
+  if(CLOUD.token&&CLOUD.gistId){
+    const ago = CLOUD.lastSync ? Math.max(0,Math.round((Date.now()-CLOUD.lastSync)/60000)) : null;
+    const stCol = syncState==='ok'?'var(--good)':syncState==='err'?'var(--bad)':syncState==='syncing'?'var(--blue)':'var(--mut)';
+    const stTxt = syncState==='ok'?'✓ synchronisiert':syncState==='syncing'?'⟳ syncing…':syncState==='err'?'⚠ Fehler':'…';
+    return `<div class="card"><h2>☁ Cloud-Sync</h2>
+      <div class="between"><span class="sub">Status</span><b style="color:${stCol}">${stTxt}</b></div>
+      ${ago!=null?`<div class="between" style="margin-top:6px"><span class="sub">Letzte Sync</span><span class="tiny">vor ${ago} min</span></div>`:""}
+      ${syncMsg&&syncState==='err'?`<div class="tiny" style="color:var(--bad);margin-top:6px">${syncMsg}</div>`:""}
+      <div class="between" style="margin-top:6px"><span class="sub">Gist</span>
+        <a class="lnk tiny" href="https://gist.github.com/${CLOUD.gistId}" target="_blank">${CLOUD.gistId.slice(0,12)}…</a></div>
+      ${CLOUD.user?`<div class="between"><span class="sub">Account</span><span class="tiny">${CLOUD.user}</span></div>`:""}
+      <div class="acts" style="margin-top:14px">
+        <button class="btn-sm btn-p" onclick="cloudPull()">Sync jetzt</button>
+        <button class="btn-sm btn-gh" onclick="cloudDisconnect()">Trennen</button></div>
+      <div class="tiny muted" style="margin-top:10px">Auf einem neuen Gerät: gleichen Token + diese Gist-ID eintragen → Daten erscheinen automatisch.</div>
+    </div>`;
+  }
+  return `<div class="card"><h2>☁ Cloud-Sync einrichten</h2>
+    <p class="sub" style="margin-bottom:10px">Auto-Sync deiner Daten über einen <b>privaten</b> GitHub-Gist (nur du siehst ihn). Funktioniert auf allen Geräten. Daten landen weder in deinem Marathon-Repo noch öffentlich — eigener privater Gist.</p>
+    <ol class="sub" style="margin-left:18px;margin-bottom:12px;line-height:1.7">
+      <li>Token erstellen: <a class="lnk" href="https://github.com/settings/tokens/new?scopes=gist&description=Marathon%20Sync" target="_blank">github.com/settings/tokens/new</a><br><span class="tiny muted">Scope „gist" ist vorausgewählt — bitte <b>nur</b> diesen einen. Expiration: „No expiration" oder lang.</span></li>
+      <li>Generate token → kopieren (<code>ghp_…</code> oder <code>github_pat_…</code>)</li>
+      <li>Hier einfügen → „Sync einrichten"</li></ol>
+    <label>Personal Access Token (Scope: gist)</label>
+    <input id="c_tok" type="password" placeholder="ghp_… oder github_pat_…" autocomplete="off">
+    <label>Vorhandene Gist-ID <span class="muted tiny">(leer = neuen Gist anlegen)</span></label>
+    <input id="c_gid" type="text" placeholder="leer lassen beim ersten Gerät" autocomplete="off">
+    <div class="acts" style="margin-top:14px"><button class="btn-p" style="flex:1" onclick="doCloudSetup()">Sync einrichten</button></div>
+    <div class="tiny muted" style="margin-top:12px">⚠ Der Token liegt lokal im Browser dieses Geräts. Wenn das Gerät verloren geht, Token auf github.com widerrufen.</div>
+  </div>`;
+}
+
 function viewMehr(){
   const acts=DB.activities.map((a,i)=>`<div class="act">
     <div class="an"><b>${a.name}</b> <span class="pill ${a.type==='ride'?'bike':'opt'}">${a.type==='ride'?'mit Werten':'Zähler'}</span>
@@ -683,6 +812,7 @@ function viewMehr(){
       <button class="btn-sm" onclick="openActEdit(${i})">✎</button>
       <button class="btn-sm btn-gh" onclick="delAct(${i})">✕</button></div></div>`).join("");
   return `<div class="wrap"><h1 style="margin-bottom:16px">Mehr</h1>
+    ${cardCloud()}
     <div class="card"><div class="between" style="margin-bottom:6px"><h2 style="margin:0">Freie Einheiten verwalten</h2></div>
       ${acts}<button class="btn-sm btn-p" style="width:100%;margin-top:12px" onclick="openActEdit(-1)">+ Einheit hinzufügen</button></div>
     <div class="card"><h2>Trainingsplan</h2>
@@ -1020,9 +1150,11 @@ function resetData(){ if(confirm("Wirklich ALLE Daten löschen? Vorher exportier
 /* ============ RENDER ============ */
 function render(){
   const v={heute:viewHeute,woche:viewWoche,track:viewTrack,stats:viewStats,mehr:viewMehr}[route]||viewHeute;
-  document.getElementById("app").innerHTML=v(); renderNav();
+  document.getElementById("app").innerHTML=v(); renderNav(); updateBadge();
 }
 render();
+// auto-pull on app start if configured
+if(CLOUD.token && CLOUD.gistId){ cloudPull(); }
 </script>
 </body>
 </html>
