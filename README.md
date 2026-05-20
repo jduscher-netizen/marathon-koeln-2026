@@ -2,7 +2,7 @@
 
 Persönliche, mobile-first Single-File-Web-App zum Tracken des Marathonplans Köln (04.10.2026, Ziel Sub 4:00).
 
-- **Live:** `https://<dein-user>.github.io/<repo>/`
+- **Live:** https://jduscher-netizen.github.io/marathon-koeln-2026/
 - Komplett offline-fähig, alle Daten liegen lokal im Browser (localStorage). Nichts wird hochgeladen.
 - Auf dem iPhone: Seite öffnen → Teilen → „Zum Home-Bildschirm" → läuft wie eine App.
 
