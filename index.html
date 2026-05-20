@@ -100,6 +100,11 @@
   .act .an{flex:1;min-width:0}
   .act .an b{font-size:.9rem;font-weight:600}
   .act .an .as{font-size:.7rem;color:var(--mut)}
+  .act.done{opacity:.55;transition:opacity .25s}
+  .act.done .an .as{color:var(--good)}
+  @media (prefers-reduced-motion: no-preference){
+    ::view-transition-old(root),::view-transition-new(root){animation-duration:.2s}
+  }
   .step{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex:0 0 auto}
   .step button{border:none;border-radius:0;background:var(--card2);width:38px;height:38px;padding:0;font-size:1.1rem;font-weight:700}
   .step .sv{min-width:34px;text-align:center;font-weight:800;font-size:.95rem}
@@ -339,7 +344,8 @@ function actCount(w,id){
 }
 function actInc(w,id,delta){
   const k=`${w}::${id}`; const v=Math.max(0,(DB.acts[k]||0)+delta);
-  if(v===0) delete DB.acts[k]; else DB.acts[k]=v; save(); render();
+  if(v===0) delete DB.acts[k]; else DB.acts[k]=v; save();
+  if(document.startViewTransition){ document.startViewTransition(()=>render()); } else { render(); }
 }
 
 /* ============ FORMAT ============ */
@@ -469,10 +475,15 @@ function runCard(w,slot,big){
     </div></div>`;
 }
 function actPanel(w){
-  let rows="";
-  DB.activities.forEach(a=>{
+  // Sortieren: offene oben (Original-Reihenfolge), abgeschlossene unten
+  const items = DB.activities.map((a,i)=>{
     const c=actCount(w,a.id);
     const tgt=a.target||0;
+    const done = a.type!=="ride" && tgt>0 && c>=tgt;
+    return {a, c, tgt, done, i};
+  }).sort((x,y)=>(x.done?1:0)-(y.done?1:0) || x.i-y.i);
+
+  const rows = items.map(({a,c,tgt,done})=>{
     let ctrl;
     if(a.type==="ride"){
       ctrl=`<button class="btn-sm btn-p" onclick="openRide(${w},'${a.id}')">+ Fahrt</button>`;
@@ -480,15 +491,17 @@ function actPanel(w){
       ctrl=`<div class="step">
         <button onclick="actInc(${w},'${a.id}',-1)">−</button>
         <span class="sv">${c}</span>
-        <button class="acc" onclick="actInc(${w},'${a.id}',1)">+</button></div>`;
+        <button class="${done?'':'acc'}" onclick="actInc(${w},'${a.id}',1)">+</button></div>`;
     }
     let dots="";
     if(tgt>0){ dots=`<div class="dotline">${Array.from({length:Math.max(tgt,c)}).map((_,i)=>`<i class="${i<c?'f':''}"></i>`).join("")}</div>`; }
-    rows+=`<div class="act">
-      <div class="an"><b>${a.name}</b>${a.optional?` <span class="pill opt">optional</span>`:""}
-        <div class="as">${a.type==="ride"?`${c} Fahrt(en) diese Woche`:(tgt>0?`Soll ${tgt}×/Woche · ${c} erledigt`:`${c}× erledigt`)}</div>
+    const tag = done ? ` <span class="pill done">✓</span>` : "";
+    const over = (c>tgt && tgt>0) ? " <span class=\"tiny\" style=\"color:var(--good)\">· Überperformance!</span>" : "";
+    return `<div class="act${done?' done':''}" style="view-transition-name:act-${a.id}">
+      <div class="an"><b>${a.name}</b>${tag}${a.optional?` <span class="pill opt">optional</span>`:""}
+        <div class="as">${a.type==="ride"?`${c} Fahrt(en) diese Woche`:(tgt>0?`${c}/${tgt} diese Woche${over}`:`${c}× erledigt`)}</div>
         ${dots}</div>${ctrl}</div>`;
-  });
+  }).join("");
   return `<div class="card"><div class="between" style="margin-bottom:6px"><h2 style="margin:0">Freie Einheiten · Woche ${w}</h2>
     <button class="btn-sm btn-gh" onclick="go('mehr')">verwalten</button></div>${rows}
     ${DB.rides.filter(r=>r.w===w).length?`<div style="margin-top:12px" class="tiny muted">Rad: `+
