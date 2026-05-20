@@ -301,6 +301,158 @@ function doCloudSetup(){
 }
 setInterval(()=>{ if(CLOUD.token) updateBadge(); }, 30000);
 
+/* ============ STRAVA SYNC ============ */
+function sCfg(){ if(!DB.strava) DB.strava={}; return DB.strava; }
+function stravaConnected(){ return !!(DB.strava && DB.strava.refreshToken); }
+
+async function stravaTokenExchange(body){
+  const r = await fetch("https://www.strava.com/oauth/token", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(body)
+  });
+  if(!r.ok) throw new Error("Strava /oauth/token "+r.status);
+  return r.json();
+}
+async function checkStravaCallback(){
+  const u = new URL(location.href);
+  const code = u.searchParams.get("code");
+  if(!code) return;
+  const c = sCfg();
+  if(!c.clientId || !c.clientSecret){
+    history.replaceState({}, "", u.pathname); toast("Strava-Auth ohne Client gestartet"); return;
+  }
+  try{
+    const d = await stravaTokenExchange({client_id:c.clientId, client_secret:c.clientSecret, code, grant_type:"authorization_code"});
+    if(!d.access_token) throw new Error(d.message||"keine Tokens");
+    c.accessToken=d.access_token; c.refreshToken=d.refresh_token; c.expiresAt=d.expires_at*1000;
+    c.athlete=d.athlete?(d.athlete.firstname+" "+d.athlete.lastname).trim():null;
+    save();
+    history.replaceState({}, "", u.pathname);
+    toast("Strava verknüpft ✓");
+    await stravaFetchActivities();
+  }catch(e){ history.replaceState({},"",u.pathname); toast("Strava-Auth Fehler: "+e.message); }
+  render();
+}
+async function ensureStravaToken(){
+  const c = sCfg();
+  if(!c.refreshToken) return false;
+  if(c.expiresAt && c.expiresAt - Date.now() > 60000 && c.accessToken) return true;
+  try{
+    const d = await stravaTokenExchange({client_id:c.clientId, client_secret:c.clientSecret, refresh_token:c.refreshToken, grant_type:"refresh_token"});
+    if(!d.access_token) return false;
+    c.accessToken=d.access_token; c.refreshToken=d.refresh_token||c.refreshToken; c.expiresAt=d.expires_at*1000; save();
+    return true;
+  }catch(e){ console.warn("Strava refresh fail", e); return false; }
+}
+async function stravaFetchActivities(){
+  if(!await ensureStravaToken()) return;
+  const c = sCfg();
+  const after = Math.floor((Date.now() - 30*86400000)/1000);
+  try{
+    const r = await fetch(`https://www.strava.com/api/v3/athlete/activities?after=${after}&per_page=30`, {
+      headers:{"Authorization":"Bearer "+c.accessToken}
+    });
+    if(!r.ok){ toast("Strava-Abruf Fehler "+r.status); return; }
+    const acts = await r.json();
+    const types = /^(Run|VirtualRun|TrailRun|Ride|VirtualRide|GravelRide|MountainBikeRide)$/;
+    const ignored = new Set(c.importedIds||[]);
+    c.pending = acts.filter(a=>types.test(a.type) && !ignored.has(a.id)).map(a=>({
+      id:a.id, type:a.type, name:a.name, distance:a.distance, moving_time:a.moving_time,
+      average_heartrate:a.average_heartrate, start_date:a.start_date
+    }));
+    c.lastFetch = Date.now(); save();
+    if(c.pending.length) toast(`${c.pending.length} neue Strava-Aktivität(en)`);
+  }catch(e){ toast("Strava-Abruf Fehler: "+e.message); }
+}
+function stravaConnect(){
+  const cid=(document.getElementById("s_cid")||{}).value?.trim();
+  const cs=(document.getElementById("s_cs")||{}).value?.trim();
+  if(!cid||!cs){ toast("Client-ID + Secret nötig"); return; }
+  const c = sCfg(); c.clientId=cid; c.clientSecret=cs; save();
+  const redirect = location.origin + location.pathname;
+  location.href = `https://www.strava.com/oauth/authorize?client_id=${encodeURIComponent(cid)}&response_type=code&redirect_uri=${encodeURIComponent(redirect)}&approval_prompt=auto&scope=activity:read_all`;
+}
+function stravaDisconnect(){
+  if(!confirm("Strava-Verknüpfung trennen? Importierte Aktivitäten bleiben erhalten.")) return;
+  delete DB.strava; save(); render(); toast("Strava getrennt");
+}
+function stravaImport(actId){
+  const c = sCfg();
+  const a = (c.pending||[]).find(x=>x.id===actId);
+  if(!a){ toast("Aktivität nicht mehr in der Liste"); return; }
+  const isRide = /Ride/.test(a.type);
+  const date = new Date(a.start_date);
+  const dist = +(a.distance/1000).toFixed(2);
+  const sec = a.moving_time;
+  const hr = a.average_heartrate ? Math.round(a.average_heartrate) : null;
+  if(isRide){
+    DB.rides.push({id:"R"+Date.now()+Math.random().toString(36).slice(2,5),
+      date:dkey(date), w:(locate(date).week||0), dist, sec, hr, rpe:null, note:"Strava: "+(a.name||"")});
+  } else {
+    const m = matchRunSlot(date);
+    if(!m){ toast("Kein passender Lauf-Slot am "+dkey(date)); return; }
+    const id = runId(m.w, m.slot);
+    if(DB.logs[id]){ toast("Bereits erfasst – übersprungen"); }
+    else DB.logs[id] = {dist, sec, hr, rpe:null, feel:null, pain:false, note:"Strava: "+(a.name||"")};
+  }
+  c.importedIds = (c.importedIds||[]).concat([a.id]);
+  c.pending = (c.pending||[]).filter(x=>x.id!==a.id);
+  save(); render(); toast(isRide?"Fahrt importiert ✓":"Lauf importiert ✓");
+}
+function stravaImportAll(){
+  const list = ((DB.strava||{}).pending||[]).slice();
+  list.forEach(a => stravaImport(a.id));
+}
+function stravaPendingBlock(){
+  if(!stravaConnected()) return "";
+  const p = (DB.strava.pending||[]);
+  if(!p.length) return "";
+  const fmt = d => { const x=new Date(d); return DOW[(x.getDay()+6)%7]+" "+String(x.getDate()).padStart(2,"0")+"."+String(x.getMonth()+1).padStart(2,"0")+". "+String(x.getHours()).padStart(2,"0")+":"+String(x.getMinutes()).padStart(2,"0"); };
+  return `<div class="card" style="border-color:var(--accent)">
+    <div class="between" style="margin-bottom:8px"><h2 style="margin:0">🆕 Neue Strava-Aktivitäten</h2>
+      <span class="pill run">${p.length}</span></div>
+    ${p.map(a=>{ const isRide=/Ride/.test(a.type); return `<div class="between" style="padding:9px 0;border-bottom:1px solid var(--line);gap:10px">
+      <div style="flex:1;min-width:0"><b>${isRide?"🚴":"🏃"} ${(a.distance/1000).toFixed(1)} km</b>
+      <div class="tiny muted">${fmt(a.start_date)} · ${hms(a.moving_time)}${a.average_heartrate?" · "+Math.round(a.average_heartrate)+" bpm":""}${a.name?" · "+a.name:""}</div></div>
+      <button class="btn-sm btn-p" onclick="stravaImport(${a.id})">Übernehmen</button></div>`;}).join("")}
+    ${p.length>1?`<button class="btn-sm" style="width:100%;margin-top:10px" onclick="stravaImportAll()">Alle übernehmen</button>`:""}
+  </div>`;
+}
+function cardStrava(){
+  const c = sCfg();
+  if(!stravaConnected()){
+    return `<div class="card"><h2>🏃 Strava verknüpfen</h2>
+      <p class="sub" style="margin-bottom:10px">Apple Watch → Strava (läuft eh) → Marathon-App. Nach dem Setup tauchen neue Läufe und Fahrten beim App-Öffnen automatisch oben auf.</p>
+      <details style="background:transparent;border:none;margin-bottom:6px"><summary>Setup-Anleitung (einmalig, ~5 Min)</summary><div class="dc" style="padding:8px 0">
+        <ol style="margin-left:18px;line-height:1.7">
+        <li>Öffne <a class="lnk" href="https://www.strava.com/settings/api" target="_blank">strava.com/settings/api</a></li>
+        <li>Felder ausfüllen:
+          <ul><li><b>Application Name:</b> Marathon Köln</li>
+          <li><b>Category:</b> Training</li>
+          <li><b>Website:</b> <code>https://jduscher-netizen.github.io</code></li>
+          <li><b>Authorization Callback Domain:</b> <code>jduscher-netizen.github.io</code> (nur die Domain, kein https:// und kein Pfad)</li></ul></li>
+        <li>Speichern → du siehst <b>Client ID</b> (Zahl) und <b>Client Secret</b> (langer String). Beide kopieren.</li>
+        <li>Hier unten einfügen → „Verbinden" → Strava-Seite öffnet sich → autorisieren → zurück hier → fertig.</li></ol>
+        <p class="tiny muted">Hinweis: Du bist dein eigener API-Nutzer. Client-Secret bleibt in deinem privaten Gist (Cloud-Sync) und wird nirgendwo geteilt.</p>
+      </div></details>
+      <label>Client ID</label><input id="s_cid" type="text" inputmode="numeric" placeholder="z.B. 123456">
+      <label>Client Secret</label><input id="s_cs" type="password" placeholder="Geheim-String von Strava" autocomplete="off">
+      <div class="acts" style="margin-top:14px"><button class="btn-p" style="flex:1" onclick="stravaConnect()">Verbinden &amp; autorisieren</button></div>
+    </div>`;
+  }
+  const lastFetch = c.lastFetch ? Math.max(0,Math.round((Date.now()-c.lastFetch)/60000)) : null;
+  return `<div class="card"><h2>🏃 Strava</h2>
+    <div class="between"><span class="sub">Status</span><b style="color:var(--good)">✓ verbunden${c.athlete?` · ${c.athlete}`:""}</b></div>
+    ${lastFetch!=null?`<div class="between" style="margin-top:4px"><span class="sub">Letzter Abruf</span><span class="tiny">vor ${lastFetch} min</span></div>`:""}
+    <div class="between" style="margin-top:4px"><span class="sub">Offen zum Import</span><span class="tiny">${(c.pending||[]).length}</span></div>
+    <div class="between" style="margin-top:4px"><span class="sub">Bereits importiert</span><span class="tiny">${(c.importedIds||[]).length}</span></div>
+    <div class="acts" style="margin-top:14px">
+      <button class="btn-sm btn-p" onclick="stravaFetchActivities()">Jetzt prüfen</button>
+      <button class="btn-sm btn-gh" onclick="stravaDisconnect()">Trennen</button>
+    </div></div>`;
+}
+
 /* ============ DATE HELPERS ============ */
 const MS=86400000;
 function today(){ const n=new Date(); return new Date(n.getFullYear(),n.getMonth(),n.getDate()); }
@@ -536,6 +688,7 @@ function viewHeute(){
         <div><b>${runDoneKm(W.w).toFixed(0)}</b><span>km gelaufen</span></div>
         <div><b>${W.lr}</b><span>km Long Run</span></div></div>
     </div>
+    ${stravaPendingBlock()}
     <h2>Heute</h2>
     ${todayRuns.length? todayRuns.map(R=>runCard(loc.week,R.slot,true)).join("")
       : `<div class="card center sub">Kein fixer Lauf heute — freie Einheiten unten nach Lust eintragen.</div>`}
@@ -830,6 +983,7 @@ function viewMehr(){
       <button class="btn-sm btn-gh" onclick="delAct(${i})">✕</button></div></div>`).join("");
   return `<div class="wrap"><h1 style="margin-bottom:16px">Mehr</h1>
     ${cardCloud()}
+    ${cardStrava()}
     <div class="card"><div class="between" style="margin-bottom:6px"><h2 style="margin:0">Freie Einheiten verwalten</h2></div>
       ${acts}<button class="btn-sm btn-p" style="width:100%;margin-top:12px" onclick="openActEdit(-1)">+ Einheit hinzufügen</button></div>
     <div class="card"><h2>Trainingsplan</h2>
@@ -1213,6 +1367,9 @@ function render(){
 render();
 // auto-pull on app start if configured
 if(CLOUD.token && CLOUD.gistId){ cloudPull(); }
+// Strava OAuth callback + initial fetch
+checkStravaCallback();
+if(stravaConnected()){ stravaFetchActivities(); }
 </script>
 </body>
 </html>
