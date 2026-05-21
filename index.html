@@ -202,17 +202,86 @@ const DEFAULT_ACTS = [
 
 /* ============ STATE / STORAGE ============ */
 const LS="marathon_koeln_2026";
-let DB = load();
-function load(){
-  try{ const d=JSON.parse(localStorage.getItem(LS)); if(d&&d.v===2) return d; }catch(e){}
-  // fresh v2 (carry over weights from any v1 if present)
-  let weights=[];
-  try{ const old=JSON.parse(localStorage.getItem(LS)); if(old&&old.weights) weights=old.weights; }catch(e){}
+const BK_PREFIX="marathon_koeln_2026_bk_";
+const BK_MAX=10;
+function freshDB(){
   return {v:2, logs:{}, moves:{}, skips:{}, planEdits:{},
           activities:JSON.parse(JSON.stringify(DEFAULT_ACTS)),
-          acts:{}, rides:[], weights, hrBase:null};
+          acts:{}, rides:[], weights:[], hrBase:null};
 }
-function save(){ DB.lastModified=Date.now(); localStorage.setItem(LS, JSON.stringify(DB)); schedulePush(); }
+function migrateDB(d){
+  // Niemals Daten wegwerfen — fehlende Felder auffüllen, Version setzen
+  if(!d || typeof d!=="object") return freshDB();
+  const base=freshDB();
+  for(const k of Object.keys(base)){
+    if(d[k]===undefined || d[k]===null) d[k]=base[k];
+  }
+  d.v=2;
+  return d;
+}
+function listBackups(){
+  const out=[];
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k && k.startsWith(BK_PREFIX)) out.push(k);
+  }
+  return out.sort(); // chronologisch, ältestes zuerst (timestamp im key)
+}
+function hasContent(d){
+  return d && (Object.keys(d.logs||{}).length || (d.rides||[]).length || (d.weights||[]).length || Object.keys(d.acts||{}).length);
+}
+function recoverFromBackup(){
+  const keys=listBackups();
+  while(keys.length){
+    const k=keys.pop();
+    try{ const d=JSON.parse(localStorage.getItem(k));
+      if(hasContent(d)) return d;
+    }catch(e){}
+  }
+  return null;
+}
+function makeBackup(){
+  try{
+    const raw=localStorage.getItem(LS);
+    if(!raw) return;
+    localStorage.setItem(BK_PREFIX+Date.now(), raw);
+    const keys=listBackups();
+    while(keys.length>BK_MAX) localStorage.removeItem(keys.shift());
+  }catch(e){ console.warn("backup failed", e); }
+}
+let DB = load();
+function load(){
+  try{
+    const raw=localStorage.getItem(LS);
+    if(raw){
+      const d=JSON.parse(raw);
+      if(d && typeof d==="object") return migrateDB(d);
+    }
+  }catch(e){ console.error("load failed:", e); }
+  // Hauptdaten leer/kaputt → versuche letztes Backup
+  const rec=recoverFromBackup();
+  if(rec){
+    console.warn("Datenverlust erkannt — Wiederherstellung aus Backup");
+    setTimeout(()=>toast("Daten aus Backup wiederhergestellt"),300);
+    return migrateDB(rec);
+  }
+  return freshDB();
+}
+let _lastBk=0;
+function save(){
+  DB.lastModified=Date.now();
+  const now=Date.now();
+  // Backup höchstens 1× pro 5 min, aber immer wenn lange nicht
+  if(now-_lastBk > 5*60*1000){
+    const prev=localStorage.getItem(LS);
+    if(prev){ localStorage.setItem(BK_PREFIX+now, prev);
+      const ks=listBackups(); while(ks.length>BK_MAX) localStorage.removeItem(ks.shift());
+      _lastBk=now;
+    }
+  }
+  localStorage.setItem(LS, JSON.stringify(DB));
+  schedulePush();
+}
 
 /* ============ CLOUD SYNC (private GitHub Gist) ============ */
 const CK="marathon_koeln_2026_cloud";
@@ -437,6 +506,39 @@ function stravaPendingBlock(){
       <button class="btn-sm btn-gh" style="padding:6px 10px" onclick="stravaDismiss(${a.id})" title="Vorschlag entfernen">✕</button></div>`;}).join("")}
     ${p.length>1?`<div class="acts" style="margin-top:10px"><button class="btn-sm" style="flex:1" onclick="stravaImportAll()">Alle übernehmen</button><button class="btn-sm btn-gh" onclick="stravaDismissAll()">Alle entfernen</button></div>`:""}
   </div>`;
+}
+function cardRestore(){
+  const keys=listBackups().reverse(); // neueste zuerst
+  if(!keys.length) return `<div class="card"><h2>Auto-Backups</h2><p class="sub">Noch keine Auto-Backups vorhanden. Sobald du Daten eingibst, werden automatisch Snapshots angelegt.</p></div>`;
+  const fmt=ts=>{ const d=new Date(+ts); return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+". "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); };
+  const rows=keys.map(k=>{
+    const ts=k.replace(BK_PREFIX,"");
+    let info="—";
+    try{ const d=JSON.parse(localStorage.getItem(k));
+      const nL=Object.keys(d.logs||{}).length, nR=(d.rides||[]).length, nW=(d.weights||[]).length;
+      info=`${nL} Läufe · ${nR} Fahrten · ${nW} Gewicht`;
+    }catch(e){}
+    return `<div class="between" style="padding:8px 0;border-bottom:1px solid var(--line);gap:8px">
+      <div style="flex:1;min-width:0"><b>${fmt(ts)}</b><div class="tiny muted">${info}</div></div>
+      <button class="btn-sm btn-p" onclick="restoreBackup('${k}')">Wiederherstellen</button></div>`;
+  }).join("");
+  return `<div class="card"><h2>Auto-Backups</h2>
+    <p class="sub" style="margin-bottom:6px">Lokal auf diesem Gerät — neueste oben. Tippe auf „Wiederherstellen" um zu diesem Stand zurückzukehren.</p>
+    ${rows}
+    <div class="tiny muted" style="margin-top:10px">⚠ Wiederherstellen überschreibt den aktuellen Stand. Vorher exportieren empfohlen.</div>
+  </div>`;
+}
+function restoreBackup(k){
+  if(!confirm("Diesen Backup-Stand wiederherstellen? Der aktuelle Stand wird überschrieben.")) return;
+  try{
+    const d=JSON.parse(localStorage.getItem(k));
+    if(!d) throw new Error("Backup nicht lesbar");
+    // current als Notfall-Backup ablegen
+    const cur=localStorage.getItem(LS); if(cur) localStorage.setItem(BK_PREFIX+Date.now(), cur);
+    DB=migrateDB(d); localStorage.setItem(LS, JSON.stringify(DB));
+    render(); toast("Wiederhergestellt ✓");
+    if(CLOUD.token&&CLOUD.gistId) cloudPush();
+  }catch(e){ toast("Wiederherstellen fehlgeschlagen: "+e.message); }
 }
 function cardStrava(){
   const c = sCfg();
@@ -1124,11 +1226,12 @@ function viewMehr(){
       <p class="sub" style="margin-bottom:12px">Strava → Aktivität → „Export GPX/TCX". Mehrere Dateien gleichzeitig wählbar, oder die Strava-<i>activities.csv</i> (Bulk-Export aller Aktivitäten). Zuordnung automatisch per Datum; Radfahrten landen bei „Rad". Bereits erfasste Läufe werden nicht überschrieben.</p>
       <button class="btn-sm btn-p" style="width:100%" onclick="document.getElementById('bulk').click()">📂 GPX / TCX / CSV importieren</button>
       <input id="bulk" type="file" accept=".gpx,.tcx,.xml,.csv" multiple style="display:none" onchange="bulkImport(event)"></div>
-    <div class="card"><h2>Daten-Backup</h2><p class="sub" style="margin-bottom:12px">Alle Daten liegen lokal auf diesem Gerät. Regelmäßig sichern.</p>
-      <div class="acts"><button class="btn-sm btn-p" onclick="exportData()">Export (Backup)</button>
+    <div class="card"><h2>Daten-Backup</h2><p class="sub" style="margin-bottom:12px">Alle Daten liegen lokal auf diesem Gerät. App-Updates ändern die Daten nicht. Zusätzlich werden bis zu 10 Auto-Backups in localStorage gehalten (≥5 min Abstand).</p>
+      <div class="acts"><button class="btn-sm btn-p" onclick="exportData()">Export (Backup-Datei)</button>
         <button class="btn-sm" onclick="document.getElementById('imp').click()">Import</button>
         <input id="imp" type="file" accept="application/json" style="display:none" onchange="importData(event)">
         <button class="btn-sm btn-gh" onclick="resetData()">Zurücksetzen</button></div></div>
+    ${cardRestore()}
     <div class="center tiny muted" style="margin:10px 0 20px">Marathon Köln · 04.10.2026 · Sub 4:00</div></div>`;
 }
 
