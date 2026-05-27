@@ -6,3 +6,7 @@ marathon.html
 marathon-recovery.json
 .recovery-*.json
 .icon-tmp/
+.vapid.json
+worker/node_modules/
+worker/.wrangler/
+worker/package-lock.json

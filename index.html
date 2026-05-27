@@ -616,6 +616,87 @@ function restoreBackup(k){
     if(CLOUD.token&&CLOUD.gistId) cloudPush();
   }catch(e){ toast("Wiederherstellen fehlgeschlagen: "+e.message); }
 }
+/* ============ WEB PUSH (täglicher Reminder via Cloudflare-Worker) ============ */
+const VAPID_PUBLIC = "BOxhwsmGSntoJZ5sR0NNjjePiVFAAYyxfZHAEouIQI94p1NlkvS3dQWqJy-ok14BKLPohOkUS5IhKTE0kkNVPJo";
+function pushCfg(){ if(!DB.push) DB.push={}; return DB.push; }
+function pushSupported(){ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+function urlBase64ToUint8Array(b){
+  const padding='='.repeat((4-b.length%4)%4);
+  const base64=(b+padding).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(base64); const arr=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
+  return arr;
+}
+async function pushSaveUrl(){
+  const v=(document.getElementById("p_url").value||"").trim().replace(/\/$/,"");
+  if(!/^https:\/\//.test(v)){ toast("HTTPS-URL nötig"); return; }
+  pushCfg().workerUrl=v; save(); toast("Worker-URL gespeichert"); render();
+}
+async function pushEnable(){
+  const c=pushCfg();
+  if(!pushSupported()){ toast("Push nicht unterstützt — iOS 16.4+ in PWA-Modus nötig"); return; }
+  if(!c.workerUrl){ toast("Erst Worker-URL eintragen"); return; }
+  try{
+    const reg=await navigator.serviceWorker.register("./sw.js");
+    await navigator.serviceWorker.ready;
+    const perm=await Notification.requestPermission();
+    if(perm!=="granted"){ toast("Permission abgelehnt"); return; }
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub){
+      sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC) });
+    }
+    const r=await fetch(c.workerUrl+"/subscribe", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(sub) });
+    if(!r.ok) throw new Error("Worker "+r.status);
+    c.subscription=sub.toJSON(); save();
+    toast("Push aktiv ✓"); render();
+  }catch(e){ toast("Fehler: "+e.message); }
+}
+async function pushDisable(){
+  const c=pushCfg();
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    const sub=await reg.pushManager.getSubscription();
+    if(sub){
+      if(c.workerUrl){ try{ await fetch(c.workerUrl+"/unsubscribe", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({endpoint:sub.endpoint}) }); }catch(_){} }
+      await sub.unsubscribe();
+    }
+  }catch(_){}
+  delete c.subscription; save(); render(); toast("Push deaktiviert");
+}
+async function pushTest(){
+  const c=pushCfg(); if(!c.workerUrl) return;
+  try{
+    const r=await fetch(c.workerUrl+"/test", { method:"POST" });
+    const d=await r.json().catch(()=>({}));
+    if(r.ok) toast("Test gesendet — Benachrichtigung sollte kommen"); else toast("Fehler "+r.status+": "+(d.error||""));
+  }catch(e){ toast("Fehler: "+e.message); }
+}
+function cardPush(){
+  const c=pushCfg();
+  if(!pushSupported()){
+    return `<div class="card"><h2>🔔 Push-Notifications</h2>
+      <p class="sub">Dieser Browser unterstützt Web-Push nicht.<br>iOS: nur als PWA (vom Home-Bildschirm gestartet), ab iOS 16.4+.</p></div>`;
+  }
+  if(!c.workerUrl){
+    return `<div class="card"><h2>🔔 Push-Notifications</h2>
+      <p class="sub" style="margin-bottom:10px">Täglicher Trainings-Reminder. Setup-Anleitung im Repo unter <code>worker/README.md</code> — am Ende bekommst du eine Worker-URL.</p>
+      <label>Worker-URL</label>
+      <input id="p_url" type="url" placeholder="https://marathon-koeln-push.<user>.workers.dev" autocomplete="off">
+      <div class="acts" style="margin-top:14px"><button class="btn-p" style="flex:1" onclick="pushSaveUrl()">URL speichern</button></div></div>`;
+  }
+  const active=!!c.subscription;
+  return `<div class="card"><h2>🔔 Push-Notifications</h2>
+    <div class="between"><span class="sub">Status</span><b style="color:${active?'var(--good)':'var(--mut)'}">${active?'✓ aktiv':'inaktiv'}</b></div>
+    <div class="between" style="margin-top:4px"><span class="sub">Worker</span><span class="tiny">${c.workerUrl.replace(/^https:\/\//,'')}</span></div>
+    <div class="acts" style="margin-top:14px">
+      ${active?`<button class="btn-sm" onclick="pushTest()">Test senden</button><button class="btn-sm btn-gh" onclick="pushDisable()">Deaktivieren</button>`
+      :`<button class="btn-p btn-sm" style="flex:1" onclick="pushEnable()">Push aktivieren</button>
+        <button class="btn-sm btn-gh" onclick="delete DB.push.workerUrl;save();render()">URL ändern</button>`}
+    </div>
+    <div class="tiny muted" style="margin-top:10px">Daily-Reminder feuert 07:00 (MESZ) — Inhalt: heutige Lauf-Einheit aus dem Plan.</div>
+  </div>`;
+}
+
 function cardStrava(){
   const c = sCfg();
   if(!stravaConnected()){
@@ -1226,6 +1307,7 @@ function viewMehr(){
   return `<div class="wrap"><h1 style="margin-bottom:16px">Mehr</h1>
     ${cardCloud()}
     ${cardStrava()}
+    ${cardPush()}
     <div class="card"><div class="between" style="margin-bottom:6px"><h2 style="margin:0">Freie Einheiten verwalten</h2></div>
       ${acts}<button class="btn-sm btn-p" style="width:100%;margin-top:12px" onclick="openActEdit(-1)">+ Einheit hinzufügen</button></div>
     <div class="card"><h2>Trainingsplan</h2>
@@ -1613,6 +1695,8 @@ if(CLOUD.token && CLOUD.gistId){ cloudPull(); }
 // Strava OAuth callback + initial fetch
 checkStravaCallback();
 if(stravaConnected()){ stravaFetchActivities(); }
+// Service Worker still registrieren (für Push) — schadet auch ohne Worker-URL nicht
+if('serviceWorker' in navigator){ navigator.serviceWorker.register("./sw.js").catch(()=>{}); }
 </script>
 </body>
 </html>
