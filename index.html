@@ -11,6 +11,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+<link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -635,21 +636,35 @@ async function pushSaveUrl(){
 async function pushEnable(){
   const c=pushCfg();
   if(!pushSupported()){ toast("Push nicht unterstützt — iOS 16.4+ in PWA-Modus nötig"); return; }
+  if(!window.matchMedia('(display-mode: standalone)').matches && !window.navigator.standalone){
+    toast("Bitte vom Home-Bildschirm öffnen (PWA-Modus), nicht aus Safari"); return;
+  }
   if(!c.workerUrl){ toast("Erst Worker-URL eintragen"); return; }
+  let step="Start";
   try{
+    step="Service-Worker registrieren";
     const reg=await navigator.serviceWorker.register("./sw.js");
+    step="auf SW warten";
     await navigator.serviceWorker.ready;
+    step="Permission anfordern";
     const perm=await Notification.requestPermission();
-    if(perm!=="granted"){ toast("Permission abgelehnt"); return; }
+    if(perm!=="granted"){ toast("Permission "+perm); return; }
+    step="bestehende Subscription prüfen";
     let sub=await reg.pushManager.getSubscription();
     if(!sub){
+      step="bei Apple Push-Service abonnieren";
       sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC) });
     }
+    step="Subscription an Worker senden";
     const r=await fetch(c.workerUrl+"/subscribe", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(sub) });
-    if(!r.ok) throw new Error("Worker "+r.status);
+    if(!r.ok){ const t=await r.text().catch(()=>""); throw new Error("Worker HTTP "+r.status+" "+t.slice(0,60)); }
     c.subscription=sub.toJSON(); save();
     toast("Push aktiv ✓"); render();
-  }catch(e){ toast("Fehler: "+e.message); }
+  }catch(e){
+    const msg = e && e.message ? e.message : String(e);
+    alert("Push-Setup gescheitert\n\nSchritt: "+step+"\nFehler: "+msg+"\n\n(Bitte diesen Text dem Entwickler schicken.)");
+    toast("Push-Setup gescheitert bei: "+step);
+  }
 }
 async function pushDisable(){
   const c=pushCfg();
