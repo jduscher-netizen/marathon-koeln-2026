@@ -3,3 +3,6 @@ server.js
 marathon.html
 *.pdf
 .DS_Store
+marathon-recovery.json
+.recovery-*.json
+.icon-tmp/

@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#faf6f1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -34,7 +34,8 @@
     --r:18px;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-  html,body{background:var(--bg);color:var(--txt);font-family:'Outfit',-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  html,body{background:var(--bg);color:var(--txt);font-family:'Outfit',-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;touch-action:manipulation;-webkit-text-size-adjust:100%;-webkit-user-select:none;user-select:none;overscroll-behavior-y:none}
+  input,textarea{-webkit-user-select:text;user-select:text}
   body{padding-bottom:calc(70px + env(safe-area-inset-bottom))}
   .wrap{max-width:560px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top)) 16px 8px}
   h1{font-size:1.5rem;font-weight:800;letter-spacing:-.5px;color:var(--txt)}
@@ -341,8 +342,19 @@ async function ghFetch(path, opts={}){
   if(!r.ok){ const t=await r.text().catch(()=>""); throw new Error("HTTP "+r.status+(t?": "+t.slice(0,120):"")); }
   return r.json();
 }
-async function cloudPush(){
+async function cloudPush(force){
   if(!CLOUD.token||!CLOUD.gistId||cloudBusy) return;
+  // SCHUTZ: niemals leeres Lokal über gefülltes Remote pushen
+  if(!force && !hasContent(DB)){
+    try{
+      const g=await ghFetch("/gists/"+CLOUD.gistId);
+      const f=g.files&&g.files[GIST_FILE];
+      if(f){ const r=JSON.parse(f.content); if(hasContent(r)){
+        // Remote hat Daten, Lokal nicht — eher Daten ziehen statt zerstören
+        cloudBusy=false; await cloudPull(); return;
+      }}
+    }catch(e){/* fail-safe: bei Fehler lieber gar nichts pushen */ setSync("err", e.message); return; }
+  }
   cloudBusy=true; setSync("syncing");
   try{
     await ghFetch("/gists/"+CLOUD.gistId, {method:"PATCH",
@@ -360,6 +372,17 @@ async function cloudPull(){
     if(!f) throw new Error("Datei im Gist fehlt");
     const remote=JSON.parse(f.content);
     const rT=remote.lastModified||0, lT=DB.lastModified||0;
+    const rEmpty=!hasContent(remote), lEmpty=!hasContent(DB);
+    // SCHUTZ: leeres Lokal überschreibt niemals ein gefülltes Remote
+    if(lEmpty && !rEmpty){
+      DB=remote; localStorage.setItem(LS, JSON.stringify(DB));
+      CLOUD.lastSync=Date.now(); saveCloud();
+      cloudBusy=false; render(); setSync("ok"); toast("Daten aus Cloud geladen ✓"); return;
+    }
+    // SCHUTZ: gefülltes Lokal überschreibt niemals durch leeres Remote
+    if(!lEmpty && rEmpty){
+      cloudBusy=false; await cloudPush(); return;
+    }
     if(rT>lT){
       DB=remote; localStorage.setItem(LS, JSON.stringify(DB));
       CLOUD.lastSync=Date.now(); saveCloud();
