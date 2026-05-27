@@ -22,10 +22,27 @@
   html,body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.45}
   body{padding-bottom:calc(70px + env(safe-area-inset-bottom))}
   .wrap{max-width:560px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top)) 16px 8px}
-  h1{font-size:1.05rem;font-weight:700;letter-spacing:.2px}
-  h2{font-size:.95rem;font-weight:700;margin:0 0 10px}
+  h1{font-size:1.4rem;font-weight:800;letter-spacing:-.3px}
+  h1 .sub{font-size:.78rem;font-weight:500;display:block;margin-top:2px}
+  h2{font-size:1rem;font-weight:800;margin:0 0 10px;letter-spacing:-.1px}
   .sub{color:var(--mut);font-size:.8rem}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(0,0,0,.32)}
+  .hero{background:linear-gradient(135deg,#2a0a10 0%,#5a0f17 45%,#a02628 100%);border-color:rgba(225,86,79,.4);position:relative;overflow:hidden;padding:22px 20px}
+  .hero::before{content:"";position:absolute;top:-60px;right:-60px;width:240px;height:240px;background:radial-gradient(circle,rgba(225,86,79,.35),transparent 65%);pointer-events:none}
+  .hero::after{content:"";position:absolute;bottom:-90px;left:-30px;width:200px;height:200px;background:radial-gradient(circle,rgba(122,22,32,.5),transparent 70%);pointer-events:none}
+  .hero > *{position:relative;z-index:1}
+  .hero .ph{color:rgba(255,255,255,.55)}
+  .hero .sub{color:rgba(255,255,255,.7)}
+  .hero .big{font-size:2.2rem;letter-spacing:-.5px}
+  .hero .cd div{background:rgba(255,255,255,.07);backdrop-filter:blur(4px)}
+  .hero .cd b{color:#fff}
+  .hero .cd span{color:rgba(255,255,255,.55)}
+  .hero .pill.run{background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.25)}
+  .runcard{background:linear-gradient(135deg,var(--card) 0%,#1f242e 100%);border:1px solid rgba(225,86,79,.25)}
+  .runcard.logged{border-color:rgba(57,182,122,.35);background:linear-gradient(135deg,var(--card) 0%,rgba(57,182,122,.06) 100%)}
+  .ring-wrap{position:relative;width:64px;height:64px;flex:0 0 auto}
+  .ring-wrap svg{transform:rotate(-90deg)}
+  .ring-wrap .rv{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;color:var(--txt)}
   .row{display:flex;align-items:center;gap:12px}
   .between{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.72rem;font-weight:600;background:var(--card2);color:var(--mut);border:1px solid var(--line)}
@@ -133,7 +150,7 @@
   details .dc table{margin:4px 0 8px}
   details .dc h3{font-size:.82rem;margin:12px 0 4px;color:var(--txt)}
   .zone{display:inline-block;width:26px;text-align:center;border-radius:5px;font-weight:700;font-size:.72rem;padding:2px 0;color:#fff}
-  #syncBadge{position:fixed;top:calc(14px + env(safe-area-inset-top));right:14px;width:34px;height:34px;border-radius:50%;background:var(--card);border:1px solid var(--line);display:none;align-items:center;justify-content:center;font-size:.95rem;font-weight:700;cursor:pointer;z-index:30;transition:.2s}
+  #syncBadge{position:fixed;bottom:calc(86px + env(safe-area-inset-bottom));right:14px;width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--line);display:none;align-items:center;justify-content:center;font-size:.95rem;font-weight:700;cursor:pointer;z-index:30;transition:.2s;box-shadow:0 4px 14px rgba(0,0,0,.4)}
   #syncBadge.show{display:flex}
   @keyframes spin{to{transform:rotate(360deg)}}
   #syncBadge.spin span{display:inline-block;animation:spin 1s linear infinite}
@@ -735,11 +752,11 @@ function runCard(w,slot,big){
     <div><b>${hms(L.sec)}</b><span>Zeit</span></div>
     <div><b>${pace(L.sec/L.dist)}</b><span>/km</span></div>
     <div><b>${L.hr||"–"}</b><span>Ø HF</span></div></div>`; }
-  return `<div class="card">
+  return `<div class="card runcard${L?' logged':''}">
     <div class="row">
-      <div class="ico" style="background:var(--card2)">🏃</div>
+      <div class="ico" style="background:${L?'rgba(57,182,122,.15)':'rgba(225,86,79,.15)'};color:${L?'var(--good)':'var(--accent)'};font-size:1.2rem">🏃</div>
       <div style="flex:1;min-width:0">
-        <div class="between"><b>${c.title}</b>
+        <div class="between"><b style="font-size:1rem">${c.title}</b>
           ${L?`<span class="pill done">✓</span>`:sk?`<span class="pill skip">übersprungen</span>`:`<span class="pill run">${DOWL[effDay(w,slot)]}</span>`}</div>
         <div class="sub" style="margin-top:3px">${c.det} · ${fmtD(dt)}${c.edited?` <span class="muted">· angepasst</span>`:""}</div>
       </div>
@@ -797,16 +814,28 @@ function viewHeute(){
     const W=WEEKS[loc.week-1];
     const todayRuns=RUNS.filter(R=>effDay(loc.week,R.slot)===loc.dayIdx&&!runIsRest(loc.week,R.slot));
     const upcoming=RUNS.filter(R=>effDay(loc.week,R.slot)>loc.dayIdx&&!runIsRest(loc.week,R.slot)).sort((a,b)=>effDay(loc.week,a.slot)-effDay(loc.week,b.slot));
+    const done=runDoneKm(W.w), pct=Math.min(100, W.km?done/W.km*100:0);
+    const r=22, circ=2*Math.PI*r, off=circ*(1-pct/100);
     body=`
-    <div class="card">
+    <div class="card hero">
       <div class="hd"><div>
-        <div class="ph">Woche ${W.w} / 21 · ${W.ph}</div>
+        <div class="ph">WOCHE ${W.w} / 21 · ${W.ph.toUpperCase()}</div>
         <div class="big">${DOWL[loc.dayIdx]}</div>
         <div class="sub">${fmtD(td)} · ${W.dr}</div></div>
-        <div class="pill run">🏁 ${dRace} T</div></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+          <div class="pill run">🏁 ${dRace} T</div>
+          <div class="ring-wrap" title="Wochenfortschritt">
+            <svg width="64" height="64" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="${r}" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="6"/>
+              <circle cx="32" cy="32" r="${r}" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"
+                stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/>
+            </svg>
+            <div class="rv" style="color:#fff">${Math.round(pct)}%</div>
+          </div>
+        </div></div>
       <div class="cd">
         <div><b>${W.km}</b><span>km Plan</span></div>
-        <div><b>${runDoneKm(W.w).toFixed(0)}</b><span>km gelaufen</span></div>
+        <div><b>${done.toFixed(0)}</b><span>km gelaufen</span></div>
         <div><b>${W.lr}</b><span>km Long Run</span></div></div>
     </div>
     ${stravaPendingBlock()}
