@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 # KV-Namespace: NACH `wrangler kv namespace create SUBS` die ID hier eintragen
 [[kv_namespaces]]
 binding = "SUBS"
-id = "FILL_AFTER_WRANGLER_KV_CREATE"
+id = "58d56ea346184a80ae466a84509eefc8"
 
 # Öffentliche Variablen (Public-Key darf rein, Private NICHT — der kommt via `wrangler secret put VAPID_PRIVATE`)
 [vars]
