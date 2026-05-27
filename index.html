@@ -166,6 +166,27 @@
   details .dc table{margin:4px 0 8px}
   details .dc h3{font-size:.84rem;margin:14px 0 5px;color:var(--txt);font-weight:700}
   .zone{display:inline-block;width:26px;text-align:center;border-radius:6px;font-weight:800;font-size:.7rem;padding:3px 0;color:#fff}
+  /* Wochenübersicht */
+  .wk{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06);transition:opacity .2s}
+  .wk-sum{list-style:none;cursor:pointer;padding:12px 14px 12px 12px;display:flex;align-items:center;gap:12px;user-select:none}
+  .wk-sum::-webkit-details-marker{display:none}
+  .wk-num{font-size:.85rem;font-weight:800;color:var(--mut);min-width:32px;letter-spacing:-.3px}
+  .wk-info{flex:1;min-width:0}
+  .wk-title{font-weight:700;font-size:.9rem;letter-spacing:-.2px}
+  .wk-meta{font-size:.7rem;color:var(--mut);margin-top:1px}
+  .wk-bar{height:4px;background:var(--card2);border-radius:2px;overflow:hidden;margin-top:7px}
+  .wk-bar-fill{height:100%;border-radius:2px;transition:width .3s}
+  .wk-stats{text-align:right;flex:0 0 auto;min-width:54px}
+  .wk-km{font-size:.78rem;font-weight:600}
+  .wk-km b{font-size:1.05rem;font-weight:800}
+  .wk-pct{font-size:.7rem;color:var(--mut);margin-top:1px}
+  .wk.cur{border-color:var(--accent);box-shadow:0 6px 20px rgba(225,86,79,.15)}
+  .wk.cur .wk-num{color:var(--accent)}
+  .wk.past{opacity:.78}
+  .wk.future{opacity:.55}
+  .wk.future:hover,.wk.past:hover{opacity:1}
+  .wk[open] .wk-sum{border-bottom:1px solid var(--line)}
+  .wk-body{padding:12px 14px 14px}
   #syncBadge{position:fixed;bottom:calc(86px + env(safe-area-inset-bottom));right:14px;width:40px;height:40px;border-radius:50%;background:var(--card);border:1px solid var(--line);display:none;align-items:center;justify-content:center;font-size:.95rem;font-weight:700;cursor:pointer;z-index:30;transition:.2s;box-shadow:0 4px 14px rgba(0,0,0,.15)}
   #syncBadge.show{display:flex}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -896,41 +917,74 @@ function viewHeute(){
 }
 
 /* ============ VIEW: WOCHE ============ */
-let wkView=null;
-function viewWoche(){
-  const loc=locate(today());
-  if(wkView==null) wkView=loc.week||1;
-  const W=WEEKS[wkView-1];
-  const isCur=loc.week===wkView;
+function weekDaysHtml(w, todayIdx){
   let days="";
   for(let d=0; d<7; d++){
-    const dt=dateOf(wkView,d);
-    const rs=RUNS.filter(R=>effDay(wkView,R.slot)===d&&!runIsRest(wkView,R.slot));
-    const isToday=isCur&&loc.dayIdx===d;
+    const dt=dateOf(w,d);
+    const rs=RUNS.filter(R=>effDay(w,R.slot)===d&&!runIsRest(w,R.slot));
+    const isToday=d===todayIdx;
     days+=`<div class="day ${isToday?'today':''}">
       <div class="between"><div><span class="dn">${DOWL[d]}</span> <span class="dd">${fmtD(dt)}</span></div>
         ${isToday?`<span class="pill run">heute</span>`:""}</div>
-      ${rs.length? rs.map(R=>{ const id=runId(wkView,R.slot),c=runContent(wkView,R.slot),L=DB.logs[id],sk=isSkipped(id);
-        return `<div class="ds" style="cursor:pointer" onclick="openRun(${wkView},'${R.slot}')">
+      ${rs.length? rs.map(R=>{ const id=runId(w,R.slot),c=runContent(w,R.slot),L=DB.logs[id],sk=isSkipped(id);
+        return `<div class="ds" style="cursor:pointer" onclick="openRun(${w},'${R.slot}')">
           ${c.title} ${L?`<span class="pill done">✓ ${L.dist}km</span>`:sk?`<span class="pill skip">skip</span>`:`<span class="pill run">Lauf</span>`}
           <div class="tiny muted" style="margin-top:2px">${c.det}${c.edited?" · angepasst":""}</div></div>`;
       }).join('<div class="sp"></div>') : `<div class="ds muted">— frei —</div>`}
     </div>`;
   }
+  return days;
+}
+function viewWoche(){
+  const loc=locate(today()), curW=loc.week||1;
+  // Phase-Farbe als linker Akzent-Balken
+  const phaseCol = ph => {
+    if(/Regen/.test(ph)) return "#9aa1ad";
+    if(/Base I[^I]/.test(ph)||/Base I$/.test(ph)) return "#4f9be1";
+    if(/Base II/.test(ph)) return "#39b67a";
+    if(/Build/.test(ph)) return "#e0a83b";
+    if(/Peak/.test(ph)) return "#e1564f";
+    if(/Taper/.test(ph)) return "#a855f7";
+    if(/Wettkampf/.test(ph)) return "#fbbf24";
+    return "#9aa1ad";
+  };
+  let rows="";
+  for(let w=1; w<=21; w++){
+    const W=WEEKS[w-1];
+    const done=runDoneKm(w);
+    const pct=Math.min(100, W.km?done/W.km*100:0);
+    const isCur=w===curW;
+    const isPast=w<curW;
+    const isFuture=w>curW;
+    const col=phaseCol(W.ph);
+    // Zähle erledigte/geplante Läufe in dieser Woche
+    let pl=0, dn=0;
+    RUNS.forEach(R=>{ if(runIsRest(w,R.slot)) return; pl++; if(DB.logs[runId(w,R.slot)]) dn++; });
+    rows += `<details class="wk ${isCur?'cur':''} ${isPast?'past':''} ${isFuture?'future':''}" ${isCur?'open':''} id="wk${w}">
+      <summary class="wk-sum" style="border-left:4px solid ${col}">
+        <div class="wk-num">W${w}</div>
+        <div class="wk-info">
+          <div class="wk-title">${W.ph}${isCur?'<span class="pill run" style="margin-left:8px;font-size:.65rem;padding:1px 8px">aktuelle</span>':''}</div>
+          <div class="wk-meta">${W.dr} · ${dn}/${pl} Läufe · LR ${W.lr} km</div>
+          <div class="wk-bar"><div class="wk-bar-fill" style="width:${pct.toFixed(0)}%;background:${col}"></div></div>
+        </div>
+        <div class="wk-stats">
+          <div class="wk-km"><b>${done.toFixed(0)}</b><span class="muted">/${W.km}</span></div>
+          <div class="wk-pct">${Math.round(pct)}%</div>
+        </div>
+      </summary>
+      <div class="wk-body">
+        ${weekDaysHtml(w, isCur ? loc.dayIdx : -1)}
+        ${actPanel(w)}
+      </div>
+    </details>`;
+  }
+  // nach Render zur aktuellen Woche scrollen (einmalig pro Aufruf)
+  setTimeout(()=>{ const el=document.getElementById("wk"+curW); if(el && !viewWoche._scrolled){ el.scrollIntoView({block:"start"}); viewWoche._scrolled=true; } }, 30);
   return `<div class="wrap">
-    <div class="between" style="margin-bottom:14px">
-      <button class="btn-sm" ${wkView<=1?"disabled style=opacity:.4":""} onclick="wkView--;render()">‹</button>
-      <div class="center"><b>Woche ${W.w} / 21</b><div class="sub">${W.ph} · ${W.dr}</div></div>
-      <button class="btn-sm" ${wkView>=21?"disabled style=opacity:.4":""} onclick="wkView++;render()">›</button></div>
-    <div class="card">
-      <div class="between"><span class="sub">Lauf-Soll (Plan)</span><b>${W.km} km</b></div>
-      <div class="between" style="margin-top:6px"><span class="sub">Gelaufen</span><b>${runDoneKm(wkView).toFixed(1)} km</b></div>
-      <div style="height:7px;background:var(--card2);border-radius:4px;margin-top:9px;overflow:hidden">
-        <div style="height:100%;width:${Math.min(100,runDoneKm(wkView)/W.km*100||0)}%;background:var(--accent)"></div></div>
-    </div>
-    ${days}
-    ${actPanel(wkView)}
-    ${!isCur?`<button class="btn-sm btn-gh" style="width:100%;margin-top:4px" onclick="wkView=${loc.week||1};render()">Zur aktuellen Woche</button>`:""}
+    <h1>Wochenübersicht <span class="sub">21 Wochen · Köln 04.10.2026</span></h1>
+    <div class="tiny muted" style="margin:4px 0 14px">Tippe eine Woche zum Aus-/Einklappen — aktuelle ist offen.</div>
+    ${rows}
   </div>`;
 }
 
