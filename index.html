@@ -774,6 +774,122 @@ function isSkipped(id){ return !!DB.skips[id]; }
 function runDoneKm(w){ let k=0; RUNS.forEach(R=>{ const L=DB.logs[runId(w,R.slot)]; if(L&&L.dist)k+=L.dist; }); return k; }
 function totalRunKm(){ let k=0; Object.entries(DB.logs).forEach(([id,L])=>{ if(L&&L.dist)k+=L.dist; }); return k; }
 
+/* ============ COACHING-ENGINE: TRIMP, ATL/CTL/TSB, Zonen, Drift ============ */
+const HR_MAX=195, HR_REST=50;
+const HR_Z = [140, 150, 160, 172]; // Z1<140, Z2 140-149, Z3 150-159, Z4 160-171, Z5 >=172
+function hrToZone(hr){ if(!hr) return null;
+  if(hr<HR_Z[0]) return 1; if(hr<HR_Z[1]) return 2; if(hr<HR_Z[2]) return 3; if(hr<HR_Z[3]) return 4; return 5; }
+function trimpFor(L){
+  if(!L?.sec) return 0;
+  const min=L.sec/60;
+  if(L.hr && L.hr>HR_REST){
+    const hrr=Math.max(0,Math.min(1,(L.hr-HR_REST)/(HR_MAX-HR_REST)));
+    return min*hrr*(0.64+1.92*hrr);
+  }
+  return min*0.7;
+}
+function dailyTrimpMap(){
+  const map={};
+  WEEKS.forEach(W=>RUNS.forEach(R=>{
+    const id=runId(W.w,R.slot), L=DB.logs[id];
+    if(!L?.sec) return;
+    const dt=dateOf(W.w,effDay(W.w,R.slot)), k=dkey(dt);
+    map[k]=(map[k]||0)+trimpFor(L);
+  }));
+  (DB.rides||[]).forEach(r=>{ if(!r?.sec) return; map[r.date]=(map[r.date]||0)+trimpFor(r)*0.85; });
+  return map;
+}
+function loadSeries(){
+  const tm=dailyTrimpMap(), start=PLAN_START, td=today();
+  const days=Math.max(1, Math.floor((td-start)/MS)+1);
+  let atl=0, ctl=0;
+  const dA=Math.exp(-1/7), dC=Math.exp(-1/42);
+  const out=[];
+  for(let i=0;i<days;i++){
+    const d=addDays(start,i), t=tm[dkey(d)]||0;
+    atl=atl*dA+t*(1-dA); ctl=ctl*dC+t*(1-dC);
+    out.push({d,t,atl,ctl,tsb:ctl-atl});
+  }
+  return out;
+}
+function currentForm(){ const s=loadSeries(); return s.length?s[s.length-1]:{atl:0,ctl:0,tsb:0,t:0}; }
+function formLabel(tsb){
+  if(tsb>=25) return {label:"sehr frisch",color:"var(--good)"};
+  if(tsb>=5)  return {label:"frisch",color:"var(--good)"};
+  if(tsb>=-10) return {label:"normal",color:"var(--mut)"};
+  if(tsb>=-25) return {label:"müde",color:"var(--warn)"};
+  return {label:"überlastet",color:"var(--bad)"};
+}
+
+// Zonen-Verteilung: nutzt details.zones wenn vorhanden, sonst Schätzung aus Plan-Text
+function zoneAllocation(kind,det){
+  const d=det||"";
+  if(kind==="long" && /MP\b/.test(d)){
+    const totalKm=parseFloat(d)||0;
+    const m=d.match(/(\d+)\s*km\s*MP/);
+    const mpKm=m?parseFloat(m[1]):0;
+    const f=totalKm>0?Math.min(1,mpKm/totalKm):0;
+    return {z2:1-f, z3:f};
+  }
+  switch(kind){
+    case "quality":
+      if(/Z5/.test(d)) return {z1:.35, z5:.65};
+      return {z1:.30, z4:.70};
+    case "easy": return {z2:1};
+    case "recovery": return {z1:1};
+    case "long": return {z2:1};
+  }
+  return {z2:1};
+}
+function weekZoneSec(w){
+  const out={z1:0,z2:0,z3:0,z4:0,z5:0};
+  RUNS.forEach(R=>{
+    const id=runId(w,R.slot), L=DB.logs[id];
+    if(!L?.sec) return;
+    if(L.details?.zones){
+      Object.entries(L.details.zones).forEach(([k,v])=>{ out[k]=(out[k]||0)+v; });
+      return;
+    }
+    const a=zoneAllocation(R.kind, runContent(w,R.slot).det);
+    Object.entries(a).forEach(([k,v])=>{ out[k]=(out[k]||0)+v*L.sec; });
+  });
+  return out;
+}
+function recentZoneRatio(){
+  const loc=locate(today()), cur=loc.week||1;
+  const sum={z1:0,z2:0,z3:0,z4:0,z5:0};
+  for(let w=Math.max(1,cur-1); w<=cur; w++){
+    const z=weekZoneSec(w); Object.keys(z).forEach(k=>sum[k]+=z[k]||0);
+  }
+  const tot=Object.values(sum).reduce((a,b)=>a+b,0);
+  if(!tot) return null;
+  return { easyPct:(sum.z1+sum.z2)/tot*100, grayPct:sum.z3/tot*100, hardPct:(sum.z4+sum.z5)/tot*100, total:tot };
+}
+
+// Cardiac Drift / Aerobic Decoupling
+function driftFor(L){
+  const d=L?.details;
+  if(!d) return null;
+  if(d.hr1 && d.hr2){
+    if(d.pace1 && d.pace2){
+      const sp1=1/d.pace1, sp2=1/d.pace2; // speed = 1/pace
+      const ef1=sp1/d.hr1, ef2=sp2/d.hr2;
+      return ((ef1-ef2)/ef1)*100;
+    }
+    return (d.hr2-d.hr1)/d.hr1*100;
+  }
+  return null;
+}
+function lastLongRunDrift(){
+  const longs=runLogs().filter(r=>r.kind==="long");
+  for(let i=longs.length-1;i>=0;i--){
+    const dr=driftFor(longs[i]);
+    if(dr!=null) return {drift:dr, dist:longs[i].dist, date:longs[i].date};
+  }
+  return null;
+}
+
+
 function runLogs(){
   const out=[];
   WEEKS.forEach(W=>{ RUNS.forEach(R=>{
@@ -809,7 +925,74 @@ function haversine(la1,lo1,la2,lo2){
   const a=Math.sin(dLa/2)**2+Math.cos(la1*t)*Math.cos(la2*t)*Math.sin(dLo/2)**2;
   return 2*R*Math.asin(Math.sqrt(a));
 }
-// → {dist (km), sec, hr (avg bpm|null), date (Date|null), kind:'run'|'ride'} | null
+// Berechnet Details (Splits, Hälften, Zonen, Bestleistungen) aus einer Trackpoint-Serie.
+// pts: [{lat?, lon?, t:Date, hr:number|null, cumM:number}]
+function computeDetails(pts){
+  if(!pts || pts.length<4) return null;
+  const tFirst=pts[0].t, tLast=pts[pts.length-1].t;
+  const totalSec=(tLast-tFirst)/1000;
+  const totalM=pts[pts.length-1].cumM;
+  if(!totalM||totalSec<60) return null;
+
+  // Splits pro km
+  const splits=[];
+  let next=1000, lastIdx=0;
+  for(let i=0;i<pts.length;i++){
+    while(pts[i].cumM>=next){
+      const t1=pts[lastIdx].t.getTime(), t2=pts[i].t.getTime();
+      const segSec=(t2-t1)/1000, segM=pts[i].cumM-pts[lastIdx].cumM;
+      const pace=segM>0?segSec/(segM/1000):0;
+      const slice=pts.slice(lastIdx,i+1).map(p=>p.hr).filter(h=>h);
+      splits.push({ km:+(next/1000).toFixed(0), pace:Math.round(pace), hr:slice.length?Math.round(slice.reduce((a,b)=>a+b,0)/slice.length):null });
+      lastIdx=i; next+=1000;
+      if(splits.length>80) break;
+    }
+  }
+
+  // Hälften (zeitlich geteilt)
+  const midT=tFirst.getTime()+(tLast-tFirst)/2;
+  const idxMid=pts.findIndex(p=>p.t.getTime()>=midT);
+  const slice=(a,b)=>{
+    const arr=pts.slice(a,b+1); if(arr.length<2) return null;
+    const hrs=arr.map(p=>p.hr).filter(h=>h);
+    const sec=(arr[arr.length-1].t-arr[0].t)/1000;
+    const m=arr[arr.length-1].cumM-arr[0].cumM;
+    return { hr:hrs.length?Math.round(hrs.reduce((a,b)=>a+b,0)/hrs.length):null,
+             pace:m>0?Math.round(sec/(m/1000)):null };
+  };
+  const h1=slice(0, Math.max(1,idxMid)), h2=slice(Math.max(1,idxMid), pts.length-1);
+
+  // Zonenzeit (pro Trackpoint-Sample)
+  const zones={z1:0,z2:0,z3:0,z4:0,z5:0};
+  for(let i=1;i<pts.length;i++){
+    const dt=(pts[i].t-pts[i-1].t)/1000;
+    if(dt<0||dt>30) continue;
+    const z=hrToZone(pts[i].hr);
+    if(z) zones["z"+z]+=dt;
+  }
+
+  // Beste 1k/5k (rollende Distanz-Fenster)
+  function bestFor(windowM){
+    if(totalM<windowM) return null;
+    let best=Infinity, bestSec=null, j=0;
+    for(let i=0;i<pts.length;i++){
+      while(j<pts.length-1 && pts[j].cumM-pts[i].cumM<windowM) j++;
+      if(pts[j].cumM-pts[i].cumM<windowM) break;
+      const sec=(pts[j].t-pts[i].t)/1000;
+      if(sec<best){ best=sec; bestSec=sec; }
+    }
+    return best===Infinity?null:{pace:Math.round(bestSec/(windowM/1000)), sec:Math.round(bestSec)};
+  }
+
+  return {
+    splits, zones,
+    hr1:h1?.hr||null, hr2:h2?.hr||null, pace1:h1?.pace||null, pace2:h2?.pace||null,
+    best1k:bestFor(1000), best5k:bestFor(5000), best10k:bestFor(10000),
+    totalM:Math.round(totalM), totalSec:Math.round(totalSec)
+  };
+}
+
+// → {dist (km), sec, hr (avg bpm|null), date (Date|null), kind:'run'|'ride', details?:object} | null
 function parseActivity(text){
   let doc; try{ doc=new DOMParser().parseFromString(text,"application/xml"); }catch(e){ return null; }
   if(doc.querySelector("parsererror")) return null;
@@ -826,34 +1009,50 @@ function parseActivity(text){
       if(dm) dist+=parseFloat(dm.textContent)||0;
       const st=l.getAttribute("StartTime"); if(st&&!date) date=new Date(st);
     });
+    // Trackpoints für Details
+    const tps=[];
     g("Trackpoint").forEach(tp=>{
-      const h=tp.getElementsByTagName("HeartRateBpm")[0];
-      if(h){ const v=h.getElementsByTagName("Value")[0]; const n=parseFloat((v||h).textContent); if(n>0)hrs.push(n); }
+      const tEl=tp.getElementsByTagName("Time")[0];
+      const dmEl=tp.getElementsByTagName("DistanceMeters")[0];
+      const hEl=tp.getElementsByTagName("HeartRateBpm")[0];
+      const t=tEl?new Date(tEl.textContent):null;
+      const cum=dmEl?parseFloat(dmEl.textContent):null;
+      let hr=null;
+      if(hEl){ const v=hEl.getElementsByTagName("Value")[0]; const n=parseFloat((v||hEl).textContent); if(n>0){ hr=n; hrs.push(n); } }
+      if(t && cum!=null) tps.push({t, cumM:cum, hr});
     });
-    if(!dist){ const dms=g("DistanceMeters").map(d=>parseFloat(d.textContent)||0); if(dms.length)dist=Math.max(...dms); }
+    if(!dist && tps.length){ dist=tps[tps.length-1].cumM; }
+    if(!sec && tps.length>=2){ sec=(tps[tps.length-1].t-tps[0].t)/1000; }
     if(!date){ const id=doc.getElementsByTagName("Id")[0]; if(id)date=new Date(id.textContent); }
     if(!sec||!dist) return null;
+    const details = tps.length>=4 ? computeDetails(tps) : null;
     return {dist:+(dist/1000).toFixed(2), sec:Math.round(sec), hr:hrs.length?Math.round(hrs.reduce((a,b)=>a+b,0)/hrs.length):null,
-      date:date&&!isNaN(date)?date:null, kind:/bik|cycl|ride/.test(sport)?"ride":"run"};
+      date:date&&!isNaN(date)?date:null, kind:/bik|cycl|ride/.test(sport)?"ride":"run", details};
   }
   // ---- GPX ----
   const pts=g("trkpt");
   if(pts.length){
-    let dist=0, hrs=[], times=[], lastLa=null,lastLo=null;
+    let dist=0, hrs=[], lastLa=null,lastLo=null;
+    const tps=[]; // {t, cumM, hr}
     pts.forEach(p=>{
       const la=parseFloat(p.getAttribute("lat")), lo=parseFloat(p.getAttribute("lon"));
       if(lastLa!=null) dist+=haversine(lastLa,lastLo,la,lo);
       lastLa=la; lastLo=lo;
-      const tEl=p.getElementsByTagName("time")[0]; if(tEl)times.push(new Date(tEl.textContent));
+      const tEl=p.getElementsByTagName("time")[0];
+      const t=tEl?new Date(tEl.textContent):null;
+      let hr=null;
       const ext=p.getElementsByTagName("*");
-      for(const e of ext){ if(/(^|:)hr$/i.test(e.tagName)){ const n=parseFloat(e.textContent); if(n>0)hrs.push(n); } }
+      for(const e of ext){ if(/(^|:)hr$/i.test(e.tagName)){ const n=parseFloat(e.textContent); if(n>0){ hr=n; hrs.push(n); break; } } }
+      if(t) tps.push({t, cumM:dist, hr});
     });
-    if(!times.length){ const tg=g("time"); if(tg.length)times=tg.map(t=>new Date(t.textContent)); }
-    let sec=0; if(times.length>=2){ times.sort((a,b)=>a-b); sec=Math.round((times[times.length-1]-times[0])/1000); }
+    let sec=0;
+    if(tps.length>=2){ sec=Math.round((tps[tps.length-1].t-tps[0].t)/1000); }
+    else { const tg=g("time"); if(tg.length>=2){ const ts=tg.map(t=>new Date(t.textContent)).sort((a,b)=>a-b); sec=Math.round((ts[ts.length-1]-ts[0])/1000); } }
     if(!dist||!sec) return null;
     const typ=(g("type")[0]||{}).textContent||"";
+    const details = tps.length>=4 ? computeDetails(tps) : null;
     return {dist:+(dist/1000).toFixed(2), sec, hr:hrs.length?Math.round(hrs.reduce((a,b)=>a+b,0)/hrs.length):null,
-      date:times.length?times[0]:null, kind:/bik|cycl|ride|^1$|^17$/i.test(typ)?"ride":"run"};
+      date:tps.length?tps[0].t:null, kind:/bik|cycl|ride|^1$|^17$/i.test(typ)?"ride":"run", details};
   }
   return null;
 }
@@ -918,6 +1117,7 @@ function runCard(w,slot,big){
     </div>${extra}
     <div class="acts">
       <button class="btn-p btn-sm" onclick="openRun(${w},'${slot}')">${L?"Bearbeiten":"Eintragen"}</button>
+      ${L?`<button class="btn-sm" onclick="openRunAnalysis(${w},'${slot}')">📊 Analyse</button>`:""}
       <button class="btn-sm" onclick="openPlanEdit(${w},'${slot}')">Plan ändern</button>
       <button class="btn-sm" onclick="openMove(${w},'${slot}')">Verschieben</button>
       ${!L?`<button class="btn-sm btn-gh" onclick="toggleSkip('${id}')">${sk?"Doch laufen":"Überspringen"}</button>`:""}
@@ -959,6 +1159,91 @@ function actPanel(w){
 }
 
 /* ============ VIEW: HEUTE ============ */
+/* ============ COACH-BRIEFING ============ */
+function briefingItems(){
+  const loc=locate(today()); if(!loc.week) return null;
+  const w=loc.week, d=loc.dayIdx, W=WEEKS[w-1];
+  const form=currentForm(), fl=formLabel(form.tsb);
+  const items=[];
+
+  // Form-Status
+  items.push({ icon:"⚡", main:`Form ${form.tsb>=0?"+":""}${Math.round(form.tsb)} — ${fl.label}`,
+    sub:`Fitness ${Math.round(form.ctl)} · Müdigkeit ${Math.round(form.atl)}`, color:fl.color });
+
+  // Vorwochen-Compliance
+  if(w>1){
+    let pn=0, dn=0;
+    RUNS.forEach(R=>{ if(runIsRest(w-1,R.slot)) return; pn++; if(DB.logs[runId(w-1,R.slot)]) dn++; });
+    if(pn){
+      const pct=Math.round(dn/pn*100);
+      const col=pct>=90?"var(--good)":pct>=70?"var(--warn)":"var(--bad)";
+      items.push({ icon:"✅", main:`Vorwoche ${dn}/${pn} Läufe (${pct}%)`, color:col });
+    }
+  }
+
+  // Zonen-Disziplin
+  const zr=recentZoneRatio();
+  if(zr && zr.total>1200){ // mind. 20 min Daten
+    if(zr.grayPct>12) items.push({ icon:"⚠️", main:`Z3-Grauzone ${zr.grayPct.toFixed(0)}% (Ziel <10%)`,
+      sub:"Easy-Läufe noch lockerer, Quality bewusster hart", color:"var(--warn)" });
+    else items.push({ icon:"📊", main:`Easy ${zr.easyPct.toFixed(0)}% · Hart ${zr.hardPct.toFixed(0)}%`,
+      sub:"polarisiert sauber", color:"var(--good)" });
+  }
+
+  // Cardiac Drift letzter LR
+  const lr=lastLongRunDrift();
+  if(lr?.drift!=null){
+    const dv=lr.drift;
+    if(dv>6) items.push({ icon:"💓", main:`Letzter LR Drift +${dv.toFixed(1)}%`,
+      sub:"aerob noch nicht stabil — heute lockerer starten", color:"var(--warn)" });
+    else items.push({ icon:"💓", main:`Letzter LR Drift ${dv>=0?"+":""}${dv.toFixed(1)}%`,
+      sub:"aerobe Stabilität gut", color:"var(--good)" });
+  }
+
+  // Heutiger Workout + Tipp
+  const SLOTS={1:"di",3:"do",4:"fr",6:"so"};
+  const slot=SLOTS[d];
+  if(slot && !runIsRest(w,slot)){
+    const c=runContent(w,slot);
+    const kind=RUNS.find(r=>r.slot===slot).kind;
+    items.push({ icon:"🎯", main:`Heute: ${c.title}`, sub:c.det });
+    const tipp=todayCoachTip(kind, c.det, form.tsb, lr?.drift);
+    if(tipp) items.push({ icon:"💡", main:"Coach-Tipp", sub:tipp });
+  } else if(slot===undefined || runIsRest(w,slot)){
+    items.push({ icon:"🛌", main:"Heute kein fixer Lauf", sub:"freie Einheiten nach Lust — Recovery zählt mit." });
+  }
+  return items;
+}
+function todayCoachTip(kind, det, tsb, lastDrift){
+  if(kind==="long"){
+    let s = /MP\b/.test(det)
+      ? "MP-Block in der zweiten Hälfte — vorher strikt Z2. Erste 30 min HF unter 150."
+      : "Z2-Wohlfühltempo: HF 140–150, lieber 10s/km lockerer als hektisch.";
+    if(lastDrift!=null && lastDrift>6) s += " Letzten LR drift, also bewusst konservativ starten.";
+    if(tsb<-15) s += " Form müde — bei Bein-Schwere Distanz kürzen statt durchbeißen.";
+    return s;
+  }
+  if(kind==="quality"){
+    if(tsb<-15) return "Form müde — eher Intervall-Anzahl reduzieren als Tempo opfern. Wenn Bein schwer: 1 Tag schieben.";
+    return "3 km Ein-, 2 km Auslaufen Z1 ernst nehmen. Quality-Block sauber durchziehen, letzte Intervalle nicht abfallen lassen.";
+  }
+  if(kind==="recovery") return "Recovery heißt Recovery: HF strikt unter 140. Kurz, langsam, freundlich. Im Zweifel lieber zu langsam.";
+  if(kind==="easy") return "GA1 = 5:55–6:05/km bei HF unter 150. Wenn HF zieht: Pace drosseln, nicht durchhalten.";
+  return null;
+}
+function briefingCard(){
+  const items=briefingItems(); if(!items||!items.length) return "";
+  return `<div class="card" style="background:linear-gradient(180deg,var(--card) 0%,var(--card2) 100%)">
+    <h2 style="margin-bottom:12px">🎙️ Coach-Briefing</h2>
+    ${items.map(it=>`<div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)">
+      <div style="font-size:1.2rem;flex:0 0 24px;text-align:center">${it.icon}</div>
+      <div style="flex:1;min-width:0">
+        <b style="color:${it.color||'var(--txt)'};font-size:.92rem">${it.main}</b>
+        ${it.sub?`<div class="tiny muted" style="margin-top:2px">${it.sub}</div>`:""}
+      </div></div>`).join("")}
+  </div>`;
+}
+
 function viewHeute(){
   const td=today(), loc=locate(td);
   const dRace=Math.ceil((RACE_DATE-td)/MS);
@@ -994,6 +1279,7 @@ function viewHeute(){
         <div><b>${W.lr}</b><span>km Long Run</span></div></div>
     </div>
     ${stravaPendingBlock()}
+    ${briefingCard()}
     <h2>Heute</h2>
     ${todayRuns.length? todayRuns.map(R=>runCard(loc.week,R.slot,true)).join("")
       : `<div class="card center sub">Kein fixer Lauf heute — freie Einheiten unten nach Lust eintragen.</div>`}
@@ -1494,6 +1780,156 @@ window._seg={};
 function selSeg(g,b,v){ b.parentNode.querySelectorAll("button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); window._seg[g]=v; }
 
 /* run logging */
+/* ============ PER-RUN ANALYSE (Strava-Style) ============ */
+function runVerdict(w,slot,L){
+  const c=runContent(w,slot), R=RUNS.find(r=>r.slot===slot);
+  const det=L.details;
+  const lines=[];
+  if(det?.hr1 && det?.hr2){
+    const drift=driftFor(L);
+    if(drift!=null){
+      if(drift<3) lines.push("Sehr stabil aerob — kaum Decoupling.");
+      else if(drift<6) lines.push("Aerob solide — leichtes Decoupling im Rahmen.");
+      else lines.push(`Decoupling +${drift.toFixed(1)}% — aerobe Substanz noch ausbaufähig.`);
+    }
+  }
+  if(det?.pace1 && det?.pace2){
+    const diff=det.pace2-det.pace1;
+    if(Math.abs(diff)<8) lines.push("Pace gleichmäßig durchgezogen.");
+    else if(diff>0) lines.push(`Zweite Hälfte ${diff}s/km langsamer — Pacing zum Start prüfen.`);
+    else lines.push(`Zweite Hälfte ${-diff}s/km schneller — sauberer negativer Split.`);
+  }
+  if(det?.zones){
+    const z=det.zones, tot=Object.values(z).reduce((a,b)=>a+b,0);
+    if(tot>0){
+      const easyP=(z.z1+z.z2)/tot*100, hardP=(z.z4+z.z5)/tot*100, grayP=z.z3/tot*100;
+      if(R.kind==="easy"||R.kind==="long"){
+        if(easyP<70) lines.push(`Nur ${easyP.toFixed(0)}% in Z1+Z2 — zu hart für locker/Long Run.`);
+        if(grayP>25) lines.push(`Z3-Grauzone ${grayP.toFixed(0)}% — bewusster Z2 anstreben.`);
+      }
+      if(R.kind==="quality" && hardP<20) lines.push(`Nur ${hardP.toFixed(0)}% in Z4+Z5 — Quality-Reiz war eher mild.`);
+    }
+  }
+  if(L.rpe!=null){
+    if(L.rpe<=4 && R.kind==="quality") lines.push("RPE niedrig für Quality — kannst bei nächstem Mal mehr riskieren.");
+    if(L.rpe>=8 && R.kind!=="quality") lines.push("RPE hoch für lockere Einheit — auf Müdigkeit achten.");
+  }
+  if(L.pain) lines.push("⚠ Schmerz markiert — Trend beobachten, bei Wiederholung pausieren.");
+  if(!lines.length) lines.push("Lauf erledigt — für detaillierteres Verdict GPX/TCX importieren.");
+  return lines;
+}
+function openRunAnalysis(w,slot){
+  const id=runId(w,slot), L=DB.logs[id]; if(!L) return;
+  const c=runContent(w,slot), R=RUNS.find(r=>r.slot===slot);
+  const dt=dateOf(w,effDay(w,slot));
+  const det=L.details;
+  const verdict=runVerdict(w,slot,L);
+
+  // Summary tiles
+  const pace=L.sec/L.dist;
+  const summary=`<div class="cd" style="margin-bottom:14px">
+    <div><b>${L.dist}</b><span>km</span></div>
+    <div><b>${hms(L.sec)}</b><span>Zeit</span></div>
+    <div><b>${paceFmt(pace)}</b><span>/km</span></div>
+    <div><b>${L.hr||"–"}</b><span>Ø HF</span></div></div>`;
+
+  // Halbzeit-Vergleich
+  let halvesHtml="";
+  if(det?.pace1 && det?.pace2){
+    const diff=det.pace2-det.pace1;
+    const drift=driftFor(L);
+    halvesHtml=`<h3 style="font-size:.85rem;margin:14px 0 8px">Halbzeit-Vergleich</h3>
+      <table><tr><th></th><th>Pace</th><th>Ø HF</th></tr>
+        <tr><td>1. Hälfte</td><td>${paceFmt(det.pace1)}</td><td>${det.hr1||"–"}</td></tr>
+        <tr><td>2. Hälfte</td><td>${paceFmt(det.pace2)}</td><td>${det.hr2||"–"}</td></tr>
+        <tr style="font-weight:700"><td>Differenz</td>
+          <td style="color:${Math.abs(diff)<8?'var(--good)':diff>0?'var(--warn)':'var(--good)'}">${diff>=0?"+":""}${diff}s</td>
+          <td style="color:${drift!=null&&drift<6?'var(--good)':'var(--warn)'}">${drift!=null?(drift>=0?"+":"")+drift.toFixed(1)+"%":"–"}</td></tr>
+      </table>
+      <div class="tiny muted" style="margin-top:4px">Decoupling = Effizienz-Drift Pace/HF zwischen den Hälften.</div>`;
+  }
+
+  // Zonen-Bar
+  let zonesHtml="";
+  if(det?.zones){
+    const z=det.zones, tot=Object.values(z).reduce((a,b)=>a+b,0);
+    if(tot>0){
+      const colors={z1:"#39b67a",z2:"#4f9be1",z3:"#e0a83b",z4:"#e1564f",z5:"#b3322c"};
+      const segs=["z1","z2","z3","z4","z5"].map(k=>{
+        const w=(z[k]||0)/tot*100;
+        return w>1?`<div style="width:${w}%;background:${colors[k]};display:flex;align-items:center;justify-content:center;color:#fff;font-size:.65rem;font-weight:700">${w.toFixed(0)}%</div>`:"";
+      }).join("");
+      const labels=["z1","z2","z3","z4","z5"].map(k=>{
+        const w=(z[k]||0)/tot*100;
+        return w>0?`<div style="display:flex;align-items:center;gap:6px;font-size:.72rem"><i style="display:inline-block;width:10px;height:10px;background:${colors[k]};border-radius:2px"></i>${k.toUpperCase()} ${Math.floor(z[k]/60)}:${String(Math.round(z[k]%60)).padStart(2,"0")}</div>`:"";
+      }).join("");
+      zonesHtml=`<h3 style="font-size:.85rem;margin:14px 0 6px">HF-Zonen-Verteilung</h3>
+        <div style="display:flex;height:24px;border-radius:6px;overflow:hidden">${segs}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px">${labels}</div>`;
+    }
+  }
+
+  // Beste Leistungen
+  let bestsHtml="";
+  if(det?.best1k || det?.best5k){
+    const cell=(b,d)=>b?`<div class="stat" style="padding:10px"><div class="v" style="font-size:1.05rem">${paceFmt(b.pace)}<span class="tiny"> /km</span></div><div class="l">Bester ${d}</div></div>`:"";
+    bestsHtml=`<h3 style="font-size:.85rem;margin:14px 0 6px">Bestleistungen im Lauf</h3>
+      <div class="grid2">${cell(det.best1k,"1k")}${cell(det.best5k,"5k")}</div>
+      ${det.best10k?`<div style="margin-top:8px">${cell(det.best10k,"10k").replace('grid2','')}</div>`:""}`;
+  }
+
+  // Splits
+  let splitsHtml="";
+  if(det?.splits?.length){
+    const maxPace=Math.max(...det.splits.map(s=>s.pace));
+    const minPace=Math.min(...det.splits.map(s=>s.pace));
+    const rng=maxPace-minPace||1;
+    splitsHtml=`<h3 style="font-size:.85rem;margin:14px 0 6px">Splits pro Kilometer</h3>
+      <div style="max-height:260px;overflow-y:auto;border:1px solid var(--line);border-radius:8px">
+      <table style="margin:0"><thead><tr><th style="padding-left:12px">km</th><th>Pace</th><th>HF</th><th style="width:50%">Vergleich</th></tr></thead><tbody>
+      ${det.splits.map(s=>{
+        const w=((maxPace-s.pace)/rng)*100;
+        return `<tr><td style="padding-left:12px">${s.km}</td><td>${paceFmt(s.pace)}</td><td>${s.hr||"–"}</td>
+          <td><div style="height:8px;background:var(--card2);border-radius:4px;position:relative"><div style="position:absolute;left:0;top:0;height:100%;width:${w}%;background:var(--accent);border-radius:4px"></div></div></td></tr>`;
+      }).join("")}</tbody></table></div>`;
+  }
+
+  // Plan-Soll-Vergleich
+  let planHtml="";
+  const targetPace=parsePaceFromText(c.det);
+  if(targetPace && pace){
+    const diff=pace-targetPace;
+    const col=Math.abs(diff)<10?"var(--good)":(diff<0?"var(--blue)":"var(--warn)");
+    planHtml=`<div class="card" style="background:var(--card2);margin:14px 0 0">
+      <div class="between"><span class="sub">Plan-Soll Pace</span><b>${paceFmt(targetPace)}/km</b></div>
+      <div class="between" style="margin-top:4px"><span class="sub">Differenz</span>
+        <b style="color:${col}">${diff>=0?"+":""}${Math.round(diff)}s/km</b></div>
+    </div>`;
+  }
+
+  sheet(`<h2>${c.title}</h2>
+    <div class="sub" style="margin:-6px 0 12px">${fmtD(dt)} · W${w} · ${c.det}</div>
+    <div class="card" style="background:var(--accent);color:#fff;margin:0 0 14px">
+      <h3 style="font-size:.78rem;margin:0 0 6px;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:1px">🎙️ Coach-Verdict</h3>
+      ${verdict.map(l=>`<div style="font-size:.88rem;margin:4px 0;line-height:1.4">• ${l}</div>`).join("")}
+    </div>
+    ${summary}
+    ${planHtml}
+    ${halvesHtml}
+    ${zonesHtml}
+    ${bestsHtml}
+    ${splitsHtml}
+    ${!det?`<div class="card" style="margin-top:14px;background:var(--card2)"><div class="sub">Für Splits, Zonen, Bestleistungen und Drift einen GPX/TCX-Export aus Strava/Garmin in den Lauf importieren (📂 Aus Strava/Garmin-Datei füllen).</div></div>`:""}
+    <div class="acts" style="margin-top:18px"><button class="btn-p" style="flex:1" onclick="closeModal()">Schließen</button></div>`);
+}
+function parsePaceFromText(txt){
+  if(!txt) return null;
+  const m=txt.match(/\((\d+):(\d{2})\)/);
+  if(m) return +m[1]*60 + +m[2];
+  return null;
+}
+function paceFmt(s){ if(!s||!isFinite(s)) return "–"; const m=Math.floor(s/60), x=Math.round(s%60); return m+":"+String(x).padStart(2,"0"); }
+
 function openRun(w,slot){
   const id=runId(w,slot), c=runContent(w,slot), L=DB.logs[id]||{};
   const h=Math.floor((L.sec||0)/3600), m=Math.floor(((L.sec||0)%3600)/60), s=(L.sec||0)%60;
@@ -1528,6 +1964,8 @@ function saveRun(w,slot){
   L.dist=dist; L.sec=sec; L.hr=+document.getElementById("f_hr").value||null;
   L.rpe=window._seg.f_rpe??L.rpe??null; L.feel=window._seg.f_feel??L.feel??null;
   L.pain=document.getElementById("f_pain").checked; L.note=document.getElementById("f_note").value.trim();
+  // Falls aus GPX/TCX importiert: detaillierte Analyse-Daten übernehmen
+  if(window._parsedDetails){ L.details=window._parsedDetails; window._parsedDetails=null; }
   DB.logs[id]=L; delete DB.skips[id]; window._seg={}; save(); closeModal(); render(); toast("Gespeichert ✓");
 }
 function runImportFile(ev){
@@ -1541,7 +1979,9 @@ function runImportFile(ev){
     if(D)D.value=a.dist;
     if(H)H.value=Math.floor(a.sec/3600)||""; if(M)M.value=Math.floor((a.sec%3600)/60); if(S)S.value=a.sec%60;
     if(HR&&a.hr)HR.value=a.hr;
-    toast(`Übernommen: ${a.dist} km · ${hms(a.sec)}${a.hr?" · "+a.hr+" bpm":""}`);
+    window._parsedDetails = a.details || null;
+    const extra = a.details ? ` · ${a.details.splits.length} Splits` : "";
+    toast(`Übernommen: ${a.dist} km · ${hms(a.sec)}${a.hr?" · "+a.hr+" bpm":""}${extra}`);
   };
   r.readAsText(f); ev.target.value="";
 }
@@ -1684,7 +2124,7 @@ function bulkImport(ev){
     if(!m){ skip++; return; }
     const id=runId(m.w,m.slot);
     if(DB.logs[id]){ skip++; return; }
-    DB.logs[id]={dist:a.dist, sec:a.sec, hr:a.hr||null, rpe:null, feel:null, pain:false, note:"Import (Strava/Garmin)"};
+    DB.logs[id]={dist:a.dist, sec:a.sec, hr:a.hr||null, rpe:null, feel:null, pain:false, note:"Import (Strava/Garmin)", details:a.details||null};
     delete DB.skips[id]; runs++;
   };
   files.forEach(f=>{
