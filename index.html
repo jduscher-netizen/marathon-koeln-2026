@@ -1202,51 +1202,46 @@ function briefingItems(){
   const form=currentForm(), fl=formLabel(form.tsb);
   const items=[];
 
-  // Form-Status
-  items.push({ icon:"⚡", main:`Form ${form.tsb>=0?"+":""}${Math.round(form.tsb)} — ${fl.label}`,
+  items.push({ key:"form", icon:"⚡", main:`Form ${form.tsb>=0?"+":""}${Math.round(form.tsb)} — ${fl.label}`,
     sub:`Fitness ${Math.round(form.ctl)} · Müdigkeit ${Math.round(form.atl)}`, color:fl.color });
 
-  // Vorwochen-Compliance
   if(w>1){
     let pn=0, dn=0;
     RUNS.forEach(R=>{ if(runIsRest(w-1,R.slot)) return; pn++; if(DB.logs[runId(w-1,R.slot)]) dn++; });
     if(pn){
       const pct=Math.round(dn/pn*100);
       const col=pct>=90?"var(--good)":pct>=70?"var(--warn)":"var(--bad)";
-      items.push({ icon:"✅", main:`Vorwoche ${dn}/${pn} Läufe (${pct}%)`, color:col });
+      items.push({ key:"compliance", icon:"✅", main:`Vorwoche ${dn}/${pn} Läufe (${pct}%)`, color:col, data:{pn,dn,pct} });
     }
   }
 
-  // Zonen-Disziplin
   const zr=recentZoneRatio();
-  if(zr && zr.total>1200){ // mind. 20 min Daten
-    if(zr.grayPct>12) items.push({ icon:"⚠️", main:`Z3-Grauzone ${zr.grayPct.toFixed(0)}% (Ziel <10%)`,
-      sub:"Easy-Läufe noch lockerer, Quality bewusster hart", color:"var(--warn)" });
-    else items.push({ icon:"📊", main:`Easy ${zr.easyPct.toFixed(0)}% · Hart ${zr.hardPct.toFixed(0)}%`,
-      sub:"polarisiert sauber", color:"var(--good)" });
+  if(zr && zr.total>1200){
+    if(zr.grayPct>12) items.push({ key:"zones", icon:"⚠️", main:`Z3-Grauzone ${zr.grayPct.toFixed(0)}% (Ziel <10%)`,
+      sub:"Easy-Läufe noch lockerer, Quality bewusster hart", color:"var(--warn)", data:zr });
+    else items.push({ key:"zones", icon:"📊", main:`Easy ${zr.easyPct.toFixed(0)}% · Hart ${zr.hardPct.toFixed(0)}%`,
+      sub:"polarisiert sauber", color:"var(--good)", data:zr });
   }
 
-  // Cardiac Drift letzter LR
   const lr=lastLongRunDrift();
   if(lr?.drift!=null){
     const dv=lr.drift;
-    if(dv>6) items.push({ icon:"💓", main:`Letzter LR Drift +${dv.toFixed(1)}%`,
-      sub:"aerob noch nicht stabil — heute lockerer starten", color:"var(--warn)" });
-    else items.push({ icon:"💓", main:`Letzter LR Drift ${dv>=0?"+":""}${dv.toFixed(1)}%`,
-      sub:"aerobe Stabilität gut", color:"var(--good)" });
+    if(dv>6) items.push({ key:"drift", icon:"💓", main:`Letzter LR Drift +${dv.toFixed(1)}%`,
+      sub:"aerob noch nicht stabil — heute lockerer starten", color:"var(--warn)", data:lr });
+    else items.push({ key:"drift", icon:"💓", main:`Letzter LR Drift ${dv>=0?"+":""}${dv.toFixed(1)}%`,
+      sub:"aerobe Stabilität gut", color:"var(--good)", data:lr });
   }
 
-  // Heutiger Workout + Tipp
   const SLOTS={1:"di",3:"do",4:"fr",6:"so"};
   const slot=SLOTS[d];
   if(slot && !runIsRest(w,slot)){
     const c=runContent(w,slot);
     const kind=RUNS.find(r=>r.slot===slot).kind;
-    items.push({ icon:"🎯", main:`Heute: ${c.title}`, sub:c.det });
+    items.push({ key:"today", icon:"🎯", main:`Heute: ${c.title}`, sub:c.det, data:{c,kind,w,slot} });
     const tipp=todayCoachTip(kind, c.det, form.tsb, lr?.drift);
-    if(tipp) items.push({ icon:"💡", main:"Coach-Tipp", sub:tipp });
+    if(tipp) items.push({ key:"tip", icon:"💡", main:"Coach-Tipp", sub:tipp, data:{kind, tsb:form.tsb, drift:lr?.drift} });
   } else if(slot===undefined || runIsRest(w,slot)){
-    items.push({ icon:"🛌", main:"Heute kein fixer Lauf", sub:"freie Einheiten nach Lust — Recovery zählt mit." });
+    items.push({ key:"rest", icon:"🛌", main:"Heute kein fixer Lauf", sub:"freie Einheiten nach Lust — Recovery zählt mit." });
   }
   return items;
 }
@@ -1269,15 +1264,160 @@ function todayCoachTip(kind, det, tsb, lastDrift){
 }
 function briefingCard(){
   const items=briefingItems(); if(!items||!items.length) return "";
+  // Items im Window stashen, damit explainBriefing() Zugriff hat
+  window._briefingItems = items;
   return `<div class="card" style="background:linear-gradient(180deg,var(--card) 0%,var(--card2) 100%)">
-    <h2 style="margin-bottom:12px">🎙️ Coach-Briefing</h2>
-    ${items.map(it=>`<div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)">
+    <div class="between" style="margin-bottom:12px"><h2 style="margin:0">🎙️ Coach-Briefing</h2>
+      <span class="tiny muted">tippen für Erklärung</span></div>
+    ${items.map((it,i)=>`<div onclick="explainBriefing(${i})" style="display:flex;gap:12px;padding:10px 6px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:8px;transition:background .15s" onmouseover="this.style.background='var(--card2)'" onmouseout="this.style.background=''">
       <div style="font-size:1.2rem;flex:0 0 24px;text-align:center">${it.icon}</div>
       <div style="flex:1;min-width:0">
         <b style="color:${it.color||'var(--txt)'};font-size:.92rem">${it.main}</b>
         ${it.sub?`<div class="tiny muted" style="margin-top:2px">${it.sub}</div>`:""}
-      </div></div>`).join("")}
+      </div>
+      <div style="color:var(--mut);font-size:1rem;align-self:center">›</div>
+    </div>`).join("")}
   </div>`;
+}
+
+function explainBriefing(idx){
+  const items=window._briefingItems; if(!items||!items[idx]) return;
+  const it=items[idx];
+  const html=briefingExplanationHtml(it);
+  sheet(`<h2>${it.icon} ${it.main}</h2>
+    ${it.sub?`<div class="sub" style="margin:-4px 0 12px;color:${it.color||'var(--mut)'}">${it.sub}</div>`:""}
+    ${html}
+    <div class="acts" style="margin-top:18px"><button class="btn-p" style="flex:1" onclick="closeModal()">Verstanden</button></div>`);
+}
+
+function briefingExplanationHtml(it){
+  const k=it.key;
+  if(k==="form"){
+    const f=currentForm();
+    return `<h3 style="font-size:.95rem;margin:14px 0 6px">Was ist die Form?</h3>
+      <p>Die Form (TSB = Training Stress Balance) zeigt, ob du <b>frisch oder müde</b> in den nächsten Workout gehst. Standard im Profi-Bereich (TrainingPeaks, Garmin, Strava Premium).</p>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Wie wird sie berechnet?</h3>
+      <p><b>Form = Fitness (CTL) − Müdigkeit (ATL)</b></p>
+      <ul>
+        <li><b>CTL</b> (Fitness): exponentiell gleitender 42-Tage-Schnitt deiner Trainings-Last (TRIMP-gewichtet)</li>
+        <li><b>ATL</b> (Müdigkeit): gleicher Mechanismus, aber über 7 Tage — reagiert auf kurzfristige Belastung</li>
+        <li><b>TRIMP</b> pro Lauf: Dauer × HF-Reserve-Anteil × Faktor 0,64 + 1,92 × HF-Reserve² (Banister-Formel)</li>
+      </ul>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Aktuelle Werte</h3>
+      <table><tr><th>CTL (Fitness)</th><td>${Math.round(f.ctl)}</td></tr>
+        <tr><th>ATL (Müdigkeit)</th><td>${Math.round(f.atl)}</td></tr>
+        <tr><th>TSB (Form)</th><td><b style="color:${formLabel(f.tsb).color}">${f.tsb>=0?"+":""}${Math.round(f.tsb)}</b></td></tr></table>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Skala</h3>
+      <ul><li><b style="color:var(--bad)">&lt; −25</b>: überlastet — Pause/Rückwärtsschalten</li>
+        <li><b style="color:var(--warn)">−25 bis −10</b>: müde — Quality eher verschieben</li>
+        <li><b style="color:var(--mut)">−10 bis +5</b>: normal — Plan halten</li>
+        <li><b style="color:var(--good)">+5 bis +25</b>: frisch — gut für Quality oder Long Run</li>
+        <li><b style="color:var(--good)">&gt; +25</b>: sehr frisch — fast Wettkampf-Zustand</li></ul>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Was tun mit diesem Wert?</h3>
+      <p>${formAdvice(f.tsb)}</p>`;
+  }
+  if(k==="compliance"){
+    const d=it.data;
+    return `<h3 style="font-size:.95rem;margin:14px 0 6px">Was ist Compliance?</h3>
+      <p>Anteil der <b>geplanten Pflichtläufe</b> (Di/Do/Fr/So), die du letzte Woche tatsächlich gelaufen bist.</p>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Warum wichtig?</h3>
+      <p>Sub-4:00 wird durch <b>Konsistenz</b> gemacht, nicht durch heroische Einzelwochen. Wer 3 von 4 Pflichtläufen schafft, baut Form. Wer regelmäßig nur 2 von 4 macht, schafft das Ziel kaum.</p>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Aktuelle Lage</h3>
+      <p>Vorwoche: <b>${d.dn}/${d.pn} Läufe = ${d.pct}%</b></p>
+      <ul><li><b style="color:var(--good)">≥ 90%</b>: top, Plan greift</li>
+        <li><b style="color:var(--warn)">70–89%</b>: okay, aber Trend beobachten</li>
+        <li><b style="color:var(--bad)">&lt; 70%</b>: kritisch — Volumen kommt nicht zustande</li></ul>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Was zählt nicht?</h3>
+      <p>Mo/Mi/Sa sind im SUB4-Plan <b>frei oder optional</b> — die zählen nicht in die Compliance. Nur die 4 fixen Lauf-Tage.</p>`;
+  }
+  if(k==="zones"){
+    const z=it.data;
+    return `<h3 style="font-size:.95rem;margin:14px 0 6px">Was ist Zonen-Disziplin?</h3>
+      <p>Verteilung deiner Trainings-Zeit über die 5 HF-Zonen. Marathonläufer trainieren am besten <b>polarisiert</b> (Seiler-Modell): ≥80% locker, ~10% hart, möglichst wenig „mittel".</p>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Die Z3-Falle</h3>
+      <p><b>Z3 (Grauzone, HF 150–160)</b> fühlt sich zügig an, aber:</p>
+      <ul><li>zu hart, um Grundlagen-Anpassung zu bringen</li>
+        <li>zu locker, um Schwellen-Reize zu setzen</li>
+        <li>kostet Substanz ohne klaren Trainings-Effekt</li></ul>
+      <p>Polarisiertes Training meidet Z3 bewusst — Easy-Läufe sollen <b>wirklich locker</b> sein, Quality-Läufe <b>wirklich hart</b>.</p>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Aktuelle Verteilung (letzte 2 Wochen)</h3>
+      <table><tr><th>Easy (Z1+Z2)</th><td><b style="color:var(--good)">${z.easyPct.toFixed(0)}%</b> · Ziel ≥80%</td></tr>
+        <tr><th>Grauzone (Z3)</th><td><b style="color:${z.grayPct>12?'var(--warn)':'var(--good)'}">${z.grayPct.toFixed(0)}%</b> · Ziel &lt;10%</td></tr>
+        <tr><th>Hart (Z4+Z5)</th><td><b>${z.hardPct.toFixed(0)}%</b> · Ziel ~10%</td></tr></table>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Datenquelle</h3>
+      <p>Wenn ein Lauf aus <b>Strava-Streams oder GPX/TCX</b> kam: echte Sekunden-HF-Werte werden zonenweise summiert. Wenn nur manuell eingegeben: geschätzt aus dem Plan-Typ (Quality = 70% Z4/Z5, Easy = 100% Z2, etc.).</p>`;
+  }
+  if(k==="drift"){
+    const d=it.data;
+    return `<h3 style="font-size:.95rem;margin:14px 0 6px">Was ist Cardiac Drift?</h3>
+      <p>Auch „Aerobe Decoupling" genannt: wie weit driftet deine <b>HF im Verhältnis zur Pace</b> auseinander zwischen erster und zweiter Hälfte eines lockeren Long Runs?</p>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Warum ist das wichtig?</h3>
+      <p>Es ist <b>der beste Frühindikator für Marathon-Spezifität</b>. Wer im Long Run schon nach 1,5h drifted, wird beim Marathon ab km 30 zerbrechen. Wer aerob stabil bleibt, hält die MP bis ins Ziel.</p>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Berechnung</h3>
+      <p>Mit Pace + HF pro Hälfte (aus GPX/TCX/Strava-Streams):</p>
+      <p><code>Decoupling = (Effizienz1 − Effizienz2) / Effizienz1 × 100</code><br>
+      <code>Effizienz = Geschwindigkeit / HF</code></p>
+      <p>Ohne Pace-Daten: einfacher HF-Drift <code>(HR2 − HR1) / HR1 × 100</code></p>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Skala</h3>
+      <ul><li><b style="color:var(--good)">&lt; 3%</b>: aerob top, Marathon-fertig</li>
+        <li><b style="color:var(--good)">3–6%</b>: solide, normales Niveau</li>
+        <li><b style="color:var(--warn)">6–10%</b>: ausbaufähig — locker starten, mehr Long-Run-Volumen</li>
+        <li><b style="color:var(--bad)">&gt; 10%</b>: aerobe Substanz fehlt — Long Run kürzen und langsamer machen, nicht schneller</li></ul>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Aktuelle Lage</h3>
+      <p>Letzter ausgewerteter Long Run (${d.dist} km, ${fmtD(d.date)}): <b style="color:${d.drift>6?'var(--warn)':'var(--good)'}">${d.drift>=0?"+":""}${d.drift.toFixed(1)}%</b></p>`;
+  }
+  if(k==="today"){
+    const d=it.data;
+    return `<h3 style="font-size:.95rem;margin:14px 0 6px">Heutiger Workout</h3>
+      <p>Aus dem SUB4-Plan (v2, 21-Wochen-Aufbau, polarisiert):</p>
+      <p><b>${d.c.title}</b><br><span class="muted">${d.c.det}</span></p>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Einheit-Typ</h3>
+      <p>${kindExplanation(d.kind)}</p>
+      ${d.c.edited?`<h3 style="font-size:.95rem;margin:14px 0 6px">Hinweis</h3><p>Du hast diesen Lauf gegenüber dem Original-Plan angepasst.</p>`:""}`;
+  }
+  if(k==="tip"){
+    const d=it.data;
+    return `<h3 style="font-size:.95rem;margin:14px 0 6px">Wie entsteht der Tipp?</h3>
+      <p>Der Coach-Tipp kombiniert <b>drei Eingaben</b>:</p>
+      <ul>
+        <li><b>Einheit-Art</b>: ${d.kind} (Quality/Easy/Long/Recovery)</li>
+        <li><b>Form (TSB)</b>: ${d.tsb>=0?"+":""}${Math.round(d.tsb)} — ${formLabel(d.tsb).label}</li>
+        <li><b>Letzter Long-Run-Drift</b>: ${d.drift!=null?(d.drift>=0?"+":"")+d.drift.toFixed(1)+"%":"keine Daten"}</li>
+      </ul>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Logik dahinter</h3>
+      <p>${tipLogicExplanation(d.kind)}</p>
+      <p>Bei <b>müder Form (TSB &lt; −15)</b> wird die Aussage konservativer: bei Quality eher Anzahl reduzieren als Tempo opfern, bei Long Run lieber kürzen als durchbeißen.</p>
+      <p>Bei <b>Drift &gt; 6%</b> im letzten Long Run wird beim heutigen Long Run zu konservativerem Start geraten — aerobe Substanz erst aufbauen.</p>`;
+  }
+  if(k==="rest"){
+    return `<h3 style="font-size:.95rem;margin:14px 0 6px">Heute kein Lauf-Tag</h3>
+      <p>Im SUB4-Plan sind Mo/Mi/Sa <b>lauf-frei</b>. Mo+Mi sind klassische Erholungs-/Padel-/Kraft-Tage, Sa optional Rennrad.</p>
+      <h3 style="font-size:.95rem;margin:14px 0 6px">Was zählt heute?</h3>
+      <p>Die freien Einheiten (Padel, Kraft, Mobility, Rad) sind <b>nicht "neben dem Plan", sondern Teil des Plans</b>. Kraft-Tage halten die Verletzungs-Anfälligkeit niedrig, Padel hält die Mobilität, Mobility die Bewegungs-Qualität.</p>
+      <p>Recovery ist <b>aktiver Teil</b> des Trainings — der Körper wächst nicht beim Training, sondern in der Regeneration danach.</p>`;
+  }
+  return `<p>Keine Erklärung verfügbar.</p>`;
+}
+function formAdvice(tsb){
+  if(tsb<-25) return "Stark überlastet — heute auf jeden Fall Pause oder reine Recovery. Pflicht-Lauf besser 1 Tag schieben.";
+  if(tsb<-10) return "Müde — Quality eher verschieben, lockere Einheiten kürzen. Schlaf priorisieren.";
+  if(tsb<=5) return "Normal — Plan wie geschrieben durchziehen.";
+  if(tsb<=25) return "Frisch — gut, um harte Quality oder MP-Long-Runs zu setzen.";
+  return "Sehr frisch — Top-Voraussetzung für Wettkampf-Effort oder Schlüssel-Workout.";
+}
+function kindExplanation(kind){
+  if(kind==="quality") return "Hauptreiz der Woche: Intervalle oder Tempo-DL in <b>Z4 (Schwelle, 5:00–5:15/km) oder Z5 (VO2max, 4:30–4:50/km)</b>. Hebt deine Schwellen-Geschwindigkeit. <b>Immer mit Ein- und Auslaufen Z1.</b>";
+  if(kind==="easy") return "Lockerer Dauerlauf in <b>Z2 (GA1 aerob, HF 140–150, Pace 5:55–6:15/km)</b>. Der Wohlfühl-Bereich — trainiert Fettstoffwechsel und Grundlagen-Ausdauer. <b>Sollte locker bleiben, nicht ehrgeizig werden.</b>";
+  if(kind==="recovery") return "Bewusste Erholungs-Einheit in <b>Z1 (HF &lt; 140, Pace 6:30–7:00/km)</b>. Kurz (30–40 min). Stimuliert Regeneration ohne Stress. <b>Strikt langsam — wenn HF zieht, noch lockerer.</b>";
+  if(kind==="long") return "Wichtigste Einheit der Woche: <b>Z2 mit optionalem MP-Block (Marathon-Pace 5:40/km) am Ende</b>. Baut die Marathon-Distanz auf und simuliert späten Wettkampf-Ermüdung. MP-Block immer in der zweiten Hälfte, vorher strikt Z2.";
+  return "";
+}
+function tipLogicExplanation(kind){
+  if(kind==="long") return "Long Run: Z2-Wohlfühltempo (HF 140–150) ist die Basis. MP-Block (wenn im Plan) <b>in zweiter Hälfte</b>, nie als ganzer Lauf. Erste 30 min HF unter 150 — schützt davor zu schnell zu starten.";
+  if(kind==="quality") return "Quality braucht <b>Ein- und Auslaufen</b> (3 km / 2 km Z1). Sauber durchziehen heißt: alle Intervalle in Ziel-Pace, nicht erste 3 super und letzte 2 zerfallen.";
+  if(kind==="recovery") return "Recovery soll die Regeneration unterstützen, nicht behindern. <b>HF unter 140</b> strikt. Wer Recovery zu hart läuft, bekommt mit der Zeit chronische Müdigkeit.";
+  if(kind==="easy") return "GA1 = aerobe Grundlage. Pace 5:55–6:05/km, <b>HF unter 150 hat Priorität vor Pace</b>. Bei Wärme oder Wind lieber Pace drosseln als HF durchbrennen.";
+  return "";
 }
 
 function viewHeute(){
