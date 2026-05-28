@@ -528,7 +528,32 @@ function stravaDisconnect(){
   if(!confirm("Strava-Verknüpfung trennen? Importierte Aktivitäten bleiben erhalten.")) return;
   delete DB.strava; save(); render(); toast("Strava getrennt");
 }
-function stravaImport(actId){
+// Streams-Endpoint von Strava → time/distance/heartrate als Arrays
+async function fetchStravaStreams(activityId){
+  if(!await ensureStravaToken()) return null;
+  const c = sCfg();
+  try{
+    const r = await fetch(`https://www.strava.com/api/v3/activities/${activityId}/streams?keys=time,distance,heartrate&key_by_type=true`, {
+      headers:{"Authorization":"Bearer "+c.accessToken}
+    });
+    if(!r.ok){ console.warn("Streams-Fetch HTTP", r.status); return null; }
+    return await r.json();
+  }catch(e){ console.warn("Streams-Fetch Fehler:", e.message); return null; }
+}
+// Streams → Trackpoint-Array → computeDetails()
+function streamsToDetails(streams, startDate){
+  if(!streams?.time?.data || !streams?.distance?.data) return null;
+  const T=streams.time.data, D=streams.distance.data, H=streams.heartrate?.data||[];
+  const N=Math.min(T.length, D.length);
+  if(N<4) return null;
+  const start=new Date(startDate).getTime();
+  const pts=[];
+  for(let i=0;i<N;i++){
+    pts.push({ t:new Date(start+T[i]*1000), cumM:D[i], hr:H[i]||null });
+  }
+  return computeDetails(pts);
+}
+async function stravaImport(actId){
   const c = sCfg();
   const a = (c.pending||[]).find(x=>x.id===actId);
   if(!a){ toast("Aktivität nicht mehr in der Liste"); return; }
@@ -545,15 +570,26 @@ function stravaImport(actId){
     if(!m){ toast("Kein passender Lauf-Slot am "+dkey(date)); return; }
     const id = runId(m.w, m.slot);
     if(DB.logs[id]){ toast("Bereits erfasst – übersprungen"); }
-    else DB.logs[id] = {dist, sec, hr, rpe:null, feel:null, pain:false, note:"Strava: "+(a.name||"")};
+    else {
+      // Streams ziehen für die Strava-Style Analyse (Splits/Zonen/Hälften/Bestleistungen)
+      const streams = await fetchStravaStreams(a.id);
+      const details = streams ? streamsToDetails(streams, a.start_date) : null;
+      DB.logs[id] = {dist, sec, hr, rpe:null, feel:null, pain:false, note:"Strava: "+(a.name||""), details};
+    }
   }
   c.importedIds = (c.importedIds||[]).concat([a.id]);
   c.pending = (c.pending||[]).filter(x=>x.id!==a.id);
-  save(); render(); toast(isRide?"Fahrt importiert ✓":"Lauf importiert ✓");
+  save(); render();
+  if(isRide) toast("Fahrt importiert ✓");
+  else {
+    const m=matchRunSlot(date), hasDetails = m && DB.logs[runId(m.w,m.slot)]?.details;
+    toast("Lauf importiert ✓"+(hasDetails?" + Analyse":""));
+  }
 }
-function stravaImportAll(){
+async function stravaImportAll(){
   const list = ((DB.strava||{}).pending||[]).slice();
-  list.forEach(a => stravaImport(a.id));
+  for(const a of list){ await stravaImport(a.id); }
+  toast("Alle übernommen ✓");
 }
 function stravaDismiss(actId){
   const c = sCfg();
