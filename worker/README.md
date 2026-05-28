@@ -1,4 +1,4 @@
-# Marathon Köln 2026 — Push-Worker (Cloudflare)
+# SUB4 — Push-Worker (Cloudflare)
 
 Tägliche Trainings-Reminder per Web-Push. Cron im Worker feuert um 07:00 (MESZ) und schickt Push an alle abonnierten Geräte.
 

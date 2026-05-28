@@ -1,4 +1,4 @@
-import webpush from 'web-push';
+import { sendPush } from './push.js';
 import { PLAN, PLAN_START } from './plan.js';
 
 const CORS = {
@@ -13,7 +13,7 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
     const url = new URL(req.url);
     try {
-      setupVapid(env);
+      if (!env.VAPID_PRIVATE) throw new Error('VAPID_PRIVATE-Secret fehlt');
 
       if (url.pathname === '/health') return new Response('ok', { headers: CORS });
 
@@ -45,7 +45,7 @@ export default {
   },
 
   async scheduled(controller, env, ctx) {
-    setupVapid(env);
+    if (!env.VAPID_PRIVATE) { console.error('VAPID_PRIVATE fehlt'); return; }
     const subs = await listSubs(env);
     if (!subs.length) return;
     const payload = todaysPayload(new Date());
@@ -53,11 +53,6 @@ export default {
     await sendAll(env, subs, payload);
   }
 };
-
-function setupVapid(env) {
-  if (!env.VAPID_PRIVATE) throw new Error('VAPID_PRIVATE nicht gesetzt — `wrangler secret put VAPID_PRIVATE`');
-  webpush.setVapidDetails(env.VAPID_SUBJECT || 'mailto:noreply@example.com', env.VAPID_PUBLIC, env.VAPID_PRIVATE);
-}
 
 function subKey(endpoint) {
   // KV-Key: kurzer Hash-Surrogat aus Endpoint
@@ -82,19 +77,23 @@ async function listSubs(env) {
 
 async function sendAll(env, subs, payload) {
   let sent = 0, failed = 0, removed = 0;
+  const errors = [];
   for (const sub of subs) {
     try {
-      await webpush.sendNotification(sub, JSON.stringify(payload), { TTL: 3600 });
+      await sendPush(sub, JSON.stringify(payload), env);
       sent++;
     } catch (e) {
       failed++;
+      const err = { endpoint: (sub.endpoint||"").slice(0,80)+"…", status: e.statusCode||null, body: (e.body||"").slice(0,200), msg: e.message||String(e) };
+      errors.push(err);
+      console.error("Push failed:", JSON.stringify(err));
       if (e.statusCode === 404 || e.statusCode === 410) {
         await env.SUBS.delete(subKey(sub.endpoint));
         removed++;
       }
     }
   }
-  return { sent, failed, removed };
+  return { sent, failed, removed, errors };
 }
 
 function todaysPayload(date) {
@@ -110,11 +109,11 @@ function todaysPayload(date) {
   const url = 'https://jduscher-netizen.github.io/marathon-koeln-2026/';
 
   if (!(d in SLOTS)) {
-    return { title: `Marathon Köln · W${w + 1}/21`, body: 'Heute kein fester Lauf — freie Einheiten nach Lust.', url };
+    return { title: `SUB4 · W${w + 1}/21`, body: 'Heute kein fester Lauf — freie Einheiten nach Lust.', url };
   }
   const content = week[SLOTS[d]];
   if (!content || content.trim() === '–') {
-    return { title: `Marathon Köln · W${w + 1}/21 · ${week.ph}`, body: 'Heute frei.', url };
+    return { title: `SUB4 · W${w + 1}/21 · ${week.ph}`, body: 'Heute frei.', url };
   }
   return {
     title: `${LABELS[SLOTS[d]]} · W${w + 1}/21`,

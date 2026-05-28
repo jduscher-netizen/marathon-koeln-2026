@@ -1,11 +1,11 @@
-// Marathon Köln 2026 — Service Worker für Web Push
+// SUB4 — Service Worker für Web Push
 const CACHE = 'marathon-koeln-v1';
 
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 
 self.addEventListener('push', event => {
-  let data = { title: 'Marathon Köln', body: 'Trainings-Reminder' };
+  let data = { title: 'SUB4', body: 'Trainings-Reminder' };
   if (event.data) {
     try { data = event.data.json(); } catch(_) { data.body = event.data.text(); }
   }

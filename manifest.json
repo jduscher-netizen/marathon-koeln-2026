@@ -1,12 +1,12 @@
 {
-  "name": "Marathon Köln 2026",
-  "short_name": "Marathon Köln",
-  "description": "Persönlicher Trainings-Tracker für Marathon Köln 04.10.2026",
+  "name": "SUB4",
+  "short_name": "SUB4",
+  "description": "Persönlicher Marathon-Trainings-Tracker — Ziel Sub 4:00 in Köln",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#faf6f1",
+  "background_color": "#0a0a0e",
   "theme_color": "#7a1620",
   "lang": "de",
   "icons": [

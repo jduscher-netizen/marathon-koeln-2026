@@ -1,6 +1,6 @@
-# Marathon Köln 2026 — Trainings-Tracker
+# SUB4 — Marathon-Trainings-Tracker
 
-Persönliche, mobile-first Single-File-Web-App zum Tracken des Marathonplans Köln (04.10.2026, Ziel Sub 4:00).
+Persönliche, mobile-first Single-File-Web-App zum Tracken des Marathonplans Köln (04.10.2026, Ziel Sub 4:00 — daher der Name).
 
 - **Live:** https://jduscher-netizen.github.io/marathon-koeln-2026/
 - Komplett offline-fähig, alle Daten liegen lokal im Browser (localStorage). Nichts wird hochgeladen.

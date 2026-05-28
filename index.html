@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#faf6f1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Marathon Köln 2026</title>
+<title>SUB4 — Marathon Köln 2026</title>
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
@@ -430,7 +430,7 @@ async function cloudSetup(token, existingId){
     } else {
       CLOUD={token};
       const g=await ghFetch("/gists",{method:"POST",body:JSON.stringify({
-        description:"Marathon Köln 2026 — Trainings-Daten (privat)", public:false,
+        description:"SUB4 — Trainings-Daten (privat)", public:false,
         files:{[GIST_FILE]:{content:JSON.stringify(DB)}}})});
       CLOUD={token, gistId:g.id, user};
     }
@@ -721,7 +721,7 @@ function cardStrava(){
         <ol style="margin-left:18px;line-height:1.7">
         <li>Öffne <a class="lnk" href="https://www.strava.com/settings/api" target="_blank">strava.com/settings/api</a></li>
         <li>Felder ausfüllen:
-          <ul><li><b>Application Name:</b> Marathon Köln</li>
+          <ul><li><b>Application Name:</b> SUB4</li>
           <li><b>Category:</b> Training</li>
           <li><b>Website:</b> <code>https://jduscher-netizen.github.io</code></li>
           <li><b>Authorization Callback Domain:</b> <code>jduscher-netizen.github.io</code> (nur die Domain, kein https:// und kein Pfad)</li></ul></li>
@@ -1009,7 +1009,7 @@ function viewHeute(){
     ${redFlagsBlock(true)}`;
   }
   return `<div class="wrap"><div class="between" style="margin-bottom:14px">
-    <h1>Marathon Köln <span class="sub">04.10.2026 · Sub 4:00</span></h1></div>${body}</div>`;
+    <h1>SUB4 <span class="sub">Marathon Köln · 04.10.2026</span></h1></div>${body}</div>`;
 }
 
 /* ============ VIEW: WOCHE ============ */
@@ -1450,7 +1450,7 @@ function viewMehr(){
         <input id="imp" type="file" accept="application/json" style="display:none" onchange="importData(event)">
         <button class="btn-sm btn-gh" onclick="resetData()">Zurücksetzen</button></div></div>
     ${cardRestore()}
-    <div class="center tiny muted" style="margin:10px 0 20px">Marathon Köln · 04.10.2026 · Sub 4:00</div></div>`;
+    <div class="center tiny muted" style="margin:10px 0 20px">SUB4 · Marathon Köln · 04.10.2026</div></div>`;
 }
 
 /* ============ MODALS ============ */
