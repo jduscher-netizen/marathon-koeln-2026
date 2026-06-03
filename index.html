@@ -810,6 +810,247 @@ function isSkipped(id){ return !!DB.skips[id]; }
 function runDoneKm(w){ let k=0; RUNS.forEach(R=>{ const L=DB.logs[runId(w,R.slot)]; if(L&&L.dist)k+=L.dist; }); return k; }
 function totalRunKm(){ let k=0; Object.entries(DB.logs).forEach(([id,L])=>{ if(L&&L.dist)k+=L.dist; }); return k; }
 
+/* ============ GARMIN WORKOUT EXPORT (TCX) ============ */
+const MP_PACE = 5*60+40; // Marathon-Pace 5:40 sec/km
+const HR_ZONES = { 1:[110,140], 2:[140,150], 3:[150,160], 4:[160,172], 5:[172,185] };
+function zoneHR(z){ return { hr: HR_ZONES[z] || HR_ZONES[2] }; }
+
+// Plan-Text → strukturiertes Workout-Objekt
+function parsePlanToWorkout(text, weekNum, slot, label){
+  const t = (text||"").trim();
+  if(!t || t==="–" || /MARATHON/i.test(t)) return null;
+  const steps=[];
+
+  const paceMatch = t.match(/\((\d+):(\d{2})\)/);
+  const targetPace = paceMatch ? +paceMatch[1]*60 + +paceMatch[2] : null;
+  const zoneMatch = t.match(/\bZ(\d)\b/);
+  const zone = zoneMatch ? +zoneMatch[1] : null;
+
+  // Recovery & "Ruhe oder 5 km Z1"
+  const ruheMatch = t.match(/(?:Ruhe oder\s+)?(\d+)\s*km\s+Z1/i);
+  if(/Ruhe/.test(t) && ruheMatch){
+    steps.push({ type:"distance", meters:+ruheMatch[1]*1000, name:"Z1 Recovery",
+      target: targetPace?{pace:targetPace,range:15}:zoneHR(1) });
+    return { name:`W${weekNum} ${slot.toUpperCase()} — ${label}`, steps };
+  }
+
+  // Intervalle: N×Mm
+  const intMatch = t.match(/(\d+)\s*×\s*(\d+)\s*m/);
+  if(intMatch){
+    const reps=+intMatch[1], dist=+intMatch[2];
+    const tpMatch = t.match(/Tp\s+(\d+)\s*(s|sec|min|:\d{2})?/i);
+    let restSec=90;
+    if(tpMatch){
+      const n=+tpMatch[1], suffix=tpMatch[2]||"s";
+      if(/min/i.test(suffix)) restSec=n*60;
+      else if(/^:\d/.test(suffix)) restSec=n*60 + +(suffix.slice(1));
+      else restSec=n;
+    }
+    if(/Steig/i.test(t)){
+      // Steigerungen: "5 km Z2 + 4×100m Steigerungen"
+      const baseMatch = t.match(/(\d+)\s*km/);
+      if(baseMatch && !baseMatch[0].startsWith(String(reps))){
+        steps.push({ type:"distance", meters:+baseMatch[1]*1000, name:"Z2 locker", target:zoneHR(2) });
+      }
+      steps.push({ type:"repeat", count:reps, children:[
+        { type:"distance", meters:dist, name:"Steigerung", target:zoneHR(5) },
+        { type:"time", seconds:60, intensity:"rest", name:"Trab" }
+      ]});
+      return { name:`W${weekNum} ${slot.toUpperCase()} — ${label}`, steps };
+    }
+    // Intervalle mit Ein/Aus → offenes Ein-/Auslaufen
+    if(/Ein\/Aus|Ein\s/i.test(t)) steps.push({ type:"openWarmup", name:"Einlaufen Z1", target:zoneHR(1) });
+    steps.push({ type:"repeat", count:reps, children:[
+      { type:"distance", meters:dist, name:`Intervall ${dist}m`,
+        target: targetPace?{pace:targetPace,range:5}:zoneHR(zone||4) },
+      { type:"time", seconds:restSec, intensity:"rest", name:"Trabpause" }
+    ]});
+    if(/Ein\/Aus|Aus\s*$/i.test(t)) steps.push({ type:"openCooldown", name:"Auslaufen Z1", target:zoneHR(1) });
+    return { name:`W${weekNum} ${slot.toUpperCase()} — ${label}`, steps };
+  }
+
+  // Tempo-DL: bewusst KEIN Ein/Aus laut User-Präferenz
+  const tempoMatch = t.match(/(\d+)\s*km\s*Tempo-DL/i);
+  if(tempoMatch){
+    const km=+tempoMatch[1];
+    steps.push({ type:"distance", meters:km*1000, name:`Tempo-DL ${km} km`,
+      target: targetPace?{pace:targetPace,range:5}:zoneHR(zone||4) });
+    return { name:`W${weekNum} ${slot.toUpperCase()} — ${label}`, steps };
+  }
+
+  // Long Run mit MP-Block am Ende: "26 km · 6 km MP (5:40) am Ende"
+  const lrMpEnd = t.match(/(\d+)\s*km\s*·\s*(\d+)\s*km\s*MP/i);
+  if(lrMpEnd && !/Mitte/i.test(t)){
+    const total=+lrMpEnd[1], mp=+lrMpEnd[2];
+    steps.push({ type:"distance", meters:(total-mp)*1000, name:"Z2 Anfang", target:zoneHR(2) });
+    steps.push({ type:"distance", meters:mp*1000, name:"MP Block", target:{pace:MP_PACE,range:5} });
+    return { name:`W${weekNum} ${slot.toUpperCase()} — ${label}`, steps };
+  }
+  // Long Run mit MP-Block in Mitte
+  if(lrMpEnd && /Mitte/i.test(t)){
+    const total=+lrMpEnd[1], mp=+lrMpEnd[2];
+    const half=Math.round((total-mp)/2);
+    steps.push({ type:"distance", meters:half*1000, name:"Z2 Anfang", target:zoneHR(2) });
+    steps.push({ type:"distance", meters:mp*1000, name:"MP Block", target:{pace:MP_PACE,range:5} });
+    steps.push({ type:"distance", meters:(total-mp-half)*1000, name:"Z2 Ende", target:zoneHR(2) });
+    return { name:`W${weekNum} ${slot.toUpperCase()} — ${label}`, steps };
+  }
+  // "14 km GA1 mit 4 km MP" / "14 km Z2 mit 4 km MP"
+  const lrMpMit = t.match(/(\d+)\s*km\s*(?:Z2|GA1)\s*mit\s*(\d+)\s*km\s*MP/i);
+  if(lrMpMit){
+    const total=+lrMpMit[1], mp=+lrMpMit[2];
+    steps.push({ type:"distance", meters:(total-mp)*1000, name:"Z2 Anfang", target:zoneHR(2) });
+    steps.push({ type:"distance", meters:mp*1000, name:"MP Block", target:{pace:MP_PACE,range:5} });
+    return { name:`W${weekNum} ${slot.toUpperCase()} — ${label}`, steps };
+  }
+
+  // Reine MP-Quality: "6 km MP (5:40) + Ein/Aus"
+  const mpOnly = t.match(/^(\d+)\s*km\s*MP/i);
+  if(mpOnly){
+    const km=+mpOnly[1];
+    if(/Ein\/Aus/i.test(t)) steps.push({ type:"openWarmup", name:"Einlaufen Z1", target:zoneHR(1) });
+    steps.push({ type:"distance", meters:km*1000, name:`MP ${km} km`, target:{pace:MP_PACE,range:5} });
+    if(/Ein\/Aus/i.test(t)) steps.push({ type:"openCooldown", name:"Auslaufen Z1", target:zoneHR(1) });
+    return { name:`W${weekNum} ${slot.toUpperCase()} — ${label}`, steps };
+  }
+
+  // Fallback: "N km Zx (P:SS)" oder "N km GA1/Recovery/Z2 (P:SS)"
+  const distMatch = t.match(/(\d+)\s*km/);
+  if(distMatch){
+    const km=+distMatch[1];
+    const isRec = /Recovery|Z1\b/i.test(t);
+    const z = isRec ? 1 : (zone || 2);
+    steps.push({ type:"distance", meters:km*1000, name:isRec?"Recovery":`Z${z}`,
+      target: targetPace?{pace:targetPace,range:isRec?15:8}:zoneHR(z) });
+    return { name:`W${weekNum} ${slot.toUpperCase()} — ${label}`, steps };
+  }
+  return null;
+}
+
+// TCX-XML aus Workout-Objekt
+function buildTcx(workout){
+  let id=0; const xmlEsc=s=>String(s).replace(/[<>&'"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;","'":"&apos;",'"':"&quot;"}[c]));
+  const out=[];
+  out.push('<?xml version="1.0" encoding="UTF-8"?>');
+  out.push('<TrainingCenterDatabase xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">');
+  out.push('  <Workouts>');
+  out.push(`    <Workout Sport="Running"><Name>${xmlEsc(workout.name.slice(0,15))}</Name>`);
+  const emit=(step,indent)=>{
+    if(step.type==="repeat"){
+      const sid=++id;
+      out.push(`${indent}<Step xsi:type="Repeat_t"><StepId>${sid}</StepId><Repetitions>${step.count}</Repetitions>`);
+      step.children.forEach(c=>emit(c, indent+"  "));
+      out.push(`${indent}</Step>`);
+      return;
+    }
+    const sid=++id;
+    out.push(`${indent}<Step xsi:type="Step_t"><StepId>${sid}</StepId><Name>${xmlEsc((step.name||"Schritt").slice(0,15))}</Name>`);
+    if(step.type==="openWarmup"||step.type==="openCooldown") out.push(`${indent}  <Duration xsi:type="UserInitiated_t" />`);
+    else if(step.type==="distance") out.push(`${indent}  <Duration xsi:type="Distance_t"><Meters>${step.meters}</Meters></Duration>`);
+    else if(step.type==="time") out.push(`${indent}  <Duration xsi:type="Time_t"><Seconds>${step.seconds}</Seconds></Duration>`);
+    out.push(`${indent}  <Intensity>${step.intensity==="rest"?"Rest":"Active"}</Intensity>`);
+    if(step.target?.pace){
+      const lo=(1000/(step.target.pace+step.target.range)).toFixed(3);
+      const hi=(1000/(step.target.pace-step.target.range)).toFixed(3);
+      out.push(`${indent}  <Target xsi:type="Speed_t"><SpeedZone xsi:type="CustomSpeedZone_t">`);
+      out.push(`${indent}    <LowInMetersPerSecond>${lo}</LowInMetersPerSecond><HighInMetersPerSecond>${hi}</HighInMetersPerSecond>`);
+      out.push(`${indent}  </SpeedZone></Target>`);
+    } else if(step.target?.hr){
+      out.push(`${indent}  <Target xsi:type="HeartRate_t"><HeartRateZone xsi:type="CustomHeartRateZone_t">`);
+      out.push(`${indent}    <Low><Value>${step.target.hr[0]}</Value></Low><High><Value>${step.target.hr[1]}</Value></High>`);
+      out.push(`${indent}  </HeartRateZone></Target>`);
+    } else out.push(`${indent}  <Target xsi:type="None_t" />`);
+    out.push(`${indent}</Step>`);
+  };
+  workout.steps.forEach(s=>emit(s, "      "));
+  out.push('    </Workout>');
+  out.push('  </Workouts>');
+  out.push('</TrainingCenterDatabase>');
+  return out.join("\n");
+}
+
+// Minimaler ZIP-Store-Encoder (ohne Kompression)
+function makeZip(files){
+  const enc=new TextEncoder();
+  const parts=[], cdEntries=[];
+  let offset=0;
+  function crc32(d){
+    let c=0xFFFFFFFF;
+    for(const b of d){ c^=b; for(let i=0;i<8;i++) c=(c>>>1)^(0xEDB88320 & -(c&1)); }
+    return (c^0xFFFFFFFF)>>>0;
+  }
+  for(const f of files){
+    const nb=enc.encode(f.name), data=typeof f.content==="string"?enc.encode(f.content):f.content;
+    const crc=crc32(data);
+    const lh=new Uint8Array(30+nb.length);
+    const lv=new DataView(lh.buffer);
+    lv.setUint32(0,0x04034b50,true); lv.setUint16(4,20,true); lv.setUint16(6,0,true); lv.setUint16(8,0,true);
+    lv.setUint16(10,0,true); lv.setUint16(12,0x2129,true);
+    lv.setUint32(14,crc,true); lv.setUint32(18,data.length,true); lv.setUint32(22,data.length,true);
+    lv.setUint16(26,nb.length,true); lv.setUint16(28,0,true);
+    lh.set(nb,30);
+    parts.push(lh); parts.push(data);
+    const cd=new Uint8Array(46+nb.length);
+    const cv=new DataView(cd.buffer);
+    cv.setUint32(0,0x02014b50,true); cv.setUint16(4,0x031e,true); cv.setUint16(6,20,true);
+    cv.setUint16(8,0,true); cv.setUint16(10,0,true); cv.setUint16(12,0,true); cv.setUint16(14,0x2129,true);
+    cv.setUint32(16,crc,true); cv.setUint32(20,data.length,true); cv.setUint32(24,data.length,true);
+    cv.setUint16(28,nb.length,true);
+    cv.setUint32(38,0,true); cv.setUint32(42,offset,true);
+    cd.set(nb,46);
+    cdEntries.push(cd);
+    offset+=lh.length+data.length;
+  }
+  const cdStart=offset; let cdSize=0;
+  for(const cd of cdEntries){ parts.push(cd); cdSize+=cd.length; }
+  const eocd=new Uint8Array(22);
+  const ev=new DataView(eocd.buffer);
+  ev.setUint32(0,0x06054b50,true); ev.setUint16(8,files.length,true); ev.setUint16(10,files.length,true);
+  ev.setUint32(12,cdSize,true); ev.setUint32(16,cdStart,true);
+  parts.push(eocd);
+  const total=parts.reduce((s,p)=>s+p.length,0);
+  const buf=new Uint8Array(total); let o=0;
+  for(const p of parts){ buf.set(p,o); o+=p.length; }
+  return new Blob([buf],{type:"application/zip"});
+}
+
+function downloadBlob(blob, filename){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+
+// Aktuelle Woche → 4 Workouts → ZIP
+function exportWeekGarmin(w){
+  const W=WEEKS[w-1]; if(!W) return;
+  const LABELS={di:"Qualität", do:"GA1", fr:"Recovery", so:"LongRun"};
+  const files=[];
+  RUNS.forEach(R=>{
+    if(runIsRest(w,R.slot)) return;
+    const c=runContent(w,R.slot);
+    const wo=parsePlanToWorkout(c.det, w, R.slot, LABELS[R.slot]);
+    if(!wo) return;
+    const tcx=buildTcx(wo);
+    files.push({ name:`W${w}-${R.slot.toUpperCase()}-${LABELS[R.slot]}.tcx`, content:tcx });
+  });
+  if(!files.length){ toast("Keine Workouts dieser Woche"); return; }
+  const zip=makeZip(files);
+  downloadBlob(zip, `SUB4-W${w}-Garmin.zip`);
+  toast(`${files.length} Workouts heruntergeladen`);
+}
+function exportSingleGarmin(w, slot){
+  const W=WEEKS[w-1]; if(!W) return;
+  const LABELS={di:"Qualität", do:"GA1", fr:"Recovery", so:"LongRun"};
+  const c=runContent(w,slot);
+  const wo=parsePlanToWorkout(c.det, w, slot, LABELS[slot]);
+  if(!wo){ toast("Nicht exportierbar"); return; }
+  const tcx=buildTcx(wo);
+  const blob=new Blob([tcx],{type:"application/xml"});
+  downloadBlob(blob, `W${w}-${slot.toUpperCase()}-${LABELS[slot]}.tcx`);
+  toast("Workout heruntergeladen");
+}
+
 /* ============ COACHING-ENGINE: TRIMP, ATL/CTL/TSB, Zonen, Drift ============ */
 const HR_MAX=195, HR_REST=50;
 const HR_Z = [140, 150, 160, 172]; // Z1<140, Z2 140-149, Z3 150-159, Z4 160-171, Z5 >=172
@@ -1262,6 +1503,35 @@ function todayCoachTip(kind, det, tsb, lastDrift){
   if(kind==="easy") return "GA1 = 5:55–6:05/km bei HF unter 150. Wenn HF zieht: Pace drosseln, nicht durchhalten.";
   return null;
 }
+function garminCard(w){
+  if(!w || w>21) return "";
+  const W=WEEKS[w-1];
+  const LABELS={di:"Qualität", do:"GA1", fr:"Recovery", so:"LongRun"};
+  const rows=RUNS.map(R=>{
+    if(runIsRest(w,R.slot)) return null;
+    const dt=dateOf(w,effDay(w,R.slot));
+    const c=runContent(w,R.slot);
+    const dn=DOW[effDay(w,R.slot)];
+    return `<div class="between" style="padding:8px 0;border-bottom:1px solid var(--line);gap:8px">
+      <div style="flex:1;min-width:0"><b style="font-size:.85rem">${dn} · ${LABELS[R.slot]}</b>
+      <div class="tiny muted">${c.det.slice(0,40)}${c.det.length>40?"…":""}</div></div>
+      <button class="btn-sm btn-gh" style="padding:5px 9px" onclick="exportSingleGarmin(${w},'${R.slot}')" title="Einzeln laden">⬇</button></div>`;
+  }).filter(Boolean).join("");
+  return `<details class="card" style="padding:0">
+    <summary style="cursor:pointer;padding:14px 16px;list-style:none;display:flex;align-items:center;justify-content:space-between">
+      <div><b style="font-size:.95rem">⌚ Garmin · W${w}</b>
+        <div class="tiny muted" style="margin-top:2px">${W.dr} · 4 Workouts für die Uhr</div></div>
+      <span style="color:var(--mut)">▾</span>
+    </summary>
+    <div style="padding:0 16px 14px">
+      ${rows}
+      <button class="btn-p" style="width:100%;margin-top:12px" onclick="exportWeekGarmin(${w})">📦 Alle 4 als ZIP herunterladen</button>
+      <div class="tiny muted" style="margin-top:10px">In Garmin Connect → Workouts → Importieren → ZIP entpacken + .tcx-Dateien wählen. Anleitung in Mehr → ⌚ Garmin-Setup.</div>
+      ${w>1?`<div class="tiny muted" style="margin-top:6px">💡 Letzte Woche aufräumen: Workouts mit Präfix <code>W${w-1}-</code> in Garmin Connect löschen (alphabetisch sortiert → schnell).</div>`:""}
+    </div>
+  </details>`;
+}
+
 function briefingCard(){
   const items=briefingItems(); if(!items||!items.length) return "";
   // Items im Window stashen, damit explainBriefing() Zugriff hat
@@ -1456,6 +1726,7 @@ function viewHeute(){
     </div>
     ${stravaPendingBlock()}
     ${briefingCard()}
+    ${garminCard(loc.week)}
     <h2>Heute</h2>
     ${todayRuns.length? todayRuns.map(R=>runCard(loc.week,R.slot,true)).join("")
       : `<div class="card center sub">Kein fixer Lauf heute — freie Einheiten unten nach Lust eintragen.</div>`}
@@ -1785,6 +2056,41 @@ function viewMehr(){
     ${cardCloud()}
     ${cardStrava()}
     ${cardPush()}
+    <details class="card" style="padding:0">
+      <summary style="cursor:pointer;padding:14px 16px;list-style:none;display:flex;align-items:center;justify-content:space-between">
+        <div><b style="font-size:.95rem">⌚ Garmin-Setup</b>
+          <div class="tiny muted" style="margin-top:2px">Einmalig: wie kommen die Workouts auf die Uhr</div></div>
+        <span style="color:var(--mut)">▾</span>
+      </summary>
+      <div style="padding:0 16px 16px;font-size:.85rem;line-height:1.5">
+        <h3 style="font-size:.9rem;margin:8px 0 6px">Der Wochen-Rhythmus</h3>
+        <ol style="margin:0 0 10px 18px">
+          <li><b>Sonntag 19:00</b> → Push-Nachricht „Neue Woche · Garmin-Workouts"</li>
+          <li>Auf Push tippen → App → <b>⌚ Garmin · Wn</b>-Karte auf Heute aufklappen</li>
+          <li><b>📦 Alle 4 als ZIP herunterladen</b> tippen → Datei `SUB4-Wn-Garmin.zip` landet in Downloads</li>
+          <li>ZIP entpacken (iOS: Finger drauf → „Inhalte freilegen") → 4 .tcx-Dateien</li>
+          <li><b>Garmin Connect-App öffnen</b> → unten Mitte „+" → Training → Workouts → oben rechts „+" → Importieren → die 4 .tcx-Dateien wählen</li>
+          <li>Workouts erscheinen mit Namen wie <code>W4 DI — Qualität</code>. Per Drag&Drop in den Kalender ziehen auf den passenden Tag.</li>
+          <li>Uhr synchronisiert beim nächsten Verbinden automatisch.</li>
+        </ol>
+        <h3 style="font-size:.9rem;margin:14px 0 6px">Beim Lauf auf der Uhr</h3>
+        <ul style="margin:0 0 10px 18px">
+          <li>Workout-Menü auf der Uhr öffnen → richtigen Workout wählen → Start</li>
+          <li>Uhr führt dich Schritt für Schritt durch — bei „Einlaufen" (offen) drückst du <b>Lap-Knopf</b> wenn du in den ersten Intervall willst</li>
+          <li>Trabpausen laufen automatisch ab nach Zeit</li>
+          <li>Intervalle: feste Distanz mit Ziel-Pace-Anzeige (Vibration wenn zu schnell/langsam)</li>
+        </ul>
+        <h3 style="font-size:.9rem;margin:14px 0 6px">Letzte Woche aufräumen</h3>
+        <p>Nach dem Sonntag immer die Vor-Woche löschen: in Garmin Connect → Workouts → nach <code>W{Vorwoche}-</code> filtern oder alphabetisch ans Ende scrollen → die 4 löschen.</p>
+        <p>Dauert <30 Sekunden, hält die Liste übersichtlich.</p>
+        <h3 style="font-size:.9rem;margin:14px 0 6px">Anpassungen</h3>
+        <ul style="margin:0 0 10px 18px">
+          <li><b>Intervalle</b> haben offenes Ein-/Auslaufen — du entscheidest wann's losgeht (Lap-Knopf)</li>
+          <li><b>Tempo-DL</b> hat <i>kein</i> Ein-/Auslaufen, nur den Tempo-Block — das machst du frei davor/danach</li>
+          <li><b>Long Runs mit MP-Block</b>: Z2-Anfang → MP-Block → ggf. Z2-Ende, festgelegte Distanzen</li>
+        </ul>
+      </div>
+    </details>
     <div class="card"><div class="between" style="margin-bottom:6px"><h2 style="margin:0">Freie Einheiten verwalten</h2></div>
       ${acts}<button class="btn-sm btn-p" style="width:100%;margin-top:12px" onclick="openActEdit(-1)">+ Einheit hinzufügen</button></div>
     <div class="card"><h2>Trainingsplan</h2>
