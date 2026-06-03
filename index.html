@@ -1021,34 +1021,99 @@ function downloadBlob(blob, filename){
   setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
 }
 
-// Aktuelle Woche → 4 Workouts → ZIP
-function exportWeekGarmin(w){
-  const W=WEEKS[w-1]; if(!W) return;
-  const LABELS={di:"Qualität", do:"GA1", fr:"Recovery", so:"LongRun"};
-  const files=[];
-  RUNS.forEach(R=>{
-    if(runIsRest(w,R.slot)) return;
-    const c=runContent(w,R.slot);
-    const wo=parsePlanToWorkout(c.det, w, R.slot, LABELS[R.slot]);
-    if(!wo) return;
-    const tcx=buildTcx(wo);
-    files.push({ name:`W${w}-${R.slot.toUpperCase()}-${LABELS[R.slot]}.tcx`, content:tcx });
-  });
-  if(!files.length){ toast("Keine Workouts dieser Woche"); return; }
-  const zip=makeZip(files);
-  downloadBlob(zip, `SUB4-W${w}-Garmin.zip`);
-  toast(`${files.length} Workouts heruntergeladen`);
+// Garmin-Workout-Builder Anleitung: aus Workout-Objekt → klare Schritte zum Abtippen
+function paceFmt(sec){ const m=Math.floor(sec/60), s=sec%60; return `${m}:${String(s).padStart(2,"0")}`; }
+function paceRangeFmt(targetSec, rangeSec){
+  return `${paceFmt(targetSec-rangeSec)} – ${paceFmt(targetSec+rangeSec)} min/km`;
 }
-function exportSingleGarmin(w, slot){
-  const W=WEEKS[w-1]; if(!W) return;
+function intensityLabel(step){
+  if(step.intensity==="rest") return "Erholung";
+  if(step.type==="openWarmup") return "Aufwärmen";
+  if(step.type==="openCooldown") return "Cool-Down";
+  if(step.name && /Intervall|Tempo|Steig|MP/i.test(step.name)) return "Intervall";
+  return "Aktiv";
+}
+function targetDescription(step){
+  if(step.target?.pace){
+    return { label:"Eigene Pace", value:paceRangeFmt(step.target.pace, step.target.range) };
+  }
+  if(step.target?.hr){
+    const zMap = {1:"Z1",2:"Z2",3:"Z3",4:"Z4",5:"Z5"};
+    // Welche Zone? Match per Range
+    for(const [z, [lo,hi]] of Object.entries(HR_ZONES)){
+      if(lo===step.target.hr[0] && hi===step.target.hr[1]){
+        return { label:"HF-Zone", value:`${zMap[z]} (${lo}–${hi} bpm)` };
+      }
+    }
+    return { label:"HF-Bereich", value:`${step.target.hr[0]}–${step.target.hr[1]} bpm` };
+  }
+  return { label:"Ziel", value:"Kein" };
+}
+function durationDescription(step){
+  if(step.type==="openWarmup"||step.type==="openCooldown") return { label:"Dauer", value:"Bis Lap-Knopf gedrückt wird" };
+  if(step.type==="distance") return { label:"Dauer", value:`Distanz · ${step.meters} m` };
+  if(step.type==="time") return { label:"Dauer", value:`Zeit · ${step.seconds} sec` };
+  return { label:"Dauer", value:"?" };
+}
+function stepRows(step, prefix){
+  const out=[];
+  if(step.type==="repeat"){
+    out.push({type:"rep", label:`🔁 Wiederholung anlegen`, value:`${step.count}× wiederholen`});
+    step.children.forEach((c,i)=>{ stepRows(c, `${prefix}↳ `).forEach(r=>out.push(r)); });
+    out.push({type:"endrep"});
+    return out;
+  }
+  const dur=durationDescription(step), tgt=targetDescription(step);
+  out.push({type:"step", name:`${prefix}${step.name||"Schritt"}`,
+    fields:[
+      {label:"Name", value:(step.name||"").slice(0,15)},
+      dur,
+      {label:"Intensität", value:intensityLabel(step)},
+      tgt
+    ]});
+  return out;
+}
+function openGarminInstructions(w, slot){
   const LABELS={di:"Qualität", do:"GA1", fr:"Recovery", so:"LongRun"};
   const c=runContent(w,slot);
   const wo=parsePlanToWorkout(c.det, w, slot, LABELS[slot]);
-  if(!wo){ toast("Nicht exportierbar"); return; }
-  const tcx=buildTcx(wo);
-  const blob=new Blob([tcx],{type:"application/xml"});
-  downloadBlob(blob, `W${w}-${slot.toUpperCase()}-${LABELS[slot]}.tcx`);
-  toast("Workout heruntergeladen");
+  if(!wo){ toast("Nicht generierbar — manuell aus Plan-Text bauen"); return; }
+  const rows=[];
+  wo.steps.forEach(s=>stepRows(s, "").forEach(r=>rows.push(r)));
+
+  const rowHtml = r => {
+    if(r.type==="rep") return `<div style="margin:14px 0 6px;padding:8px 12px;background:rgba(225,86,79,.08);border-left:3px solid var(--accent);border-radius:0 8px 8px 0">
+      <b style="font-size:.9rem">${r.label}</b>
+      <div class="tiny" style="margin-top:2px">${r.value} · die folgenden Sub-Schritte werden wiederholt</div></div>`;
+    if(r.type==="endrep") return `<div style="margin:6px 0 14px;padding:6px 12px;background:rgba(225,86,79,.04);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;font-size:.78rem" class="muted">Ende der Wiederholung — wieder „+ Schritt hinzufügen"</div>`;
+    return `<div style="margin:10px 0;padding:12px;border:1px solid var(--line);border-radius:10px">
+      <b style="font-size:.9rem;display:block;margin-bottom:6px">${r.name}</b>
+      <table style="margin:0;font-size:.82rem;width:100%"><tbody>
+      ${r.fields.map(f=>`<tr><td style="padding:3px 0;color:var(--mut);width:38%">${f.label}</td><td style="padding:3px 0"><b>${f.value}</b></td></tr>`).join("")}
+      </tbody></table></div>`;
+  };
+
+  sheet(`<h2>📋 Garmin Workout-Builder</h2>
+    <div class="sub" style="margin:-4px 0 4px">${c.title} · W${w} · ${c.det}</div>
+    <div class="tiny muted" style="margin-bottom:14px">Tippe die Schritte unten exakt so in Garmin Connect → Workouts → „Workout erstellen" ein. Funktioniert sowohl in der Garmin-Connect-App auf dem iPhone als auch im Browser auf connect.garmin.com.</div>
+
+    <div class="card" style="background:rgba(225,86,79,.06);border-color:var(--accent);margin-bottom:14px">
+      <h3 style="font-size:.85rem;margin:0 0 8px">Vorab in Garmin Connect</h3>
+      <div style="font-size:.82rem;line-height:1.6">
+        1. <b>Training → Workouts → „Workout erstellen"</b><br>
+        2. Sport-Typ: <b>Laufen</b><br>
+        3. Workout-Name: <b style="color:var(--accent)">${wo.name}</b>
+      </div>
+    </div>
+
+    <h3 style="font-size:.85rem;margin:14px 0 6px">Schritte (in dieser Reihenfolge)</h3>
+    ${rows.map(rowHtml).join("")}
+
+    <div class="card" style="background:var(--card2);margin-top:14px">
+      <div class="tiny">💡 <b>Tipp</b>: nach dem Speichern den Workout im <b>Kalender</b> auf den richtigen Tag (${DOWL[RUNS.find(r=>r.slot===slot).day]}) ziehen — dann zeigt die Uhr ihn am Tag automatisch unter „Heutiger Workout" an.</div>
+    </div>
+
+    <div class="acts" style="margin-top:18px"><button class="btn-p" style="flex:1" onclick="closeModal()">Verstanden</button></div>`);
 }
 
 /* ============ COACHING-ENGINE: TRIMP, ATL/CTL/TSB, Zonen, Drift ============ */
@@ -1509,13 +1574,12 @@ function garminCard(w){
   const LABELS={di:"Qualität", do:"GA1", fr:"Recovery", so:"LongRun"};
   const rows=RUNS.map(R=>{
     if(runIsRest(w,R.slot)) return null;
-    const dt=dateOf(w,effDay(w,R.slot));
     const c=runContent(w,R.slot);
     const dn=DOW[effDay(w,R.slot)];
-    return `<div class="between" style="padding:8px 0;border-bottom:1px solid var(--line);gap:8px">
-      <div style="flex:1;min-width:0"><b style="font-size:.85rem">${dn} · ${LABELS[R.slot]}</b>
-      <div class="tiny muted">${c.det.slice(0,40)}${c.det.length>40?"…":""}</div></div>
-      <button class="btn-sm btn-gh" style="padding:5px 9px" onclick="exportSingleGarmin(${w},'${R.slot}')" title="Einzeln laden">⬇</button></div>`;
+    return `<div class="between" style="padding:10px 0;border-bottom:1px solid var(--line);gap:10px">
+      <div style="flex:1;min-width:0"><b style="font-size:.88rem">${dn} · ${LABELS[R.slot]}</b>
+      <div class="tiny muted" style="margin-top:2px">${c.det.slice(0,50)}${c.det.length>50?"…":""}</div></div>
+      <button class="btn-sm btn-p" style="padding:6px 12px" onclick="openGarminInstructions(${w},'${R.slot}')">📋</button></div>`;
   }).filter(Boolean).join("");
   return `<details class="card" style="padding:0">
     <summary style="cursor:pointer;padding:14px 16px;list-style:none;display:flex;align-items:center;justify-content:space-between">
@@ -1525,9 +1589,7 @@ function garminCard(w){
     </summary>
     <div style="padding:0 16px 14px">
       ${rows}
-      <button class="btn-p" style="width:100%;margin-top:12px" onclick="exportWeekGarmin(${w})">📦 Alle 4 als ZIP herunterladen</button>
-      <div class="tiny muted" style="margin-top:10px">In Garmin Connect → Workouts → Importieren → ZIP entpacken + .tcx-Dateien wählen. Anleitung in Mehr → ⌚ Garmin-Setup.</div>
-      ${w>1?`<div class="tiny muted" style="margin-top:6px">💡 Letzte Woche aufräumen: Workouts mit Präfix <code>W${w-1}-</code> in Garmin Connect löschen (alphabetisch sortiert → schnell).</div>`:""}
+      <div class="tiny muted" style="margin-top:12px">Auf 📋 tippen → Schritt-für-Schritt Anleitung. Du tippst die Workouts in <b>Garmin Connect → Training → Workouts → „Workout erstellen"</b> ein.</div>
     </div>
   </details>`;
 }
@@ -2059,36 +2121,47 @@ function viewMehr(){
     <details class="card" style="padding:0">
       <summary style="cursor:pointer;padding:14px 16px;list-style:none;display:flex;align-items:center;justify-content:space-between">
         <div><b style="font-size:.95rem">⌚ Garmin-Setup</b>
-          <div class="tiny muted" style="margin-top:2px">Einmalig: wie kommen die Workouts auf die Uhr</div></div>
+          <div class="tiny muted" style="margin-top:2px">Workouts manuell anlegen — Anleitung kommt aus der App</div></div>
         <span style="color:var(--mut)">▾</span>
       </summary>
       <div style="padding:0 16px 16px;font-size:.85rem;line-height:1.5">
-        <h3 style="font-size:.9rem;margin:8px 0 6px">Der Wochen-Rhythmus</h3>
+        <h3 style="font-size:.9rem;margin:8px 0 6px">Hintergrund</h3>
+        <p>Garmin Connect erlaubt aktuell <b>keinen direkten Import</b> von Workout-Dateien (TCX/FIT) — nur Aktivitäten im Nachhinein. Die Lösung: Workouts manuell im Garmin-Workout-Builder anlegen. Die SUB4-App generiert dir die exakten Schritte zum Abtippen.</p>
+
+        <h3 style="font-size:.9rem;margin:14px 0 6px">Wochen-Rhythmus</h3>
         <ol style="margin:0 0 10px 18px">
           <li><b>Sonntag 19:00</b> → Push-Nachricht „Neue Woche · Garmin-Workouts"</li>
           <li>Auf Push tippen → App → <b>⌚ Garmin · Wn</b>-Karte auf Heute aufklappen</li>
-          <li><b>📦 Alle 4 als ZIP herunterladen</b> tippen → Datei <code>SUB4-Wn-Garmin.zip</code> landet in Downloads</li>
-          <li>ZIP entpacken (iOS: Finger drauf → „Inhalte freilegen") → 4 .tcx-Dateien</li>
-          <li><b>Garmin Connect-App öffnen</b> → unten Mitte „+" → Training → Workouts → oben rechts „+" → Importieren → die 4 .tcx-Dateien wählen</li>
-          <li>Workouts erscheinen mit Namen wie <code>W4 DI — Qualität</code>. Per Drag&Drop in den Kalender ziehen auf den passenden Tag.</li>
-          <li>Uhr synchronisiert beim nächsten Verbinden automatisch.</li>
+          <li>Pro Workout (4 Stück): <b>📋</b> antippen → Anleitung erscheint</li>
+          <li>In Garmin Connect (Web oder App) den Workout-Builder öffnen, Felder genau so eintippen</li>
+          <li>Workout speichern → automatisch auf die Uhr synchronisiert</li>
+          <li>Im Garmin-Kalender den Workout auf den richtigen Tag legen (Drag&Drop oder Auswahl)</li>
         </ol>
-        <h3 style="font-size:.9rem;margin:14px 0 6px">Beim Lauf auf der Uhr</h3>
+
+        <h3 style="font-size:.9rem;margin:14px 0 6px">Garmin-Workout-Builder finden</h3>
+        <p><b>Web (am bequemsten bei 4 Workouts):</b><br>
+        connect.garmin.com → linke Sidebar <b>„Training" → „Workouts"</b> → rechts oben <b>„Workout erstellen"</b></p>
+        <p><b>iPhone-App:</b><br>
+        unten Mitte <b>„+"</b> → <b>„Training"</b> → <b>„Workouts"</b> → oben rechts <b>„+"</b> → Sport <b>Laufen</b> wählen</p>
+
+        <h3 style="font-size:.9rem;margin:14px 0 6px">Beim Lauf</h3>
         <ul style="margin:0 0 10px 18px">
-          <li>Workout-Menü auf der Uhr öffnen → richtigen Workout wählen → Start</li>
-          <li>Uhr führt dich Schritt für Schritt durch — bei „Einlaufen" (offen) drückst du <b>Lap-Knopf</b> wenn du in den ersten Intervall willst</li>
-          <li>Trabpausen laufen automatisch ab nach Zeit</li>
-          <li>Intervalle: feste Distanz mit Ziel-Pace-Anzeige (Vibration wenn zu schnell/langsam)</li>
+          <li>Uhr: Lauf starten → vor dem Start <b>„Workout wählen"</b> → den passenden auswählen</li>
+          <li>Falls vorher im Kalender platziert: erscheint automatisch unter <b>„Heutiger Workout"</b></li>
+          <li>Uhr führt durch jeden Schritt mit Vibration + Pace/HF-Vorgabe</li>
+          <li>Bei „Einlaufen Z1" (offen): Lap-Knopf drücken wenn du in den nächsten Schritt willst</li>
         </ul>
-        <h3 style="font-size:.9rem;margin:14px 0 6px">Letzte Woche aufräumen</h3>
-        <p>Nach dem Sonntag immer die Vor-Woche löschen: in Garmin Connect → Workouts → nach <code>W{Vorwoche}-</code> filtern oder alphabetisch ans Ende scrollen → die 4 löschen.</p>
-        <p>Dauert <30 Sekunden, hält die Liste übersichtlich.</p>
-        <h3 style="font-size:.9rem;margin:14px 0 6px">Anpassungen</h3>
+
+        <h3 style="font-size:.9rem;margin:14px 0 6px">Konventionen</h3>
         <ul style="margin:0 0 10px 18px">
-          <li><b>Intervalle</b> haben offenes Ein-/Auslaufen — du entscheidest wann's losgeht (Lap-Knopf)</li>
-          <li><b>Tempo-DL</b> hat <i>kein</i> Ein-/Auslaufen, nur den Tempo-Block — das machst du frei davor/danach</li>
-          <li><b>Long Runs mit MP-Block</b>: Z2-Anfang → MP-Block → ggf. Z2-Ende, festgelegte Distanzen</li>
+          <li><b>Intervalle</b>: offenes Ein-/Auslaufen (Lap-Knopf), feste Intervall-Distanzen mit Pace-Ziel, Trabpausen nach Zeit</li>
+          <li><b>Tempo-DL</b>: nur der Tempo-Block, kein Ein-/Auslaufen (machst du frei davor/danach)</li>
+          <li><b>Long Run mit MP-Block</b>: Z2-Anfang → MP-Block → ggf. Z2-Ende, alle mit festen Distanzen</li>
+          <li><b>GA1 / Recovery / Long Run pur</b>: eine Strecke + HF-Zone</li>
         </ul>
+
+        <h3 style="font-size:.9rem;margin:14px 0 6px">Aufräumen</h3>
+        <p>Nach jeder Woche die 4 abgelaufenen Workouts in Garmin Connect löschen (Liste alphabetisch sortiert nach <code>W..</code> — leicht zu finden). Hält die Workout-Bibliothek übersichtlich.</p>
       </div>
     </details>
     <div class="card"><div class="between" style="margin-bottom:6px"><h2 style="margin:0">Freie Einheiten verwalten</h2></div>
