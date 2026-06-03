@@ -12,6 +12,6 @@ id = "58d56ea346184a80ae466a84509eefc8"
 VAPID_PUBLIC = "BOxhwsmGSntoJZ5sR0NNjjePiVFAAYyxfZHAEouIQI94p1NlkvS3dQWqJy-ok14BKLPohOkUS5IhKTE0kkNVPJo"
 VAPID_SUBJECT = "https://jduscher-netizen.github.io/marathon-koeln-2026/"
 
-# Crons: täglich 5:00 UTC = 7:00 MESZ Trainings-Reminder; Sonntag 17:00 UTC = 19:00 MESZ Garmin-Sync-Reminder
+# Cron: täglich 5:00 UTC = 7:00 MESZ Trainings-Reminder
 [triggers]
-crons = ["0 5 * * *", "0 17 * * SUN"]
+crons = ["0 5 * * *"]

@@ -60,12 +60,7 @@ export default {
     const subs = await listSubs(env);
     if (!subs.length) { console.log('[scheduled] no subs'); return; }
 
-    let payload;
-    if (/^0\s+17\s+\*\s+\*\s+(0|7|SUN)$/i.test(controller.cron || '')) {
-      payload = sundayGarminReminderPayload(new Date());
-    } else {
-      payload = todaysPayload(new Date());
-    }
+    const payload = todaysPayload(new Date());
     if (!payload) { console.log('[scheduled] no payload'); return; }
     const result = await sendAll(env, subs, payload);
     console.log(`[scheduled] payload="${payload.title}" result=${JSON.stringify(result)}`);
@@ -112,21 +107,6 @@ async function sendAll(env, subs, payload) {
     }
   }
   return { sent, failed, removed, errors };
-}
-
-// Sonntag-Abend-Reminder: Garmin-Workouts der KOMMENDEN Woche holen
-function sundayGarminReminderPayload(date) {
-  const today = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
-  const dayIdx = Math.floor((today - PLAN_START) / 86400000);
-  if (dayIdx < -1 || dayIdx >= 21*7) return null;
-  // Sonntag-Abend → kommende Woche = aktueller Tag + 1 Tag → Wochen-Index
-  const nextW = Math.floor((dayIdx + 1) / 7);
-  if (nextW < 0 || nextW >= 21) return null;
-  return {
-    title: `⌚ Neue Woche · Garmin-Workouts`,
-    body: `W${nextW+1} startet morgen — 4 Workouts in der App abholen und nach Garmin Connect ziehen.`,
-    url: 'https://jduscher-netizen.github.io/marathon-koeln-2026/'
-  };
 }
 
 function todaysPayload(date) {
