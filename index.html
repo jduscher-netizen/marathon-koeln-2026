@@ -1021,12 +1021,105 @@ function computeDetails(pts){
     return best===Infinity?null:{pace:Math.round(bestSec/(windowM/1000)), sec:Math.round(bestSec)};
   }
 
+  // Downsampled Kurve für Flächen-Charts (~110 Punkte, gleitendes Pace-Fenster)
+  const CN=Math.min(110, Math.max(20, Math.floor(pts.length/3)));
+  const curve=[];
+  const stepM=totalM/CN;
+  let ci=0;
+  for(let i=1;i<=CN;i++){
+    const targetM=i*stepM;
+    while(ci<pts.length-1 && pts[ci].cumM<targetM) ci++;
+    let cj=ci;
+    while(cj>0 && pts[ci].cumM-pts[cj].cumM<stepM*0.8) cj--;
+    const dm=pts[ci].cumM-pts[cj].cumM, dts=(pts[ci].t-pts[cj].t)/1000;
+    const p=dm>5 ? dts/(dm/1000) : null;
+    curve.push({ m:Math.round(pts[ci].cumM), pace:p?Math.round(p):null, hr:pts[ci].hr||null });
+  }
+
   return {
-    splits, zones,
+    splits, zones, curve,
     hr1:h1?.hr||null, hr2:h2?.hr||null, pace1:h1?.pace||null, pace2:h2?.pace||null,
     best1k:bestFor(1000), best5k:bestFor(5000), best10k:bestFor(10000),
     totalM:Math.round(totalM), totalSec:Math.round(totalSec)
   };
+}
+
+/* ============ STRAVA-STYLE CHART HELPERS ============ */
+// Flächen-Chart: Pace (invertiert — schneller = höher) oder HF
+function svgAreaChart(curve, key, opts={}){
+  const data=curve.filter(c=>c[key]!=null && isFinite(c[key]));
+  if(data.length<5) return "";
+  const W=340, H=120, padL=34, padB=18, padT=6;
+  let vals=data.map(d=>d[key]);
+  // Pace: Ausreißer clampen (Stehenbleiben etc.)
+  if(key==="pace"){
+    const med=[...vals].sort((a,b)=>a-b)[Math.floor(vals.length/2)];
+    vals=vals.map(v=>Math.min(v, med*1.8));
+  }
+  const mn=Math.min(...vals), mx=Math.max(...vals);
+  const rg=(mx-mn)||1;
+  const inv=key==="pace"; // schnell = oben
+  const X=i=>padL+(data[i].m/(data[data.length-1].m))*(W-padL-6);
+  const Y=v=>{ const t=(v-mn)/rg; return padT+(inv?t:(1-t))*(H-padT-padB); };
+  let path=`M${X(0).toFixed(1)} ${Y(vals[0]).toFixed(1)}`;
+  for(let i=1;i<data.length;i++) path+=` L${X(i).toFixed(1)} ${Y(vals[i]).toFixed(1)}`;
+  const area=path+` L${X(data.length-1).toFixed(1)} ${H-padB} L${X(0).toFixed(1)} ${H-padB} Z`;
+  const col=opts.color||"var(--accent)";
+  // y-Achse: 3 Ticks
+  const ticks=[mn, mn+rg/2, mx].map(v=>({v, y:Y(v)}));
+  const fmtTick=v=> key==="pace" ? paceFmt(Math.round(v)) : Math.round(v);
+  // x-Achse: km-Marken
+  const totKm=data[data.length-1].m/1000;
+  const kmStep=totKm>20?5:(totKm>8?2:1);
+  let xticks="";
+  for(let k=kmStep;k<totKm;k+=kmStep){
+    const x=padL+(k*1000/data[data.length-1].m)*(W-padL-6);
+    xticks+=`<text x="${x.toFixed(0)}" y="${H-4}" font-size="8" fill="var(--mut)" text-anchor="middle">${k}km</text>`;
+  }
+  return `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block">
+    ${ticks.map(t=>`<line x1="${padL}" y1="${t.y.toFixed(1)}" x2="${W-4}" y2="${t.y.toFixed(1)}" stroke="var(--line)" stroke-width="0.5"/>
+      <text x="${padL-4}" y="${(t.y+3).toFixed(1)}" font-size="8" fill="var(--mut)" text-anchor="end">${fmtTick(t.v)}</text>`).join("")}
+    <path d="${area}" fill="${col}" fill-opacity="0.25"/>
+    <path d="${path}" fill="none" stroke="${col}" stroke-width="1.8"/>
+    ${xticks}
+  </svg>`;
+}
+// Horizontale Zonen-Balken (Strava-Style: Z5 oben, % + Bereich rechts)
+function zoneBarsHtml(zones){
+  const tot=Object.values(zones).reduce((a,b)=>a+(b||0),0);
+  if(!tot) return "";
+  const colors={z1:"#f0a8a3",z2:"#e8837b",z3:"#e1564f",z4:"#c93a32",z5:"#a02218"};
+  const ranges={z1:`< ${HR_Z[0]} bpm`,z2:`${HR_Z[0]}–${HR_Z[1]-1} bpm`,z3:`${HR_Z[1]}–${HR_Z[2]-1} bpm`,z4:`${HR_Z[2]}–${HR_Z[3]-1} bpm`,z5:`> ${HR_Z[3]-1} bpm`};
+  const maxPct=Math.max(...["z1","z2","z3","z4","z5"].map(k=>(zones[k]||0)/tot));
+  return ["z5","z4","z3","z2","z1"].map(k=>{
+    const pct=(zones[k]||0)/tot*100;
+    const w=maxPct>0 ? (pct/100)/maxPct*100 : 0;
+    return `<div style="display:flex;align-items:center;gap:10px;margin:7px 0">
+      <span style="width:24px;font-weight:800;font-size:.8rem">${k.toUpperCase()}</span>
+      <div style="flex:1;display:flex;align-items:center;gap:8px">
+        <div style="height:20px;border-radius:4px;background:${colors[k]};width:${Math.max(2,w).toFixed(1)}%"></div>
+        <b style="font-size:.82rem;white-space:nowrap">${pct.toFixed(0)} %</b>
+      </div>
+      <span class="tiny muted" style="text-align:right;min-width:86px">${ranges[k]}</span>
+    </div>`;
+  }).join("");
+}
+// Intelligence-Box (Strava-Style Insight)
+function intelBox(text){
+  if(!text) return "";
+  return `<div style="border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin:12px 0;background:var(--card2)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="width:22px;height:22px;border-radius:6px;background:var(--accent);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:.75rem;font-weight:800">⚡</span>
+      <b style="font-size:.8rem">Coach Intelligence</b>
+    </div>
+    <div style="font-size:.95rem;line-height:1.45">${text}</div>
+  </div>`;
+}
+// Stat-Zeile (Strava-Style: Label links, Wert rechts groß)
+function statRow(label, value){
+  return `<div class="between" style="padding:10px 0;border-bottom:1px solid var(--line)">
+    <span style="font-size:.9rem;color:var(--mut)">${label}</span>
+    <b style="font-size:1.05rem">${value}</b></div>`;
 }
 
 // → {dist (km), sec, hr (avg bpm|null), date (Date|null), kind:'run'|'ride', details?:object} | null
@@ -1587,34 +1680,145 @@ function viewTrack(){
 /* ============ VIEW: STATS ============ */
 function viewStats(){
   const runs=runLogs();
-  return `<div class="wrap"><h1 style="margin-bottom:16px">Analyse</h1>
-    ${cardPrognose(runs)}${cardVolume()}${cardLongRun()}${cardHR(runs)}
+  return `<div class="wrap"><h1 style="margin-bottom:16px">Analyse <span class="sub">Plan vs. Realität · Köln 04.10.2026</span></h1>
+    ${cardPrognose(runs)}
+    ${cardForm()}
+    ${cardZonesTotal()}
+    ${cardVolume()}
+    ${cardLongRun()}
+    ${cardHR(runs)}
     ${cardActivities()}${cardRad()}${cardWeight()}${redFlagsBlock(false)}</div>`;
 }
+// Prognose pro Lauf (gewichtet: längere Läufe sind verlässlicher).
+// Quality-Läufe (Intervalle mit Pausen) verzerren Riegel → stattdessen deren besten 5k-Effort nutzen.
+function predictionSeries(runs){
+  const out=[];
+  runs.forEach(r=>{
+    if(r.kind==="quality"){
+      if(r.details?.best5k?.sec){
+        out.push({ date:r.date, dist:5, pred: r.details.best5k.sec*Math.pow(42.195/5,1.06), src:"5k-Effort" });
+      }
+      return;
+    }
+    if(r.dist>=8) out.push({ date:r.date, dist:r.dist, pred: r.sec*Math.pow(42.195/r.dist,1.06), src:"Lauf" });
+  });
+  return out;
+}
 function cardPrognose(runs){
-  const cand=runs.filter(r=>r.dist>=12);
-  let src=cand.length?cand[cand.length-1]:runs.filter(r=>r.dist>=8).slice(-1)[0]||runs.slice(-1)[0];
-  if(!src) return `<div class="card"><h2>Sub-4:00 Prognose</h2><div class="sub">Noch kein Lauf ≥ 8 km erfasst — Prognose folgt nach den ersten Einheiten.</div></div>`;
-  const pred=src.sec*Math.pow(42.195/src.dist,1.06), diff=pred-GOAL_SEC, onTrack=diff<=0, predPace=pred/42.195;
-  const maxLR=Math.max(0,...runs.filter(r=>r.kind==="long").map(r=>r.dist));
-  const lrScore=Math.min(1,maxLR/32), timeScore=Math.max(0,Math.min(1,1-diff/(40*60)));
-  const score=Math.round((0.55*timeScore+0.45*lrScore)*100);
-  const lbl=score>=80?"Auf Kurs":score>=55?"Knapp dran":"Hinterher";
-  const col=score>=80?"var(--good)":score>=55?"var(--warn)":"var(--bad)";
-  const deg=(score/100)*180;
-  return `<div class="card"><h2>Sub-4:00 Prognose</h2>
-    <div class="grid2">
-      <div class="stat"><div class="v">${hms(pred)}</div><div class="l">Prognose Finish</div>
-        <div class="d" style="color:${onTrack?'var(--good)':'var(--bad)'}">${onTrack?"▼ "+hms(-diff)+" unter Ziel":"▲ "+hms(diff)+" über Ziel"}</div></div>
-      <div class="stat"><div class="v">${pace(predPace)}</div><div class="l">Prog. Pace /km</div><div class="d muted">Ziel-MP ${pace(MP_SEC)}</div></div></div>
-    <div class="center" style="margin:18px 0 4px">
-      <svg width="170" height="100" viewBox="0 0 170 100">
-        <path d="M15 90 A70 70 0 0 1 155 90" fill="none" stroke="var(--card2)" stroke-width="13" stroke-linecap="round"/>
-        <path d="M15 90 A70 70 0 0 1 155 90" fill="none" stroke="${col}" stroke-width="13" stroke-linecap="round" stroke-dasharray="${(deg/180)*220} 999"/>
-        <text x="85" y="78" text-anchor="middle" fill="${col}" font-size="30" font-weight="800">${score}</text>
-        <text x="85" y="95" text-anchor="middle" fill="var(--mut)" font-size="11">Readiness</text></svg>
-      <div style="color:${col};font-weight:700;margin-top:-4px">${lbl}</div></div>
-    <div class="tiny muted center">Basis: ${src.dist} km am ${fmtD(src.date)} · ${pace(src.pace)}/km (Riegel). Long Run max ${maxLR} / 32 km.</div></div>`;
+  const series=predictionSeries(runs);
+  if(!series.length) return `<div class="card"><h2>🏁 Marathon-Vorhersage</h2><div class="sub">Noch kein Lauf ≥ 8 km erfasst — Vorhersage folgt nach den ersten Einheiten.</div></div>`;
+  // Gewichteter aktueller Stand: Ø der letzten 3 Vorhersagen, längere Läufe doppelt
+  const recent=series.slice(-3);
+  const wsum=recent.reduce((a,s)=>a+(s.dist>=15?2:1),0);
+  const pred=recent.reduce((a,s)=>a+s.pred*(s.dist>=15?2:1),0)/wsum;
+  const diff=pred-GOAL_SEC, onTrack=diff<=0;
+  // Delta: letzte Einzel-Vorhersage vs vorherige
+  let deltaHtml="";
+  if(series.length>=2){
+    const d=Math.round(series[series.length-1].pred - series[series.length-2].pred);
+    const better=d<0;
+    deltaHtml=`<div style="display:inline-flex;align-items:center;gap:5px;background:${better?'rgba(57,182,122,.15)':'rgba(224,168,59,.15)'};color:${better?'var(--good)':'var(--warn)'};padding:5px 12px;border-radius:8px;font-weight:800;font-size:.95rem">
+      ${better?"▼":"▲"} ${Math.abs(d)}s</div>`;
+  }
+  // Trend-Sparkline mit Ziellinie
+  let spark="";
+  if(series.length>=2){
+    const W=340,H=90,p=8;
+    const vals=series.map(s=>s.pred);
+    const mn=Math.min(...vals,GOAL_SEC)-300, mx=Math.max(...vals,GOAL_SEC)+300, rg=mx-mn||1;
+    const X=i=>p+i*((W-2*p)/(series.length-1));
+    const Y=v=>p+(1-( (mx-v)/rg ))*(H-2*p); // schneller (kleiner) = oben → invertiert
+    const Yi=v=>p+((v-mn)/rg)*(H-2*p);
+    const line=vals.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Yi(v).toFixed(1)).join(" ");
+    const gy=Yi(GOAL_SEC);
+    spark=`<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="margin:10px 0 4px">
+      <line x1="0" y1="${gy.toFixed(1)}" x2="${W}" y2="${gy.toFixed(1)}" stroke="var(--good)" stroke-width="1.2" stroke-dasharray="5 4"/>
+      <text x="${W-4}" y="${(gy-4).toFixed(1)}" font-size="9" fill="var(--good)" text-anchor="end">Ziel 4:00</text>
+      <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      ${vals.map((v,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Yi(v).toFixed(1)}" r="3" fill="var(--accent)"/>`).join("")}
+    </svg>`;
+  }
+  const last=series[series.length-1];
+  return `<div class="card"><h2>🏁 Marathon-Vorhersage</h2>
+    <div style="display:flex;align-items:center;gap:16px;margin:10px 0 4px">
+      <div style="width:62px;height:62px;border:3px solid var(--accent);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 0 auto">
+        <b style="font-size:.95rem;color:var(--accent)">42,2</b><span class="tiny" style="color:var(--accent);font-weight:700">KM</span></div>
+      <div style="flex:1">
+        <div class="tiny muted">Zeit</div>
+        <b style="font-size:1.7rem;letter-spacing:-.5px">${hms(Math.round(pred))}</b>
+        <div class="tiny" style="color:${onTrack?'var(--good)':'var(--warn)'};font-weight:700;margin-top:2px">${onTrack?hms(Math.round(-diff))+" unter Sub-4:00 ✓":hms(Math.round(diff))+" über Sub-4:00"}</div>
+      </div>
+      <div style="flex:0 0 auto"><div class="tiny muted" style="text-align:right;margin-bottom:3px">Letzter Lauf</div>${deltaHtml||'<span class="tiny muted">—</span>'}</div>
+    </div>
+    ${spark}
+    ${intelBox(onTrack
+      ? `Hochrechnung aus deinen letzten ${recent.length} Läufen (Riegel-Formel, lange Läufe doppelt gewichtet) — du liegst aktuell im Sub-4:00-Korridor. Long Runs ab 25 km machen die Vorhersage deutlich belastbarer.`
+      : `Hochrechnung ${hms(Math.round(diff))} über Ziel. Kein Alarm in Base-Phase: Die Vorhersage fällt typischerweise mit wachsendem Long-Run-Volumen. Wichtigster Hebel: MP-Blöcke im Long Run sauber treffen.`)}
+    <div class="tiny muted">Basis: ${series.length} Läufe ≥ 8 km · zuletzt ${last.dist} km am ${fmtD(last.date)}</div>
+  </div>`;
+}
+// Form / Relative Belastung (Strava-Style Band)
+function cardForm(){
+  const s=loadSeries();
+  if(s.length<7) return "";
+  const f=s[s.length-1], fl=formLabel(f.tsb);
+  // Wochen-TRIMP aktuelle Woche vs 3-Wochen-Schnitt
+  const loc=locate(today()), cur=loc.week||1;
+  const weekTrimp=w=>{
+    let t=0;
+    RUNS.forEach(R=>{ const L=DB.logs[runId(w,R.slot)]; if(L?.sec) t+=trimpFor(L); });
+    return t;
+  };
+  const cw=weekTrimp(cur);
+  const prev=[cur-1,cur-2,cur-3].filter(w=>w>=1).map(weekTrimp);
+  const avg=prev.length?prev.reduce((a,b)=>a+b,0)/prev.length:0;
+  const rel= avg>0 ? cw/avg : 1;
+  const band = rel>1.25?"über":"in";
+  const pos=Math.max(4,Math.min(96, 50+ (avg>0 ? ((cw-avg)/avg)*60 : 0) ));
+  // TSB-Verlauf 28 Tage
+  const last28=s.slice(-28);
+  const W=340,H=80,p=6;
+  const vals=last28.map(d=>d.tsb);
+  const mn=Math.min(...vals,-5), mx=Math.max(...vals,5), rg=mx-mn||1;
+  const X=i=>p+i*((W-2*p)/(last28.length-1));
+  const Y=v=>p+(1-((v-mn)/rg))*(H-2*p);
+  const line=vals.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
+  const zero=Y(0);
+  return `<div class="card"><h2>⚡ Relative Belastung</h2>
+    <div class="between" style="margin:8px 0 4px"><span class="sub">Diese Woche</span><b style="font-size:1.5rem">${Math.round(cw)}</b></div>
+    <div class="tiny muted" style="margin-bottom:10px">${rel>1.4?"Deutlich über deinem 3-Wochen-Schnitt — bewusst dosieren.":rel>1.15?"Etwas über Schnitt — passt in Build-Phasen.":rel<0.6&&avg>0?"Deutlich unter Schnitt — Entlastung oder Auslassungen.":"Du hast deine Belastung gut im Griff."}</div>
+    <div style="position:relative;border-radius:10px;overflow:hidden">
+      <div style="background:#c93a32;color:#fff;padding:8px 12px;font-size:.78rem;font-weight:700">Überdurchschnittlich</div>
+      <div style="background:var(--accent);color:#fff;padding:8px 12px;font-size:.78rem;font-weight:700">Dein 3-Wochen-Schnitt (${Math.round(avg)})</div>
+      <div style="background:#e8a39e;color:#fff;padding:8px 12px;font-size:.78rem;font-weight:700">Unterdurchschnittlich</div>
+      <div style="position:absolute;right:14px;top:${(100-pos).toFixed(0)}%;transform:translateY(-50%);width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #333"></div>
+    </div>
+    <div style="margin-top:16px"><b style="font-size:.9rem">Form-Verlauf (28 Tage)</b>
+      <svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="margin-top:6px">
+        <line x1="0" y1="${zero.toFixed(1)}" x2="${W}" y2="${zero.toFixed(1)}" stroke="var(--line)" stroke-width="1" stroke-dasharray="4 3"/>
+        <path d="${line}" fill="none" stroke="${fl.color}" stroke-width="2"/>
+      </svg>
+      <div class="between"><span class="tiny muted">Form heute</span><b style="color:${fl.color}">${f.tsb>=0?"+":""}${Math.round(f.tsb)} · ${fl.label}</b></div>
+    </div>
+  </div>`;
+}
+// Zonen-Verteilung gesamt (letzte 14 Tage)
+function cardZonesTotal(){
+  const loc=locate(today()), cur=loc.week||1;
+  const sum={z1:0,z2:0,z3:0,z4:0,z5:0};
+  for(let w=Math.max(1,cur-1); w<=cur; w++){
+    const z=weekZoneSec(w); Object.keys(z).forEach(k=>sum[k]+=z[k]||0);
+  }
+  const tot=Object.values(sum).reduce((a,b)=>a+b,0);
+  if(tot<1200) return "";
+  const easy=(sum.z1+sum.z2)/tot*100, gray=sum.z3/tot*100, hard=(sum.z4+sum.z5)/tot*100;
+  return `<div class="card"><h2>📊 Trainings-Zonen (14 Tage)</h2>
+    <div class="tiny muted" style="margin-bottom:10px">Polarisiert-Ziel: ≥ 80 % locker (Z1+Z2) · &lt; 10 % Grauzone (Z3)</div>
+    ${zoneBarsHtml(sum)}
+    ${intelBox(gray>12
+      ? `Z3-Grauzone bei ${gray.toFixed(0)} % — über dem Soll. Easy-Läufe konsequenter unter HF 150 halten, dann wird die polarisierte Verteilung wieder sauber.`
+      : `${easy.toFixed(0)} % locker, ${hard.toFixed(0)} % hart — die polarisierte Verteilung stimmt. Genau so weiter.`)}
+  </div>`;
 }
 function cardVolume(){
   const loc=locate(today()), cur=loc.week||1, from=Math.max(1,cur-7);
@@ -1996,109 +2200,154 @@ function runVerdict(w,slot,L){
   if(!lines.length) lines.push("Lauf erledigt — für detaillierteres Verdict GPX/TCX importieren.");
   return lines;
 }
+// Kurze Insight-Sätze (Strava "Athlete Intelligence"-Stil)
+function paceInsight(L, det, kind){
+  const pace=L.sec/L.dist;
+  if(kind==="quality" && det?.splits?.length>=4){
+    // Intervall-Struktur erkennen: schnelle Splits vs Rest
+    const sorted=[...det.splits].sort((a,b)=>a.pace-b.pace);
+    const fastN=Math.max(2, Math.floor(det.splits.length/3));
+    const fastAvg=sorted.slice(0,fastN).reduce((a,s)=>a+s.pace,0)/fastN;
+    // Vergleich mit früheren Quality-Läufen
+    const prev=runLogs().filter(r=>r.kind==="quality" && r.id!==L.id && r.details?.splits?.length>=4);
+    let claim="";
+    if(prev.length){
+      const prevBest=Math.min(...prev.map(r=>{
+        const so=[...r.details.splits].sort((a,b)=>a.pace-b.pace);
+        const n=Math.max(2,Math.floor(r.details.splits.length/3));
+        return so.slice(0,n).reduce((a,s)=>a+s.pace,0)/n;
+      }));
+      if(fastAvg<prevBest) claim=" — deine schnellste Quality-Einheit bisher!";
+    }
+    return `Schnelle Abschnitte mit Ø ${paceFmt(Math.round(fastAvg))}/km${claim}`;
+  }
+  if(det?.best1k) return `Ø ${paceFmt(Math.round(pace))}/km — schnellster Kilometer ${paceFmt(det.best1k.pace)}/km`;
+  return `Ø ${paceFmt(Math.round(pace))}/km über ${L.dist} km`;
+}
+function hrInsight(L, det){
+  if(!L.hr) return null;
+  if(det?.zones){
+    const z=det.zones, tot=Object.values(z).reduce((a,b)=>a+(b||0),0);
+    if(tot>0){
+      const entries=["z1","z2","z3","z4","z5"].map(k=>({k,p:(z[k]||0)/tot*100})).sort((a,b)=>b.p-a.p);
+      const top=entries.slice(0,2).filter(e=>e.p>=15);
+      const maxHr=det.splits?.length?Math.max(...det.splits.map(s=>s.hr||0)):null;
+      const zoneTxt=top.map(e=>e.k.toUpperCase()).join("–")+" ("+top.map(e=>e.p.toFixed(0)+"%").join(" + ")+")";
+      return `Ø ${L.hr} bpm${maxHr?`, Max ${maxHr} bpm`:""} — überwiegend in ${zoneTxt}`;
+    }
+  }
+  return `Ø ${L.hr} bpm`;
+}
+function planInsight(L, c, kind){
+  const targetPace=parsePaceFromText(c.det);
+  const pace=L.sec/L.dist;
+  const kmMatch=c.det.match(/^(\d+(?:[.,]\d+)?)\s*km\b/i);
+  const planKm=kmMatch?parseFloat(kmMatch[1].replace(",",".")):null;
+  const parts=[];
+  if(targetPace){
+    const diff=Math.round(pace-targetPace);
+    if(Math.abs(diff)<=8) parts.push(`Pace im Plan-Soll (${paceFmt(targetPace)} ±8s) ✓`);
+    else if(diff<0) parts.push(`${-diff}s/km schneller als Plan-Soll — ${kind==="easy"||kind==="long"||kind==="recovery"?"zu schnell für die Zone, bewusst rausnehmen":"stark"}`);
+    else parts.push(`${diff}s/km langsamer als Soll — okay wenn HF im Zielbereich war`);
+  }
+  if(planKm && Math.abs(L.dist-planKm)>1) parts.push(`Distanz ${L.dist} statt ${planKm} km geplant`);
+  else if(planKm) parts.push(`Distanz wie geplant ✓`);
+  return parts.join(" · ");
+}
+
 function openRunAnalysis(w,slot){
   const id=runId(w,slot), L=DB.logs[id]; if(!L) return;
   const c=runContent(w,slot), R=RUNS.find(r=>r.slot===slot);
   const dt=dateOf(w,effDay(w,slot));
   const det=L.details;
   const verdict=runVerdict(w,slot,L);
-
-  // Summary tiles
   const pace=L.sec/L.dist;
-  const summary=`<div class="cd" style="margin-bottom:14px">
-    <div><b>${L.dist}</b><span>km</span></div>
-    <div><b>${hms(L.sec)}</b><span>Zeit</span></div>
-    <div><b>${paceFmt(pace)}</b><span>/km</span></div>
-    <div><b>${L.hr||"–"}</b><span>Ø HF</span></div></div>`;
 
-  // Halbzeit-Vergleich
-  let halvesHtml="";
-  if(det?.pace1 && det?.pace2){
-    const diff=det.pace2-det.pace1;
-    const drift=driftFor(L);
-    halvesHtml=`<h3 style="font-size:.85rem;margin:14px 0 8px">Halbzeit-Vergleich</h3>
-      <table><tr><th></th><th>Pace</th><th>Ø HF</th></tr>
-        <tr><td>1. Hälfte</td><td>${paceFmt(det.pace1)}</td><td>${det.hr1||"–"}</td></tr>
-        <tr><td>2. Hälfte</td><td>${paceFmt(det.pace2)}</td><td>${det.hr2||"–"}</td></tr>
-        <tr style="font-weight:700"><td>Differenz</td>
-          <td style="color:${Math.abs(diff)<8?'var(--good)':diff>0?'var(--warn)':'var(--good)'}">${diff>=0?"+":""}${diff}s</td>
-          <td style="color:${drift!=null&&drift<6?'var(--good)':'var(--warn)'}">${drift!=null?(drift>=0?"+":"")+drift.toFixed(1)+"%":"–"}</td></tr>
-      </table>
-      <div class="tiny muted" style="margin-top:4px">Decoupling = Effizienz-Drift Pace/HF zwischen den Hälften.</div>`;
+  const secTitle=(t)=>`<h3 style="font-size:1.05rem;font-weight:800;margin:22px 0 10px">${t}</h3>`;
+
+  // ---- Tempo-Sektion ----
+  let tempoHtml="";
+  if(det?.curve?.length){
+    tempoHtml=`${secTitle("Tempo")}
+      ${svgAreaChart(det.curve,"pace",{color:"var(--accent)"})}
+      ${intelBox(paceInsight(L,det,R.kind))}
+      ${statRow("Durchschn. Tempo", paceFmt(Math.round(pace))+" /km")}
+      ${det.best1k?statRow("Schnellster Kilometer", paceFmt(det.best1k.pace)+" /km"):""}
+      ${det.best5k?statRow("Beste 5 km", paceFmt(det.best5k.pace)+" /km"):""}
+      ${statRow("Bewegungszeit", hms(L.sec))}`;
+  } else {
+    tempoHtml=`${secTitle("Tempo")}
+      ${intelBox(paceInsight(L,det,R.kind))}
+      ${statRow("Durchschn. Tempo", paceFmt(Math.round(pace))+" /km")}
+      ${statRow("Bewegungszeit", hms(L.sec))}
+      ${statRow("Distanz", L.dist+" km")}`;
   }
 
-  // Zonen-Bar
-  let zonesHtml="";
-  if(det?.zones){
-    const z=det.zones, tot=Object.values(z).reduce((a,b)=>a+b,0);
-    if(tot>0){
-      const colors={z1:"#39b67a",z2:"#4f9be1",z3:"#e0a83b",z4:"#e1564f",z5:"#b3322c"};
-      const segs=["z1","z2","z3","z4","z5"].map(k=>{
-        const w=(z[k]||0)/tot*100;
-        return w>1?`<div style="width:${w}%;background:${colors[k]};display:flex;align-items:center;justify-content:center;color:#fff;font-size:.65rem;font-weight:700">${w.toFixed(0)}%</div>`:"";
-      }).join("");
-      const labels=["z1","z2","z3","z4","z5"].map(k=>{
-        const w=(z[k]||0)/tot*100;
-        return w>0?`<div style="display:flex;align-items:center;gap:6px;font-size:.72rem"><i style="display:inline-block;width:10px;height:10px;background:${colors[k]};border-radius:2px"></i>${k.toUpperCase()} ${Math.floor(z[k]/60)}:${String(Math.round(z[k]%60)).padStart(2,"0")}</div>`:"";
-      }).join("");
-      zonesHtml=`<h3 style="font-size:.85rem;margin:14px 0 6px">HF-Zonen-Verteilung</h3>
-        <div style="display:flex;height:24px;border-radius:6px;overflow:hidden">${segs}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px">${labels}</div>`;
+  // ---- Herzfrequenz-Sektion ----
+  let hrHtml="";
+  if(L.hr){
+    const maxHr=det?.splits?.length?Math.max(...det.splits.map(s=>s.hr||0)):null;
+    hrHtml=`${secTitle("Herzfrequenz")}
+      ${det?.curve?.length?svgAreaChart(det.curve,"hr",{color:"#c93a32"}):""}
+      ${intelBox(hrInsight(L,det))}
+      ${statRow("Durchschn. Herzfrequenz", L.hr+" bpm")}
+      ${maxHr?statRow("Max. Herzfrequenz", maxHr+" bpm"):""}`;
+    if(det?.zones && Object.values(det.zones).some(v=>v>0)){
+      hrHtml+=`<div style="margin-top:16px"><b style="font-size:.9rem">Herzfrequenz-Zonen</b>
+        <div class="tiny muted" style="margin:2px 0 10px">Basierend auf den Plan-Zonen (Z2 = 140–150 bpm GA1)</div>
+        ${zoneBarsHtml(det.zones)}</div>`;
     }
   }
 
-  // Beste Leistungen
-  let bestsHtml="";
-  if(det?.best1k || det?.best5k){
-    const cell=(b,d)=>b?`<div class="stat" style="padding:10px"><div class="v" style="font-size:1.05rem">${paceFmt(b.pace)}<span class="tiny"> /km</span></div><div class="l">Bester ${d}</div></div>`:"";
-    bestsHtml=`<h3 style="font-size:.85rem;margin:14px 0 6px">Bestleistungen im Lauf</h3>
-      <div class="grid2">${cell(det.best1k,"1k")}${cell(det.best5k,"5k")}</div>
-      ${det.best10k?`<div style="margin-top:8px">${cell(det.best10k,"10k").replace('grid2','')}</div>`:""}`;
+  // ---- Plan-Abgleich (unser USP) ----
+  const targetPace=parsePaceFromText(c.det);
+  let planHtml=`${secTitle("Plan-Abgleich")}
+    ${intelBox(planInsight(L,c,R.kind)||"Kein Pace-Soll im Plan hinterlegt.")}
+    ${statRow("Geplante Einheit", c.det.length>26?c.det.slice(0,26)+"…":c.det)}
+    ${targetPace?statRow("Soll-Pace", paceFmt(targetPace)+" /km"):""}
+    ${targetPace?statRow("Differenz", (pace-targetPace>=0?"+":"")+Math.round(pace-targetPace)+" s/km"):""}`;
+
+  // ---- Pacing (Hälften + Decoupling) ----
+  let pacingHtml="";
+  if(det?.pace1 && det?.pace2){
+    const diff=det.pace2-det.pace1;
+    const drift=driftFor(L);
+    pacingHtml=`${secTitle("Pacing")}
+      ${intelBox(diff<=0?`Negativer Split (${-diff}s/km schneller hinten) — sauber aufgebaut`:Math.abs(diff)<8?"Gleichmäßiges Pacing über beide Hälften":`Zweite Hälfte ${diff}s/km langsamer — Start war zu forsch`)}
+      ${statRow("1. Hälfte", paceFmt(det.pace1)+" /km · "+(det.hr1||"–")+" bpm")}
+      ${statRow("2. Hälfte", paceFmt(det.pace2)+" /km · "+(det.hr2||"–")+" bpm")}
+      ${drift!=null?statRow("Aerobes Decoupling", (drift>=0?"+":"")+drift.toFixed(1)+" %"):""}`;
   }
 
-  // Splits
+  // ---- Splits ----
   let splitsHtml="";
   if(det?.splits?.length){
     const maxPace=Math.max(...det.splits.map(s=>s.pace));
     const minPace=Math.min(...det.splits.map(s=>s.pace));
     const rng=maxPace-minPace||1;
-    splitsHtml=`<h3 style="font-size:.85rem;margin:14px 0 6px">Splits pro Kilometer</h3>
-      <div style="max-height:260px;overflow-y:auto;border:1px solid var(--line);border-radius:8px">
-      <table style="margin:0"><thead><tr><th style="padding-left:12px">km</th><th>Pace</th><th>HF</th><th style="width:50%">Vergleich</th></tr></thead><tbody>
+    splitsHtml=`${secTitle("Splits")}
+      <div style="max-height:280px;overflow-y:auto;border:1px solid var(--line);border-radius:12px">
+      <table style="margin:0"><thead><tr><th style="padding-left:12px">km</th><th>Pace</th><th>HF</th><th style="width:46%"></th></tr></thead><tbody>
       ${det.splits.map(s=>{
-        const w=((maxPace-s.pace)/rng)*100;
-        return `<tr><td style="padding-left:12px">${s.km}</td><td>${paceFmt(s.pace)}</td><td>${s.hr||"–"}</td>
-          <td><div style="height:8px;background:var(--card2);border-radius:4px;position:relative"><div style="position:absolute;left:0;top:0;height:100%;width:${w}%;background:var(--accent);border-radius:4px"></div></div></td></tr>`;
+        const bw=((maxPace-s.pace)/rng)*100;
+        return `<tr><td style="padding-left:12px">${s.km}</td><td><b>${paceFmt(s.pace)}</b></td><td>${s.hr||"–"}</td>
+          <td><div style="height:14px;background:var(--card2);border-radius:4px"><div style="height:100%;width:${Math.max(3,bw).toFixed(0)}%;background:var(--accent);border-radius:4px;opacity:.85"></div></div></td></tr>`;
       }).join("")}</tbody></table></div>`;
   }
 
-  // Plan-Soll-Vergleich
-  let planHtml="";
-  const targetPace=parsePaceFromText(c.det);
-  if(targetPace && pace){
-    const diff=pace-targetPace;
-    const col=Math.abs(diff)<10?"var(--good)":(diff<0?"var(--blue)":"var(--warn)");
-    planHtml=`<div class="card" style="background:var(--card2);margin:14px 0 0">
-      <div class="between"><span class="sub">Plan-Soll Pace</span><b>${paceFmt(targetPace)}/km</b></div>
-      <div class="between" style="margin-top:4px"><span class="sub">Differenz</span>
-        <b style="color:${col}">${diff>=0?"+":""}${Math.round(diff)}s/km</b></div>
-    </div>`;
-  }
-
   sheet(`<h2>${c.title}</h2>
-    <div class="sub" style="margin:-6px 0 12px">${fmtD(dt)} · W${w} · ${c.det}</div>
-    <div class="card" style="background:var(--accent);color:#fff;margin:0 0 14px">
+    <div class="sub" style="margin:-6px 0 14px">${fmtD(dt)} · W${w} · ${c.det}</div>
+    <div class="card" style="background:var(--accent);color:#fff;margin:0 0 6px">
       <h3 style="font-size:.78rem;margin:0 0 6px;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:1px">🎙️ Coach-Verdict</h3>
       ${verdict.map(l=>`<div style="font-size:.88rem;margin:4px 0;line-height:1.4">• ${l}</div>`).join("")}
     </div>
-    ${summary}
+    ${tempoHtml}
+    ${hrHtml}
     ${planHtml}
-    ${halvesHtml}
-    ${zonesHtml}
-    ${bestsHtml}
+    ${pacingHtml}
     ${splitsHtml}
-    ${!det?`<div class="card" style="margin-top:14px;background:var(--card2)"><div class="sub">Für Splits, Zonen, Bestleistungen und Drift einen GPX/TCX-Export aus Strava/Garmin in den Lauf importieren (📂 Aus Strava/Garmin-Datei füllen).</div></div>`:""}
-    <div class="acts" style="margin-top:18px"><button class="btn-p" style="flex:1" onclick="closeModal()">Schließen</button></div>`);
+    ${!det?`<div class="card" style="margin-top:16px;background:var(--card2)"><div class="sub">Charts, Zonen und Splits erscheinen automatisch, wenn der Lauf über Strava („Übernehmen") oder eine GPX/TCX-Datei importiert wurde.</div></div>`:""}
+    <div class="acts" style="margin-top:20px"><button class="btn-p" style="flex:1" onclick="closeModal()">Schließen</button></div>`);
 }
 function parsePaceFromText(txt){
   if(!txt) return null;
