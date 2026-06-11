@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#0a0a0e;          /* sattes Schwarz mit Blaustich */
@@ -36,7 +36,7 @@
     --r:20px;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-  html,body{background:var(--bg);color:var(--txt);font-family:'Outfit',-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;touch-action:manipulation;-webkit-text-size-adjust:100%;-webkit-user-select:none;user-select:none;overscroll-behavior-y:none}
+  html,body{background:var(--bg);color:var(--txt);font-family:'Archivo',-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;touch-action:manipulation;-webkit-text-size-adjust:100%;-webkit-user-select:none;user-select:none;overscroll-behavior-y:none}
   input,textarea{-webkit-user-select:text;user-select:text}
   body{padding-bottom:calc(74px + env(safe-area-inset-bottom))}
   .wrap{max-width:560px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top)) 16px 8px}
@@ -235,7 +235,7 @@ const WEEKS = [
  {w:18, dr:"07.09.–13.09.", ph:"Peak · Entlastung", km:48, lr:20, di:"4×1000m Z4 (4:50) Tp 2min + Ein/Aus", do:"10 km Z2 (5:55)", fr:"6 km Z1 (6:35)", so:"20 km Z2 (5:55)"},
  {w:19, dr:"14.09.–20.09.", ph:"Taper", km:50, lr:22, di:"6 km MP (5:40) + Ein/Aus", do:"12 km Z2 (5:55)", fr:"6 km Z1 (6:35)", so:"22 km · 8 km MP am Ende"},
  {w:20, dr:"21.09.–27.09.", ph:"Taper", km:38, lr:16, di:"4×1000m Z4 (4:55) Tp 2min + Ein/Aus", do:"10 km Z2 (6:00)", fr:"5 km Z1 (6:35)", so:"16 km · 4 km MP"},
- {w:21, dr:"28.09.–04.10.", ph:"Wettkampf", km:55, lr:42, di:"5 km Z2 + 4×100m Steigerungen", do:"6 km Z1 (6:30)", fr:"–", so:"🏁 04.10. MARATHON KÖLN"},
+ {w:21, dr:"28.09.–04.10.", ph:"Wettkampf", km:55, lr:42, di:"5 km Z2 + 4×100m Steigerungen", do:"6 km Z1 (6:30)", fr:"–", so:"04.10. MARATHON KÖLN"},
 ];
 
 const DOW = ["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -613,10 +613,10 @@ function stravaPendingBlock(){
   if(!p.length) return "";
   const fmt = d => { const x=new Date(d); return DOW[(x.getDay()+6)%7]+" "+String(x.getDate()).padStart(2,"0")+"."+String(x.getMonth()+1).padStart(2,"0")+". "+String(x.getHours()).padStart(2,"0")+":"+String(x.getMinutes()).padStart(2,"0"); };
   return `<div class="card" style="border-color:var(--accent)">
-    <div class="between" style="margin-bottom:8px"><h2 style="margin:0">🆕 Neue Strava-Aktivitäten</h2>
+    <div class="between" style="margin-bottom:8px"><h2 style="margin:0">Neue Strava-Aktivitäten</h2>
       <span class="pill run">${p.length}</span></div>
     ${p.map(a=>{ const isRide=/Ride/.test(a.type); return `<div class="between" style="padding:9px 0;border-bottom:1px solid var(--line);gap:8px">
-      <div style="flex:1;min-width:0"><b>${isRide?"🚴":"🏃"} ${(a.distance/1000).toFixed(1)} km</b>
+      <div style="flex:1;min-width:0"><b style="display:inline-flex;align-items:center;gap:6px">${ic(isRide?"bike":"activity",14)} ${(a.distance/1000).toFixed(1)} km</b>
       <div class="tiny muted">${fmt(a.start_date)} · ${hms(a.moving_time)}${a.average_heartrate?" · "+Math.round(a.average_heartrate)+" bpm":""}${a.name?" · "+a.name:""}</div></div>
       <button class="btn-sm btn-p" onclick="stravaImport(${a.id})">Übernehmen</button>
       <button class="btn-sm btn-gh" style="padding:6px 10px" onclick="stravaDismiss(${a.id})" title="Vorschlag entfernen">✕</button></div>`;}).join("")}
@@ -641,7 +641,7 @@ function cardRestore(){
   return `<div class="card"><h2>Auto-Backups</h2>
     <p class="sub" style="margin-bottom:6px">Lokal auf diesem Gerät — neueste oben. Tippe auf „Wiederherstellen" um zu diesem Stand zurückzukehren.</p>
     ${rows}
-    <div class="tiny muted" style="margin-top:10px">⚠ Wiederherstellen überschreibt den aktuellen Stand. Vorher exportieren empfohlen.</div>
+    <div class="tiny muted" style="margin-top:10px">Achtung: Wiederherstellen überschreibt den aktuellen Stand. Vorher exportieren empfohlen.</div>
   </div>`;
 }
 function restoreBackup(k){
@@ -728,18 +728,18 @@ async function pushTest(){
 function cardPush(){
   const c=pushCfg();
   if(!pushSupported()){
-    return `<div class="card"><h2>🔔 Push-Notifications</h2>
+    return `<div class="card"><h2>Push-Notifications</h2>
       <p class="sub">Dieser Browser unterstützt Web-Push nicht.<br>iOS: nur als PWA (vom Home-Bildschirm gestartet), ab iOS 16.4+.</p></div>`;
   }
   if(!c.workerUrl){
-    return `<div class="card"><h2>🔔 Push-Notifications</h2>
+    return `<div class="card"><h2>Push-Notifications</h2>
       <p class="sub" style="margin-bottom:10px">Täglicher Trainings-Reminder. Setup-Anleitung im Repo unter <code>worker/README.md</code> — am Ende bekommst du eine Worker-URL.</p>
       <label>Worker-URL</label>
       <input id="p_url" type="url" placeholder="https://marathon-koeln-push.<user>.workers.dev" autocomplete="off">
       <div class="acts" style="margin-top:14px"><button class="btn-p" style="flex:1" onclick="pushSaveUrl()">URL speichern</button></div></div>`;
   }
   const active=!!c.subscription;
-  return `<div class="card"><h2>🔔 Push-Notifications</h2>
+  return `<div class="card"><h2>Push-Notifications</h2>
     <div class="between"><span class="sub">Status</span><b style="color:${active?'var(--good)':'var(--mut)'}">${active?'✓ aktiv':'inaktiv'}</b></div>
     <div class="between" style="margin-top:4px"><span class="sub">Worker</span><span class="tiny">${c.workerUrl.replace(/^https:\/\//,'')}</span></div>
     <div class="acts" style="margin-top:14px">
@@ -754,7 +754,7 @@ function cardPush(){
 function cardStrava(){
   const c = sCfg();
   if(!stravaConnected()){
-    return `<div class="card"><h2>🏃 Strava verknüpfen</h2>
+    return `<div class="card"><h2>Strava verknüpfen</h2>
       <p class="sub" style="margin-bottom:10px">Apple Watch → Strava (läuft eh) → Marathon-App. Nach dem Setup tauchen neue Läufe und Fahrten beim App-Öffnen automatisch oben auf.</p>
       <details style="background:transparent;border:none;margin-bottom:6px"><summary>Setup-Anleitung (einmalig, ~5 Min)</summary><div class="dc" style="padding:8px 0">
         <ol style="margin-left:18px;line-height:1.7">
@@ -774,7 +774,7 @@ function cardStrava(){
     </div>`;
   }
   const lastFetch = c.lastFetch ? Math.max(0,Math.round((Date.now()-c.lastFetch)/60000)) : null;
-  return `<div class="card"><h2>🏃 Strava</h2>
+  return `<div class="card"><h2>Strava</h2>
     <div class="between"><span class="sub">Status</span><b style="color:var(--good)">✓ verbunden${c.athlete?` · ${c.athlete}`:""}</b></div>
     ${lastFetch!=null?`<div class="between" style="margin-top:4px"><span class="sub">Letzter Abruf</span><span class="tiny">vor ${lastFetch} min</span></div>`:""}
     <div class="between" style="margin-top:4px"><span class="sub">Offen zum Import</span><span class="tiny">${(c.pending||[]).length}</span></div>
@@ -1107,12 +1107,40 @@ function zoneBarsHtml(zones){
     </div>`;
   }).join("");
 }
+
+/* ============ SVG-ICONS (Feather-Style) ============ */
+const _IC={
+ zap:'<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="currentColor" stroke="none"/>',
+ "check-circle":'<path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="m9 11 3 3L22 4"/>',
+ "alert-triangle":'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+ "alert-octagon":'<polygon points="7.9 2 16.1 2 22 7.9 22 16.1 16.1 22 7.9 22 2 16.1 2 7.9 7.9 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+ chart:'<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+ heart:'<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/>',
+ target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+ bulb:'<path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.4 1 2.3v1h6v-1c0-.9.4-1.8 1-2.3A7 7 0 0 0 12 2z"/>',
+ moon:'<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+ flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
+ cloud:'<path d="M18 10h-1.3A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>',
+ bell:'<path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+ activity:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+ bike:'<circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5V14l-3-3 4-3 2 3h2"/>',
+ home:'<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+ calendar:'<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+ edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+ menu:'<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>',
+ folder:'<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>'
+};
+function ic(name,size=18){
+  const p=_IC[name]||_IC.zap;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex:0 0 auto">${p}</svg>`;
+}
+
 // Intelligence-Box (Strava-Style Insight)
 function intelBox(text){
   if(!text) return "";
   return `<div style="border:1px solid var(--line);border-radius:14px;padding:13px 14px;margin:12px 0;background:var(--card2)">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-      <span style="width:22px;height:22px;border-radius:6px;background:var(--accent);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:.75rem;font-weight:800">⚡</span>
+      <span style="width:22px;height:22px;border-radius:6px;background:var(--accent);display:inline-flex;align-items:center;justify-content:center;color:#fff">${ic("zap",13)}</span>
       <b style="font-size:.8rem">Coach Intelligence</b>
     </div>
     <div style="font-size:.95rem;line-height:1.45">${text}</div>
@@ -1225,9 +1253,9 @@ function matchRunSlot(date){
 
 /* ============ ROUTER ============ */
 let route="heute";
-const NAV=[{k:"heute",t:"Heute",i:"◎"},{k:"woche",t:"Woche",i:"▦"},{k:"track",t:"Tracken",i:"✎"},{k:"stats",t:"Analyse",i:"▲"},{k:"mehr",t:"Mehr",i:"☰"}];
+const NAV=[{k:"heute",t:"Heute",i:"home"},{k:"woche",t:"Woche",i:"calendar"},{k:"track",t:"Tracken",i:"edit"},{k:"stats",t:"Analyse",i:"chart"},{k:"mehr",t:"Mehr",i:"menu"}];
 function go(k){ route=k; render(); window.scrollTo(0,0); }
-function renderNav(){ document.getElementById("nav").innerHTML=NAV.map(n=>`<a href="#" onclick="go('${n.k}');return false" class="${route===n.k?'on':''}"><span class="ni">${n.i}</span>${n.t}</a>`).join(""); }
+function renderNav(){ document.getElementById("nav").innerHTML=NAV.map(n=>`<a href="#" onclick="go('${n.k}');return false" class="${route===n.k?'on':''}"><span class="ni">${ic(n.i,22)}</span>${n.t}</a>`).join(""); }
 
 /* ============ COMPONENTS ============ */
 function runCard(w,slot,big){
@@ -1241,7 +1269,7 @@ function runCard(w,slot,big){
     <div><b>${L.hr||"–"}</b><span>Ø HF</span></div></div>`; }
   return `<div class="card runcard${L?' logged':''}">
     <div class="row">
-      <div class="ico" style="background:${L?'rgba(57,182,122,.15)':'rgba(225,86,79,.15)'};color:${L?'var(--good)':'var(--accent)'};font-size:1.2rem">🏃</div>
+      <div class="ico" style="background:${L?'rgba(46,229,137,.13)':'rgba(255,94,62,.13)'};color:${L?'var(--good)':'var(--accent)'}">${ic("activity",20)}</div>
       <div style="flex:1;min-width:0">
         <div class="between"><b style="font-size:1rem">${c.title}</b>
           ${L?`<span class="pill done">✓</span>`:sk?`<span class="pill skip">übersprungen</span>`:`<span class="pill run">${DOWL[effDay(w,slot)]}</span>`}</div>
@@ -1250,7 +1278,7 @@ function runCard(w,slot,big){
     </div>${extra}
     <div class="acts">
       <button class="btn-p btn-sm" onclick="openRun(${w},'${slot}')">${L?"Bearbeiten":"Eintragen"}</button>
-      ${L?`<button class="btn-sm" onclick="openRunAnalysis(${w},'${slot}')">📊 Analyse</button>`:""}
+      ${L?`<button class="btn-sm" onclick="openRunAnalysis(${w},'${slot}')">Analyse</button>`:""}
       <button class="btn-sm" onclick="openPlanEdit(${w},'${slot}')">Plan ändern</button>
       <button class="btn-sm" onclick="openMove(${w},'${slot}')">Verschieben</button>
       ${!L?`<button class="btn-sm btn-gh" onclick="toggleSkip('${id}')">${sk?"Doch laufen":"Überspringen"}</button>`:""}
@@ -1299,7 +1327,7 @@ function briefingItems(){
   const form=currentForm(), fl=formLabel(form.tsb);
   const items=[];
 
-  items.push({ key:"form", icon:"⚡", main:`Form ${form.tsb>=0?"+":""}${Math.round(form.tsb)} — ${fl.label}`,
+  items.push({ key:"form", icon:"zap", main:`Form ${form.tsb>=0?"+":""}${Math.round(form.tsb)} — ${fl.label}`,
     sub:`Fitness ${Math.round(form.ctl)} · Müdigkeit ${Math.round(form.atl)}`, color:fl.color });
 
   if(w>1){
@@ -1308,24 +1336,24 @@ function briefingItems(){
     if(pn){
       const pct=Math.round(dn/pn*100);
       const col=pct>=90?"var(--good)":pct>=70?"var(--warn)":"var(--bad)";
-      items.push({ key:"compliance", icon:"✅", main:`Vorwoche ${dn}/${pn} Läufe (${pct}%)`, color:col, data:{pn,dn,pct} });
+      items.push({ key:"compliance", icon:"check-circle", main:`Vorwoche ${dn}/${pn} Läufe (${pct}%)`, color:col, data:{pn,dn,pct} });
     }
   }
 
   const zr=recentZoneRatio();
   if(zr && zr.total>1200){
-    if(zr.grayPct>12) items.push({ key:"zones", icon:"⚠️", main:`Z3-Grauzone ${zr.grayPct.toFixed(0)}% (Ziel <10%)`,
+    if(zr.grayPct>12) items.push({ key:"zones", icon:"alert-triangle", main:`Z3-Grauzone ${zr.grayPct.toFixed(0)}% (Ziel <10%)`,
       sub:"Easy-Läufe noch lockerer, Quality bewusster hart", color:"var(--warn)", data:zr });
-    else items.push({ key:"zones", icon:"📊", main:`Easy ${zr.easyPct.toFixed(0)}% · Hart ${zr.hardPct.toFixed(0)}%`,
+    else items.push({ key:"zones", icon:"chart", main:`Easy ${zr.easyPct.toFixed(0)}% · Hart ${zr.hardPct.toFixed(0)}%`,
       sub:"polarisiert sauber", color:"var(--good)", data:zr });
   }
 
   const lr=lastLongRunDrift();
   if(lr?.drift!=null){
     const dv=lr.drift;
-    if(dv>6) items.push({ key:"drift", icon:"💓", main:`Letzter LR Drift +${dv.toFixed(1)}%`,
+    if(dv>6) items.push({ key:"drift", icon:"heart", main:`Letzter LR Drift +${dv.toFixed(1)}%`,
       sub:"aerob noch nicht stabil — heute lockerer starten", color:"var(--warn)", data:lr });
-    else items.push({ key:"drift", icon:"💓", main:`Letzter LR Drift ${dv>=0?"+":""}${dv.toFixed(1)}%`,
+    else items.push({ key:"drift", icon:"heart", main:`Letzter LR Drift ${dv>=0?"+":""}${dv.toFixed(1)}%`,
       sub:"aerobe Stabilität gut", color:"var(--good)", data:lr });
   }
 
@@ -1334,11 +1362,11 @@ function briefingItems(){
   if(slot && !runIsRest(w,slot)){
     const c=runContent(w,slot);
     const kind=RUNS.find(r=>r.slot===slot).kind;
-    items.push({ key:"today", icon:"🎯", main:`Heute: ${c.title}`, sub:c.det, data:{c,kind,w,slot} });
+    items.push({ key:"today", icon:"target", main:`Heute: ${c.title}`, sub:c.det, data:{c,kind,w,slot} });
     const tipp=todayCoachTip(kind, c.det, form.tsb, lr?.drift);
-    if(tipp) items.push({ key:"tip", icon:"💡", main:"Coach-Tipp", sub:tipp, data:{kind, tsb:form.tsb, drift:lr?.drift} });
+    if(tipp) items.push({ key:"tip", icon:"bulb", main:"Coach-Tipp", sub:tipp, data:{kind, tsb:form.tsb, drift:lr?.drift} });
   } else if(slot===undefined || runIsRest(w,slot)){
-    items.push({ key:"rest", icon:"🛌", main:"Heute kein fixer Lauf", sub:"freie Einheiten nach Lust — Recovery zählt mit." });
+    items.push({ key:"rest", icon:"moon", main:"Heute kein fixer Lauf", sub:"freie Einheiten nach Lust — Recovery zählt mit." });
   }
   return items;
 }
@@ -1365,10 +1393,10 @@ function briefingCard(){
   // Items im Window stashen, damit explainBriefing() Zugriff hat
   window._briefingItems = items;
   return `<div class="card" style="background:linear-gradient(180deg,var(--card) 0%,var(--card2) 100%)">
-    <div class="between" style="margin-bottom:12px"><h2 style="margin:0">🎙️ Coach-Briefing</h2>
+    <div class="between" style="margin-bottom:12px"><h2 style="margin:0">Coach-Briefing</h2>
       <span class="tiny muted">tippen für Erklärung</span></div>
     ${items.map((it,i)=>`<div onclick="explainBriefing(${i})" style="display:flex;gap:12px;padding:10px 6px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:8px;transition:background .15s" onmouseover="this.style.background='var(--card2)'" onmouseout="this.style.background=''">
-      <div style="font-size:1.2rem;flex:0 0 24px;text-align:center">${it.icon}</div>
+      <div style="flex:0 0 24px;text-align:center;color:${it.color||'var(--mut)'}">${ic(it.icon,18)}</div>
       <div style="flex:1;min-width:0">
         <b style="color:${it.color||'var(--txt)'};font-size:.92rem">${it.main}</b>
         ${it.sub?`<div class="tiny muted" style="margin-top:2px">${it.sub}</div>`:""}
@@ -1382,7 +1410,7 @@ function explainBriefing(idx){
   const items=window._briefingItems; if(!items||!items[idx]) return;
   const it=items[idx];
   const html=briefingExplanationHtml(it);
-  sheet(`<h2>${it.icon} ${it.main}</h2>
+  sheet(`<h2>${it.main}</h2>
     ${it.sub?`<div class="sub" style="margin:-4px 0 12px;color:${it.color||'var(--mut)'}">${it.sub}</div>`:""}
     ${html}
     <div class="acts" style="margin-top:18px"><button class="btn-p" style="flex:1" onclick="closeModal()">Verstanden</button></div>`);
@@ -1523,7 +1551,7 @@ function viewHeute(){
   const dRace=Math.ceil((RACE_DATE-td)/MS);
   let body="";
   if(loc.pre){ body=`<div class="card center"><div class="big">Noch ${Math.ceil((PLAN_START-td)/MS)} Tage</div><div class="sub">bis Trainingsstart 11.05.2026</div></div>`; }
-  else if(loc.post){ body=`<div class="card center"><div class="big">🏁 Plan beendet</div><div class="sub">Marathon Köln war am 04.10.2026 — gut gemacht.</div></div>`; }
+  else if(loc.post){ body=`<div class="card center"><div class="big">Plan beendet</div><div class="sub">Marathon Köln war am 04.10.2026 — gut gemacht.</div></div>`; }
   else {
     const W=WEEKS[loc.week-1];
     const todayRuns=RUNS.filter(R=>effDay(loc.week,R.slot)===loc.dayIdx&&!runIsRest(loc.week,R.slot));
@@ -1537,7 +1565,7 @@ function viewHeute(){
         <div class="big">${DOWL[loc.dayIdx]}</div>
         <div class="sub">${fmtD(td)} · ${W.dr}</div></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
-          <div class="pill run">🏁 ${dRace} T</div>
+          <div class="pill run">${dRace} Tage</div>
           <div class="ring-wrap" title="Wochenfortschritt">
             <svg width="64" height="64" viewBox="0 0 64 64">
               <circle cx="32" cy="32" r="${r}" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="6"/>
@@ -1568,8 +1596,7 @@ function viewHeute(){
     }).join(""):""}
     ${redFlagsBlock(true)}`;
   }
-  return `<div class="wrap"><div class="between" style="margin-bottom:14px">
-    <h1>SUB4 <span class="sub">Marathon Köln · 04.10.2026</span></h1></div>${body}</div>`;
+  return `<div class="wrap">${body}</div>`;
 }
 
 /* ============ VIEW: WOCHE ============ */
@@ -1673,7 +1700,7 @@ function viewTrack(){
     <h2 style="margin-top:18px">Rad-Fahrten</h2>
     <button class="btn-sm btn-p" style="width:100%;margin-bottom:10px" onclick="openRide(${cur},'rad')">+ Rad-Fahrt eintragen</button>
     ${rides.length? rides.slice(0,8).map(r=>`<div class="day" onclick="openRideEdit('${r.id}')">
-      <div class="between"><span class="dn">🚴 ${r.dist} km</span><span class="dd">${r.date}</span></div>
+      <div class="between"><span class="dn" style="display:inline-flex;align-items:center;gap:6px">${ic("bike",15)} ${r.dist} km</span><span class="dd">${r.date}</span></div>
       <div class="ds muted">${hms(r.sec)} · ${pace(r.sec/r.dist)}/km${r.hr?" · "+r.hr+" bpm":""}</div></div>`).join(""):`<div class="sub card center">Noch keine Fahrt erfasst.</div>`}
     <h2 style="margin-top:18px">Zuletzt gelaufen</h2>
     ${done.length? done.slice(0,12).map(dc).join("") : `<div class="sub card center">Noch nichts erfasst.</div>`}
@@ -1709,7 +1736,7 @@ function predictionSeries(runs){
 }
 function cardPrognose(runs){
   const series=predictionSeries(runs);
-  if(!series.length) return `<div class="card"><h2>🏁 Marathon-Vorhersage</h2><div class="sub">Noch kein Lauf ≥ 8 km erfasst — Vorhersage folgt nach den ersten Einheiten.</div></div>`;
+  if(!series.length) return `<div class="card"><h2>Marathon-Vorhersage</h2><div class="sub">Noch kein Lauf ≥ 8 km erfasst — Vorhersage folgt nach den ersten Einheiten.</div></div>`;
   // Gewichteter aktueller Stand: Ø der letzten 3 Vorhersagen, längere Läufe doppelt
   const recent=series.slice(-3);
   const wsum=recent.reduce((a,s)=>a+(s.dist>=15?2:1),0);
@@ -1742,7 +1769,7 @@ function cardPrognose(runs){
     </svg>`;
   }
   const last=series[series.length-1];
-  return `<div class="card"><h2>🏁 Marathon-Vorhersage</h2>
+  return `<div class="card"><h2>Marathon-Vorhersage</h2>
     <div style="display:flex;align-items:center;gap:16px;margin:10px 0 4px">
       <div style="width:62px;height:62px;border:3px solid var(--accent);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 0 auto">
         <b style="font-size:.95rem;color:var(--accent)">42,2</b><span class="tiny" style="color:var(--accent);font-weight:700">KM</span></div>
@@ -1787,7 +1814,7 @@ function cardForm(){
   const Y=v=>p+(1-((v-mn)/rg))*(H-2*p);
   const line=vals.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
   const zero=Y(0);
-  return `<div class="card"><h2>⚡ Relative Belastung</h2>
+  return `<div class="card"><h2>Relative Belastung</h2>
     <div class="between" style="margin:8px 0 4px"><span class="sub">Diese Woche</span><b style="font-size:1.5rem">${Math.round(cw)}</b></div>
     <div class="tiny muted" style="margin-bottom:10px">${rel>1.4?"Deutlich über deinem 3-Wochen-Schnitt — bewusst dosieren.":rel>1.15?"Etwas über Schnitt — passt in Build-Phasen.":rel<0.6&&avg>0?"Deutlich unter Schnitt — Entlastung oder Auslassungen.":"Du hast deine Belastung gut im Griff."}</div>
     <div style="position:relative;border-radius:10px;overflow:hidden">
@@ -1815,7 +1842,7 @@ function cardZonesTotal(){
   const tot=Object.values(sum).reduce((a,b)=>a+b,0);
   if(tot<1200) return "";
   const easy=(sum.z1+sum.z2)/tot*100, gray=sum.z3/tot*100, hard=(sum.z4+sum.z5)/tot*100;
-  return `<div class="card"><h2>📊 Trainings-Zonen (14 Tage)</h2>
+  return `<div class="card"><h2>Trainings-Zonen (14 Tage)</h2>
     <div class="tiny muted" style="margin-bottom:10px">Polarisiert-Ziel: ≥ 80 % locker (Z1+Z2) · &lt; 10 % Grauzone (Z3)</div>
     ${zoneBarsHtml(sum)}
     ${intelBox(gray>12
@@ -1874,7 +1901,7 @@ function cardHR(runs){
     ${base?`<div class="grid2" style="margin-top:12px">
       <div class="stat"><div class="v">${base}</div><div class="l">Baseline locker</div></div>
       <div class="stat"><div class="v">${eHR.length?eHR[eHR.length-1]:"–"}</div><div class="l">letzter locker</div>
-        <div class="d" style="color:${eHR.length&&eHR[eHR.length-1]>base+5?'var(--bad)':'var(--good)'}">${eHR.length?(eHR[eHR.length-1]>base+5?"⚠ +"+(eHR[eHR.length-1]-base)+" bpm":"im Rahmen"):""}</div></div></div>`:""}</div>`;
+        <div class="d" style="color:${eHR.length&&eHR[eHR.length-1]>base+5?'var(--bad)':'var(--good)'}">${eHR.length?(eHR[eHR.length-1]>base+5?"+ "+(eHR[eHR.length-1]-base)+" bpm":"im Rahmen"):""}</div></div></div>`:""}</div>`;
 }
 function cardActivities(){
   const loc=locate(today()), cur=loc.week||1;
@@ -1943,7 +1970,7 @@ function redFlagsBlock(compact){
   const F=computeFlags();
   if(compact && F.length===1 && F[0][0]==="ok") return "";
   return `<h2 style="margin-top:18px">Red Flags</h2>${F.map(f=>`<div class="flag ${f[0]}">
-    <span class="fi">${f[0]==='ok'?'✓':f[0]==='w'?'⚠':'⛔'}</span><div><b>${f[1]}</b>${f[2]}</div></div>`).join("")}`;
+    <span class="fi">${ic(f[0]==='ok'?'check-circle':f[0]==='w'?'alert-triangle':'alert-octagon',18)}</span><div><b>${f[1]}</b>${f[2]}</div></div>`).join("")}`;
 }
 
 /* ============ VIEW: MEHR ============ */
@@ -1952,7 +1979,7 @@ function cardCloud(){
     const ago = CLOUD.lastSync ? Math.max(0,Math.round((Date.now()-CLOUD.lastSync)/60000)) : null;
     const stCol = syncState==='ok'?'var(--good)':syncState==='err'?'var(--bad)':syncState==='syncing'?'var(--blue)':'var(--mut)';
     const stTxt = syncState==='ok'?'✓ synchronisiert':syncState==='syncing'?'⟳ syncing…':syncState==='err'?'⚠ Fehler':'…';
-    return `<div class="card"><h2>☁ Cloud-Sync</h2>
+    return `<div class="card"><h2>Cloud-Sync</h2>
       <div class="between"><span class="sub">Status</span><b style="color:${stCol}">${stTxt}</b></div>
       ${ago!=null?`<div class="between" style="margin-top:6px"><span class="sub">Letzte Sync</span><span class="tiny">vor ${ago} min</span></div>`:""}
       ${syncMsg&&syncState==='err'?`<div class="tiny" style="color:var(--bad);margin-top:6px">${syncMsg}</div>`:""}
@@ -1965,7 +1992,7 @@ function cardCloud(){
       <div class="tiny muted" style="margin-top:10px">Auf einem neuen Gerät: gleichen Token + diese Gist-ID eintragen → Daten erscheinen automatisch.</div>
     </div>`;
   }
-  return `<div class="card"><h2>☁ Cloud-Sync einrichten</h2>
+  return `<div class="card"><h2>Cloud-Sync einrichten</h2>
     <p class="sub" style="margin-bottom:10px">Auto-Sync deiner Daten über einen <b>privaten</b> GitHub-Gist (nur du siehst ihn). Funktioniert auf allen Geräten. Daten landen weder in deinem Marathon-Repo noch öffentlich — eigener privater Gist.</p>
     <ol class="sub" style="margin-left:18px;margin-bottom:12px;line-height:1.7">
       <li>Token erstellen: <a class="lnk" href="https://github.com/settings/tokens/new?scopes=gist&description=Marathon%20Sync" target="_blank">github.com/settings/tokens/new</a><br><span class="tiny muted">Scope „gist" ist vorausgewählt — bitte <b>nur</b> diesen einen. Expiration: „No expiration" oder lang.</span></li>
@@ -1976,7 +2003,7 @@ function cardCloud(){
     <label>Vorhandene Gist-ID <span class="muted tiny">(leer = neuen Gist anlegen)</span></label>
     <input id="c_gid" type="text" placeholder="leer lassen beim ersten Gerät" autocomplete="off">
     <div class="acts" style="margin-top:14px"><button class="btn-p" style="flex:1" onclick="doCloudSetup()">Sync einrichten</button></div>
-    <div class="tiny muted" style="margin-top:12px">⚠ Der Token liegt lokal im Browser dieses Geräts. Wenn das Gerät verloren geht, Token auf github.com widerrufen.</div>
+    <div class="tiny muted" style="margin-top:12px">Achtung: Der Token liegt lokal im Browser dieses Geräts. Wenn das Gerät verloren geht, Token auf github.com widerrufen.</div>
   </div>`;
 }
 
@@ -1988,7 +2015,7 @@ function viewMehr(){
     <div style="display:flex;gap:6px">
       <button class="btn-sm" onclick="moveAct(${i},-1)" ${i===0?'disabled style=opacity:.3':''}>↑</button>
       <button class="btn-sm" onclick="moveAct(${i},1)" ${i===DB.activities.length-1?'disabled style=opacity:.3':''}>↓</button>
-      <button class="btn-sm" onclick="openActEdit(${i})">✎</button>
+      <button class="btn-sm" onclick="openActEdit(${i})">${ic("edit",13)}</button>
       <button class="btn-sm btn-gh" onclick="delAct(${i})">✕</button></div></div>`).join("");
   return `<div class="wrap"><h1 style="margin-bottom:16px">Mehr</h1>
     ${cardCloud()}
@@ -2113,7 +2140,7 @@ function viewMehr(){
 
     <div class="card"><h2>Läufe importieren</h2>
       <p class="sub" style="margin-bottom:12px">Strava → Aktivität → „Export GPX/TCX". Mehrere Dateien gleichzeitig wählbar, oder die Strava-<i>activities.csv</i> (Bulk-Export aller Aktivitäten). Zuordnung automatisch per Datum; Radfahrten landen bei „Rad". Bereits erfasste Läufe werden nicht überschrieben.</p>
-      <button class="btn-sm btn-p" style="width:100%" onclick="document.getElementById('bulk').click()">📂 GPX / TCX / CSV importieren</button>
+      <button class="btn-sm btn-p" style="width:100%" onclick="document.getElementById('bulk').click()">GPX / TCX / CSV importieren</button>
       <input id="bulk" type="file" accept=".gpx,.tcx,.xml,.csv" multiple style="display:none" onchange="bulkImport(event)"></div>
     <div class="card"><h2>Daten-Backup</h2><p class="sub" style="margin-bottom:12px">Alle Daten liegen lokal auf diesem Gerät. App-Updates ändern die Daten nicht. Zusätzlich werden bis zu 10 Auto-Backups in localStorage gehalten (≥5 min Abstand).</p>
       <div class="acts"><button class="btn-sm btn-p" onclick="exportData()">Export (Backup-Datei)</button>
@@ -2199,7 +2226,7 @@ function runVerdict(w,slot,L){
     if(L.rpe<=4 && R.kind==="quality") lines.push("RPE niedrig für Quality — kannst bei nächstem Mal mehr riskieren.");
     if(L.rpe>=8 && R.kind!=="quality") lines.push("RPE hoch für lockere Einheit — auf Müdigkeit achten.");
   }
-  if(L.pain) lines.push("⚠ Schmerz markiert — Trend beobachten, bei Wiederholung pausieren.");
+  if(L.pain) lines.push("Schmerz markiert — Trend beobachten, bei Wiederholung pausieren.");
   if(!lines.length) lines.push("Lauf erledigt — für detaillierteres Verdict GPX/TCX importieren.");
   return lines;
 }
@@ -2341,7 +2368,7 @@ function openRunAnalysis(w,slot){
   sheet(`<h2>${c.title}</h2>
     <div class="sub" style="margin:-6px 0 14px">${fmtD(dt)} · W${w} · ${c.det}</div>
     <div class="card" style="background:var(--accent);color:#fff;margin:0 0 6px">
-      <h3 style="font-size:.78rem;margin:0 0 6px;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:1px">🎙️ Coach-Verdict</h3>
+      <h3 style="font-size:.78rem;margin:0 0 6px;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:1px">Coach-Verdict</h3>
       ${verdict.map(l=>`<div style="font-size:.88rem;margin:4px 0;line-height:1.4">• ${l}</div>`).join("")}
     </div>
     ${tempoHtml}
@@ -2367,11 +2394,11 @@ function openRun(w,slot){
   const dt=dateOf(w,effDay(w,slot));
   sheet(`<h2>${c.title}</h2><div class="sub" style="margin:-6px 0 4px">${c.det} · ${fmtD(dt)}${c.edited?" · angepasst":""}</div>
     <div class="acts" style="margin:14px 0 4px">
-      <button class="btn-sm" onclick="closeModal();openPlanEdit(${w},'${slot}')">✎ Plan ändern</button>
-      <button class="btn-sm" onclick="closeModal();openMove(${w},'${slot}')">⇄ Verschieben</button>
+      <button class="btn-sm" onclick="closeModal();openPlanEdit(${w},'${slot}')">Plan ändern</button>
+      <button class="btn-sm" onclick="closeModal();openMove(${w},'${slot}')">Verschieben</button>
       <button class="btn-sm btn-gh" onclick="closeModal();toggleSkip('${id}')">${sk?"Doch laufen":"Überspringen"}</button>
     </div>
-    <button class="btn-sm" style="width:100%;margin:12px 0 2px" onclick="document.getElementById('f_file').click()">📂 Aus Strava/Garmin-Datei füllen (GPX/TCX)</button>
+    <button class="btn-sm" style="width:100%;margin:12px 0 2px" onclick="document.getElementById('f_file').click()">Aus Strava/Garmin-Datei füllen (GPX/TCX)</button>
     <input id="f_file" type="file" accept=".gpx,.tcx,.xml" style="display:none" onchange="runImportFile(event)">
     <label>Distanz (km)</label><input id="f_dist" type="number" inputmode="decimal" step="0.1" value="${L.dist||""}" placeholder="z.B. 12.0">
     <label>Zeit (h : min : s)</label><div class="row">
@@ -2450,7 +2477,7 @@ function doMove(w,slot,day){
 
 /* ride logging */
 function openRide(w,actId){
-  sheet(`<h2>🚴 Rad-Fahrt</h2>
+  sheet(`<h2>Rad-Fahrt</h2>
     <label>Datum</label><input id="r_date" type="date" value="${dkey(today())}">
     <label>Distanz (km)</label><input id="r_dist" type="number" inputmode="decimal" step="0.1" placeholder="z.B. 55">
     <label>Zeit (h : min : s)</label><div class="row">
@@ -2473,7 +2500,7 @@ function saveRide(){
 }
 function openRideEdit(rid){
   const r=DB.rides.find(x=>x.id===rid); if(!r)return;
-  sheet(`<h2>🚴 Fahrt bearbeiten</h2><div class="sub">${r.date}</div>
+  sheet(`<h2>Fahrt bearbeiten</h2><div class="sub">${r.date}</div>
     <div class="cd" style="margin:12px 0"><div><b>${r.dist}</b><span>km</span></div>
       <div><b>${hms(r.sec)}</b><span>Zeit</span></div><div><b>${pace(r.sec/r.dist)}</b><span>/km</span></div>
       <div><b>${r.hr||"–"}</b><span>HF</span></div></div>
