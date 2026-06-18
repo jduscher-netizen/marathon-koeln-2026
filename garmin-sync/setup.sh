@@ -13,41 +13,21 @@ set -euo pipefail
 
 REPO="jduscher-netizen/marathon-koeln-2026"
 UV="${HOME}/.local/bin/uv"
+HERE="$(cd "$(dirname "$0")" && pwd)"
 
 command -v "$UV" >/dev/null 2>&1 || { echo "Fehler: uv nicht gefunden unter $UV" >&2; exit 1; }
 command -v gh  >/dev/null 2>&1 || { echo "Fehler: gh (GitHub CLI) nicht gefunden" >&2; exit 1; }
 
-echo "→ Garmin-Login. Passwort + ggf. 2FA werden gleich abgefragt." >&2
-echo "  (Die Eingaben bleiben lokal und gehen ausschließlich an Garmin.)" >&2
+echo "→ Garmin-Login. Gleich wirst du nacheinander gefragt:" >&2
+echo "    1) Garmin E-Mail  (sichtbar)" >&2
+echo "    2) Garmin Passwort (unsichtbar — einfach tippen, nichts erscheint, dann Enter)" >&2
+echo "    3) ggf. 2FA-Code" >&2
+echo "  Die Eingaben bleiben lokal und gehen ausschließlich an Garmin." >&2
 echo >&2
 
-# Nur der Base64-Token landet auf stdout; alle Prompts/Meldungen gehen nach stderr,
-# damit $(...) unten ausschließlich den Token einfängt.
-B64="$("$UV" run --quiet --python 3.12 --with "garminconnect>=0.3.6" python - <<'PY'
-import base64, io, os, sys, tarfile, tempfile
-from getpass import getpass
-from garminconnect import Garmin
-
-def ask(p):
-    sys.stderr.write(p); sys.stderr.flush()
-    return sys.stdin.readline().strip()
-
-email = ask("Garmin E-Mail: ")
-pw = getpass("Garmin Passwort: ")  # schreibt Prompt auf /dev/tty, nicht stdout
-g = Garmin(email=email, password=pw, prompt_mfa=lambda: ask("2FA-Code (falls gefragt): "))
-g.login()
-
-d = tempfile.mkdtemp()
-g.garth.dump(d)
-buf = io.BytesIO()
-with tarfile.open(fileobj=buf, mode="w:gz") as tar:
-    for fn in os.listdir(d):
-        tar.add(os.path.join(d, fn), arcname=fn)
-
-sys.stderr.write("\n✓ Garmin-Login erfolgreich.\n")
-sys.stdout.write(base64.b64encode(buf.getvalue()).decode())
-PY
-)"
+# Login läuft als echte Datei -> Tastatureingabe (stdin) bleibt mit dem Terminal
+# verbunden; nur der Token landet auf stdout und wird hier eingefangen.
+B64="$("$UV" run --quiet --python 3.12 --with "garminconnect>=0.3.6" python "$HERE/_login_capture.py")"
 
 if [ -z "${B64:-}" ]; then
   echo "Fehler: Kein Token erhalten — Login abgebrochen?" >&2
@@ -62,4 +42,4 @@ gh workflow run "Garmin Wellness Sync" --repo "$REPO"
 
 echo >&2
 echo "✓ Fertig. Der Sync läuft jetzt und danach täglich um 06:00 UTC." >&2
-echo "  Status ansehen:  gh run list --repo $REPO --workflow 'Garmin Wellness Sync'" >&2
+echo "  Status:  gh run list --repo $REPO --workflow 'Garmin Wellness Sync'" >&2
