@@ -1258,11 +1258,14 @@ function svgAreaChart(curve, key, opts={}){
     const x=padL+(k*1000/data[data.length-1].m)*(W-padL-6);
     xticks+=`<text x="${x.toFixed(0)}" y="${H-4}" font-size="8" fill="var(--mut)" text-anchor="middle">${k}km</text>`;
   }
+  const gid="ga"+(window._gid=(window._gid||0)+1);
   return `<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block">
+    <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${col}" stop-opacity="0.38"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
     ${ticks.map(t=>`<line x1="${padL}" y1="${t.y.toFixed(1)}" x2="${W-4}" y2="${t.y.toFixed(1)}" stroke="var(--line)" stroke-width="0.5"/>
       <text x="${padL-4}" y="${(t.y+3).toFixed(1)}" font-size="8" fill="var(--mut)" text-anchor="end">${fmtTick(t.v)}</text>`).join("")}
-    <path d="${area}" fill="${col}" fill-opacity="0.25"/>
-    <path d="${path}" fill="none" stroke="${col}" stroke-width="1.8"/>
+    <path d="${area}" fill="url(#${gid})"/>
+    <path d="${path}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round"/>
     ${xticks}
   </svg>`;
 }
@@ -2339,11 +2342,14 @@ function cardPrognose(runs){
     const X=i=>p+i*((W-2*p)/(pts.length-1));
     const Yi=v=>p+((v-mn)/rg)*(H-2*p);
     const line=vals.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Yi(v).toFixed(1)).join(" ");
-    const gy=Yi(GOAL_SEC);
+    const area=line+` L${X(pts.length-1).toFixed(1)} ${H-p} L${X(0).toFixed(1)} ${H-p} Z`;
+    const gy=Yi(GOAL_SEC), gid="sp"+(window._gid=(window._gid||0)+1);
     spark=`<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="margin:10px 0 4px">
+      <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity="0.32"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
       <line x1="0" y1="${gy.toFixed(1)}" x2="${W}" y2="${gy.toFixed(1)}" stroke="var(--good)" stroke-width="1.2" stroke-dasharray="5 4"/>
       <text x="${W-4}" y="${(gy-4).toFixed(1)}" font-size="9" fill="var(--good)" text-anchor="end">Ziel 4:00</text>
-      <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      <path d="${area}" fill="url(#${gid})"/>
+      <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linejoin="round"/>
       ${vals.map((v,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Yi(v).toFixed(1)}" r="3" fill="var(--accent)"/>`).join("")}
     </svg>`;
   }
@@ -2399,26 +2405,65 @@ function hrvTrend(){
   const base=vals.slice(0,7).reduce((a,b)=>a+b,0)/Math.min(7,vals.length);
   return {recent:Math.round(recent), base:Math.round(base), diff:recent-base};
 }
+// Composite-Recovery 0–100 aus Schlaf-Score, HRV (Lage im Balanced-Bereich bzw. vs.
+// Wochenschnitt) und Body Battery — WHOOP-Logik nachempfunden.
+function recoveryScore(d){
+  if(!d) return null;
+  const cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const parts=[];
+  if(d.sleepScore) parts.push([d.sleepScore,1]);
+  if(d.hrvLastNight){
+    let hv;
+    if(d.hrvBalancedLow && d.hrvBalancedHigh && d.hrvBalancedHigh>d.hrvBalancedLow){
+      const f=(d.hrvLastNight-d.hrvBalancedLow)/(d.hrvBalancedHigh-d.hrvBalancedLow);
+      hv=cl(45+f*48,10,100);
+    } else if(d.hrvWeeklyAvg){ hv=cl(65+(d.hrvLastNight-d.hrvWeeklyAvg)/d.hrvWeeklyAvg*120,10,100); }
+    else hv=65;
+    parts.push([hv,1.3]);
+  }
+  if(d.bodyBatteryLast!=null) parts.push([d.bodyBatteryLast,0.7]);
+  if(!parts.length) return null;
+  const w=parts.reduce((a,p)=>a+p[1],0);
+  return Math.round(parts.reduce((a,p)=>a+p[0]*p[1],0)/w);
+}
+function recoveryColor(s){ return s==null?"var(--mut)":s>=67?"var(--good)":s>=34?"var(--gold)":"var(--bad)"; }
+function recoveryLabel(s){ return s==null?"—":s>=67?"Erholt":s>=34?"Moderat":"Beansprucht"; }
+// Farbcodierter Ring (WHOOP-Signatur), wiederverwendbar
+function scoreRing(score,col,sub){
+  const r=46, circ=2*Math.PI*r, off=circ*(1-(score||0)/100), gid="rg"+Math.round((score||0)*7+(sub?sub.length:0));
+  return `<div class="ring-wrap hero-ring" style="filter:drop-shadow(0 0 14px ${col==='var(--mut)'?'transparent':col});opacity:${col==='var(--mut)'?.6:1}">
+    <svg viewBox="0 0 110 110">
+      <circle cx="55" cy="55" r="${r}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="9"/>
+      <circle cx="55" cy="55" r="${r}" fill="none" stroke="${col}" stroke-width="9" stroke-linecap="round"
+        stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/>
+    </svg>
+    <div class="rv"><b style="color:${col}">${score==null?"–":score}<span style="font-size:.9rem;font-weight:700">${score==null?"":"%"}</span></b><span>${sub||"Recovery"}</span></div>
+  </div>`;
+}
 function cardRecovery(){
   const url=(garminCfg().gistId&&CLOUD.token);
   const d=latestWellness();
   if(!d){
-    return `<div class="card"><h2>Recovery (Garmin)</h2>
+    return `<div class="card"><h2>Recovery</h2>
       <div class="sub">${url?"Noch keine Garmin-Daten — der tägliche Sync läuft morgens, oder im GitHub Actions-Tab manuell starten.":"Garmin-Schlaf/HRV-Sync nicht eingerichtet. Mehr → Garmin Recovery."}</div></div>`;
   }
   const hv=hrvTrend();
-  const sleepScore=d.sleepScore;
+  const score=recoveryScore(d), col=recoveryColor(score), lab=recoveryLabel(score);
   const bb=d.bodyBatteryCharged;
-  return `<div class="card"><h2>Recovery (Garmin)</h2>
-    <div class="tiny muted" style="margin-bottom:10px">Stand ${d.date}${DB.wellness.updated?` · Sync ${DB.wellness.updated.slice(5,10)}`:""}</div>
-    <div class="grid2">
-      <div class="stat"><div class="v">${fmtH(d.sleepSeconds)}</div><div class="l">Schlaf</div>
-        ${sleepScore?`<div class="d muted">Score ${sleepScore}/100</div>`:""}</div>
-      <div class="stat"><div class="v">${d.hrvLastNight||"–"}<span class="tiny"> ms</span></div><div class="l">HRV letzte Nacht</div>
-        ${hv?`<div class="d" style="color:${hv.diff>=-3?'var(--good)':'var(--warn)'}">${hv.diff>=0?"▲":"▼"} ${hv.diff>=0?"+":""}${Math.round(hv.diff)} vs 7-Tage-Ø</div>`:(d.hrvStatus?`<div class="d muted">${d.hrvStatus}</div>`:"")}</div>
+  return `<div class="card"><h2>Recovery</h2>
+    <div class="tiny muted" style="margin-bottom:4px">Stand ${d.date}${DB.wellness.updated?` · Sync ${DB.wellness.updated.slice(5,10)}`:""}</div>
+    <div class="hero-top" style="margin-top:10px">
+      ${scoreRing(score,col)}
+      <div class="hero-meta">
+        <div class="big" style="color:${col}">${lab}</div>
+        <div class="sub" style="margin-top:4px">${score>=67?"Grünes Licht für Qualität/Long Run.":score>=34?"Solide — Einheit nach Gefühl steuern.":"Erholung priorisieren, hart ggf. verschieben."}</div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:18px">
+      <div class="stat"><div class="v">${fmtH(d.sleepSeconds)}</div><div class="l">Schlaf${d.sleepScore?" · "+d.sleepScore:""}</div></div>
+      <div class="stat"><div class="v">${d.hrvLastNight||"–"}<span class="tiny"> ms</span></div><div class="l">HRV${hv?` · ${hv.diff>=0?"+":""}${Math.round(hv.diff)} vs Ø`:""}</div></div>
       <div class="stat"><div class="v">${d.restingHr||"–"}<span class="tiny"> bpm</span></div><div class="l">Ruhepuls</div></div>
-      <div class="stat"><div class="v">${d.bodyBatteryLast!=null?d.bodyBatteryLast:(bb!=null?"+"+bb:"–")}</div><div class="l">Body Battery</div>
-        ${bb!=null?`<div class="d muted">+${bb} geladen</div>`:""}</div>
+      <div class="stat"><div class="v">${d.bodyBatteryLast!=null?d.bodyBatteryLast:(bb!=null?"+"+bb:"–")}</div><div class="l">Body Battery</div></div>
     </div>
     ${recoveryInsight(d,hv)}
   </div>`;
@@ -2476,9 +2521,8 @@ function cardCalories(){
   const itemsHtml=tb.items.length
     ? tb.items.map(i=>`<div class="between tiny" style="margin-top:4px"><span class="muted">${i.label}</span><span style="font-weight:600">+${num(i.k)} kcal</span></div>`).join("")
     : `<div class="tiny muted" style="margin-top:5px">Noch keine Aktivität heute erfasst.</div>`;
-  // letzter voller Garmin-Tag als belastbare Referenz (inkl. Schritte/Alltag)
-  const lf=cs.lastFull, ltot=lf.totalKcal||0;
   const target=cs.avg-400;
+  const diffToday=tb.total-cs.avg;
   return `<div class="card"><h2>Kalorienverbrauch</h2>
     <div class="tiny muted" style="margin-bottom:10px">Heute live · Grundumsatz + erfasste Aktivitäten</div>
     <div class="between" style="align-items:flex-end"><span class="sub">Heute</span>
@@ -2492,7 +2536,7 @@ function cardCalories(){
     <div class="tiny muted" style="margin-top:7px">Alltags-Schritte fließen mit dem nächsten Garmin-Sync vollständig dazu.</div>
     <div class="grid2" style="margin-top:16px">
       <div class="stat"><div class="v">${num(cs.avg)}<span class="tiny"> kcal</span></div><div class="l">Ø Tagesverbrauch (TDEE) · ${cs.n} Tage</div></div>
-      <div class="stat"><div class="v">${num(ltot)}<span class="tiny"> kcal</span></div><div class="l">${fmtD(new Date(lf.date+"T00:00:00"))} (Garmin gesamt)</div></div>
+      <div class="stat"><div class="v" style="color:${diffToday>=0?'var(--good)':'var(--mut)'}">${diffToday>=0?"+":""}${num(diffToday)}<span class="tiny"> kcal</span></div><div class="l">Heute vs. Ø</div></div>
     </div>
     ${intelBox(`Dein realer Tagesverbrauch liegt im Schnitt bei <b>${num(cs.avg)} kcal</b>. Für ~0,4 kg/Woche Abnahme (Richtung 81 kg) wären rund <b>${num(target)} kcal/Tag</b> Aufnahme das Ziel — moderates Defizit, aufbau-tauglich. An harten Lauf- und Long-Run-Tagen nicht unter den Grundumsatz essen.`)}
   </div>`;
@@ -2530,8 +2574,10 @@ function cardForm(){
     </div>
     <div style="margin-top:16px"><b style="font-size:.9rem">Form-Verlauf (28 Tage)</b>
       <svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="margin-top:6px">
-        <line x1="0" y1="${zero.toFixed(1)}" x2="${W}" y2="${zero.toFixed(1)}" stroke="var(--line)" stroke-width="1" stroke-dasharray="4 3"/>
-        <path d="${line}" fill="none" stroke="${fl.color}" stroke-width="2"/>
+        <defs><linearGradient id="fg${(window._gid=(window._gid||0)+1)}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${fl.color}" stop-opacity="0.3"/><stop offset="1" stop-color="${fl.color}" stop-opacity="0"/></linearGradient></defs>
+        <line x1="0" y1="${zero.toFixed(1)}" x2="${W}" y2="${zero.toFixed(1)}" stroke="var(--line2)" stroke-width="1" stroke-dasharray="4 3"/>
+        <path d="${line} L${(W-p).toFixed(1)} ${(H-p).toFixed(1)} L${p} ${(H-p).toFixed(1)} Z" fill="url(#fg${window._gid})"/>
+        <path d="${line}" fill="none" stroke="${fl.color}" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
       <div class="between"><span class="tiny muted">Form heute</span><b style="color:${fl.color}">${f.tsb>=0?"+":""}${Math.round(f.tsb)} · ${fl.label}</b></div>
     </div>
@@ -2595,8 +2641,11 @@ function cardHR(runs){
     const pts=eff.map((v,i)=>[p+i*((W-2*p)/(eff.length-1)),H-p-((v-mn)/rg)*(H-2*p)]);
     const line=pts.map((q,i)=>(i?"L":"M")+q[0].toFixed(1)+" "+q[1].toFixed(1)).join(" ");
     const tr=eff[eff.length-1]>=eff[0];
+    const hgid="hr"+(window._gid=(window._gid||0)+1);
     chart=`<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="margin:8px 0">
-      <path d="${line}" fill="none" stroke="var(--blue)" stroke-width="2.5"/>
+      <defs><linearGradient id="${hgid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--blue)" stop-opacity="0.32"/><stop offset="1" stop-color="var(--blue)" stop-opacity="0"/></linearGradient></defs>
+      <path d="${line} L${pts[pts.length-1][0].toFixed(1)} ${H-p} L${pts[0][0].toFixed(1)} ${H-p} Z" fill="url(#${hgid})"/>
+      <path d="${line}" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linejoin="round"/>
       ${pts.map(q=>`<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="2.6" fill="var(--blue)"/>`).join("")}</svg>
       <div class="tiny muted">Effizienz = Geschwindigkeit ÷ HF. <b style="color:${tr?'var(--good)':'var(--warn)'}">${tr?"steigend ▲ — Aerobik verbessert sich":"fallend ▼ — beobachten"}</b></div>`;
   }
@@ -2640,9 +2689,12 @@ function cardWeight(){
     const pts=ws.map((w,i)=>[p+(ws.length===1?(W-2*p)/2:i*((W-2*p)/(ws.length-1))),H-p-((w.kg-mn)/rg)*(H-2*p)]);
     const line=pts.map((q,i)=>(i?"L":"M")+q[0].toFixed(1)+" "+q[1].toFixed(1)).join(" ");
     const yT=H-p-((81-mn)/rg)*(H-2*p);
+    const wgid="wg"+(window._gid=(window._gid||0)+1);
     chart=`<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="margin:8px 0">
+      <defs><linearGradient id="${wgid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity="0.3"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
       <line x1="0" y1="${yT.toFixed(1)}" x2="${W}" y2="${yT.toFixed(1)}" stroke="var(--good)" stroke-width="1" stroke-dasharray="4 4"/>
-      <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+      ${ws.length>1?`<path d="${line} L${pts[pts.length-1][0].toFixed(1)} ${H-p} L${pts[0][0].toFixed(1)} ${H-p} Z" fill="url(#${wgid})"/>`:""}
+      <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
       ${pts.map(q=>`<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="2.8" fill="var(--accent)"/>`).join("")}</svg>
       <div class="tiny muted">grüne Linie = Zielgewicht 81 kg (vor Peak-Phase)</div>`;
   }
