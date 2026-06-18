@@ -13,9 +13,14 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
     const url = new URL(req.url);
     try {
-      if (!env.VAPID_PRIVATE) throw new Error('VAPID_PRIVATE-Secret fehlt');
-
       if (url.pathname === '/health') return new Response('ok', { headers: CORS });
+
+      // ---- Coach-Chat (Claude API Proxy) ----
+      if (url.pathname === '/coach' && req.method === 'POST') {
+        return await handleCoach(req, env);
+      }
+
+      if (!env.VAPID_PRIVATE) throw new Error('VAPID_PRIVATE-Secret fehlt');
 
       if (url.pathname === '/subscribe' && req.method === 'POST') {
         const sub = await req.json();
@@ -76,6 +81,77 @@ function subKey(endpoint) {
 
 function jsonResp(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+}
+
+// ---- Coach-Chat: Claude API Proxy ----
+const COACH_SYSTEM = `Du bist der persönliche Lauf-Coach in der App "SUB4". Dein Athlet bereitet sich auf den Marathon Köln am 04.10.2026 vor, Ziel: unter 4:00 Stunden (Marathon-Pace 5:40 min/km).
+
+# Deine Rolle
+Du bist ein erfahrener, datengetriebener Ausdauer-Coach — fachlich präzise, aber direkt und ermutigend. Du sprichst per Du, antwortest auf Deutsch, kurz und konkret. Keine Romane: 2–5 Sätze pro Antwort, bei Bedarf eine knappe Aufzählung. Gib konkrete Handlungsempfehlungen, keine allgemeinen Floskeln. Wenn du dir bei medizinischen Themen (Schmerzen, Verletzungen) unsicher bist, rate zu Vorsicht bzw. ärztlicher Abklärung.
+
+# Der Trainingsplan (v2, 21 Wochen, polarisiert 80/20, 4 Läufe/Woche)
+- **Di** = Qualität (Intervalle/Tempo-DL, Zone 4–5)
+- **Do** = GA1 aerob (Zone 2, HF 140–150, "Wohlfühl-Easy" 5:55–6:05/km)
+- **Fr** = Recovery (Zone 1, HF <140, kurz)
+- **So** = Long Run (Zone 2, ggf. mit Marathon-Pace-Block)
+- Mo/Mi/Sa: lauffrei (Padel, Kraft, Mobility, optional Rad)
+
+# HF-Zonen (kalibriert)
+Z1 Recovery <140 · Z2 GA1 140–150 · Z3 Grauzone 150–160 (meiden!) · Z4 Schwelle 160–172 · Z5 VO2max >172. Marathon-Pace 5:40/km liegt bei HF ~152–156.
+
+# Trainingsprinzipien
+- Polarisiert: ~80% locker (Z1+Z2), ~10% hart (Z4+Z5), Z3-Grauzone meiden.
+- Long Runs nach HF steuern: Bei >155 trotz korrekter Pace = zu müde, langsamer/kürzen.
+- Form (TSB): >+5 frisch, -10 bis +5 normal, <-15 müde (Quality verschieben), <-25 überlastet (Pause).
+- Cardiac Drift im Long Run: <6% gut, >6% aerob noch ausbaufähig.
+- Bei Schmerz >2 Tage: Pause. Bei Fieber: kompletter Stopp bis 3 Tage symptomfrei.
+- Ernährung: kein zu aggressives Defizit im Aufbau; im Taper kein Defizit.
+
+# Wichtig
+Du bekommst bei jeder Frage den aktuellen Trainingszustand des Athleten mitgeliefert (Form, Zonen, Läufe, Compliance). Nutze diese echten Zahlen in deiner Antwort — beziehe dich konkret darauf, statt allgemein zu bleiben. Wenn Daten fehlen, sag was du brauchst.`;
+
+async function handleCoach(req, env) {
+  if (!env.ANTHROPIC_API_KEY) return jsonResp({ error: 'ANTHROPIC_API_KEY-Secret fehlt — `wrangler secret put ANTHROPIC_API_KEY`' }, 500);
+  let body;
+  try { body = await req.json(); } catch (e) { return jsonResp({ error: 'Ungültiger Request' }, 400); }
+  const userMessages = Array.isArray(body.messages) ? body.messages : [];
+  if (!userMessages.length) return jsonResp({ error: 'Keine Nachricht' }, 400);
+  const contextSummary = (body.context || '').toString().slice(0, 8000);
+
+  const payload = {
+    model: 'claude-sonnet-4-6',
+    max_tokens: 1024,
+    system: [
+      { type: 'text', text: COACH_SYSTEM, cache_control: { type: 'ephemeral' } },
+      { type: 'text', text: '# Aktueller Trainingszustand des Athleten (heute)\n' + (contextSummary || 'Noch keine Trainingsdaten erfasst.') }
+    ],
+    messages: userMessages.slice(-20)
+  };
+
+  let r;
+  try {
+    r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    return jsonResp({ error: 'Verbindung zu Claude fehlgeschlagen: ' + e.message }, 502);
+  }
+  if (!r.ok) {
+    const t = await r.text().catch(() => '');
+    return jsonResp({ error: 'Claude API ' + r.status, detail: t.slice(0, 300) }, 502);
+  }
+  const data = await r.json();
+  if (data.stop_reason === 'refusal') {
+    return jsonResp({ text: 'Diese Frage kann ich als Coach nicht beantworten. Frag mich gern etwas zu deinem Training, deiner Form oder dem Plan.' });
+  }
+  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+  return jsonResp({ text: text || '(keine Antwort)', usage: data.usage });
 }
 
 async function listSubs(env) {

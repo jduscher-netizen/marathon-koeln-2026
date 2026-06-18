@@ -725,6 +725,16 @@ async function pushTest(){
     if(r.ok) toast("Test gesendet — Benachrichtigung sollte kommen"); else toast("Fehler "+r.status+": "+(d.error||""));
   }catch(e){ toast("Fehler: "+e.message); }
 }
+function cardCoach(){
+  const url=coachWorkerUrl();
+  const n=(DB.coach&&DB.coach.history)?DB.coach.history.length:0;
+  return `<div class="card"><h2>Coach-Chat</h2>
+    <p class="sub" style="margin-bottom:12px">Frag Claude alles zu deinem Trainingszustand — der Coach kennt deinen Plan und deine Daten.${url?` ${n} Nachricht(en) im Verlauf.`:" Einmaliges Setup nötig (Anthropic-API-Key als Worker-Secret)."}</p>
+    <div class="acts">
+      <button class="btn-sm btn-p" onclick="openCoachChat()">Coach öffnen</button>
+      <button class="btn-sm btn-gh" onclick="openCoachSetup()">Einstellungen</button>
+    </div></div>`;
+}
 function cardPush(){
   const c=pushCfg();
   if(!pushSupported()){
@@ -1403,7 +1413,115 @@ function briefingCard(){
       </div>
       <div style="color:var(--mut);font-size:1rem;align-self:center">›</div>
     </div>`).join("")}
+    <button class="btn-p" style="width:100%;margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="openCoachChat()">${ic("bulb",17)} Coach fragen</button>
   </div>`;
+}
+
+/* ============ COACH-CHAT (Claude API via Worker) ============ */
+function coachCfg(){ if(!DB.coach) DB.coach={history:[]}; if(!DB.coach.history) DB.coach.history=[]; return DB.coach; }
+function coachWorkerUrl(){ const c=coachCfg(); return (c.workerUrl||(DB.push&&DB.push.workerUrl)||"").replace(/\/$/,""); }
+
+// Kompakter Trainingszustand als Text für den Coach
+function buildCoachContext(){
+  const loc=locate(today()); const L=[];
+  if(loc.week){
+    const W=WEEKS[loc.week-1];
+    L.push(`Datum: ${fmtD(today())} (${DOWL[loc.dayIdx]}), Woche ${loc.week}/21 — Phase ${W.ph}.`);
+    L.push(`Diese Woche: Di ${W.di} | Do ${W.do} | Fr ${W.fr} | So ${W.so}. Soll-Umfang ${W.km} km, Long Run ${W.lr} km.`);
+    let pn=0,dn=0; RUNS.forEach(R=>{ if(runIsRest(loc.week,R.slot))return; const dt=dateOf(loc.week,effDay(loc.week,R.slot)); if(dt>today())return; pn++; if(DB.logs[runId(loc.week,R.slot)])dn++; });
+    if(pn) L.push(`Diese Woche bisher ${dn}/${pn} fällige Läufe erledigt.`);
+  } else if(loc.pre){ L.push(`Trainingsstart ist erst am 11.05.2026.`); }
+  else if(loc.post){ L.push(`Der Marathon (04.10.2026) ist bereits vorbei.`); }
+  const f=currentForm();
+  L.push(`Form/TSB: ${f.tsb>=0?"+":""}${Math.round(f.tsb)} (${formLabel(f.tsb).label}) — Fitness CTL ${Math.round(f.ctl)}, Müdigkeit ATL ${Math.round(f.atl)}.`);
+  const zr=recentZoneRatio();
+  if(zr&&zr.total>600) L.push(`Zonen-Verteilung (14 Tage): Easy ${zr.easyPct.toFixed(0)}%, Grauzone Z3 ${zr.grayPct.toFixed(0)}%, Hart ${zr.hardPct.toFixed(0)}%.`);
+  const lr=lastLongRunDrift();
+  if(lr&&lr.drift!=null) L.push(`Letzter ausgewerteter Long Run: ${lr.dist} km, Cardiac Drift ${lr.drift>=0?"+":""}${lr.drift.toFixed(1)}%.`);
+  const runs=runLogs().slice(-6);
+  if(runs.length){
+    L.push(`Letzte ${runs.length} Läufe:`);
+    runs.forEach(r=>L.push(`  • ${fmtD(r.date)} ${r.kind}: ${r.dist} km · ${hms(r.sec)} · ${pace(r.pace)}/km${r.hr?" · "+r.hr+" bpm":""}${r.rpe?" · RPE "+r.rpe:""}${r.pain?" · ⚠ Schmerz":""}`));
+  } else L.push("Noch keine Läufe erfasst.");
+  const lo=runLogs().filter(r=>r.kind==="long"); const maxLR=Math.max(0,...lo.map(r=>r.dist));
+  if(maxLR) L.push(`Längster Long Run bisher: ${maxLR} / 32 km.`);
+  const ws=[...(DB.weights||[])].sort((a,b)=>new Date(a.d)-new Date(b.d));
+  if(ws.length) L.push(`Aktuelles Gewicht: ${ws[ws.length-1].kg} kg (Ziel 81 kg).`);
+  // Marathon-Prognose
+  const series=predictionSeries(runLogs());
+  if(series.length){ const recent=series.slice(-3); const wsum=recent.reduce((a,s)=>a+(s.dist>=15?2:1),0); const pred=recent.reduce((a,s)=>a+s.pred*(s.dist>=15?2:1),0)/wsum; L.push(`Aktuelle Marathon-Hochrechnung: ${hms(Math.round(pred))} (Ziel Sub-4:00).`); }
+  return L.join("\n");
+}
+
+function openCoachChat(){
+  const url=coachWorkerUrl();
+  if(!url){ openCoachSetup(); return; }
+  renderCoachChat();
+}
+function openCoachSetup(){
+  sheet(`<h2>Coach-Chat einrichten</h2>
+    <p class="sub" style="margin-bottom:10px">Der Coach nutzt deinen Cloudflare-Worker als Brücke zur Claude-API. Du brauchst einen Anthropic-API-Key (console.anthropic.com), den du einmal als Worker-Secret hinterlegst:</p>
+    <div class="card" style="background:var(--card2);font-size:.82rem;line-height:1.6">
+      1. Key holen: <a class="lnk" href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a><br>
+      2. Im Terminal: <code>cd worker</code><br>
+      3. <code>npx wrangler secret put ANTHROPIC_API_KEY</code> → Key einfügen<br>
+      4. <code>npx wrangler deploy</code>
+    </div>
+    <label>Worker-URL</label>
+    <input id="co_url" type="url" placeholder="https://...workers.dev" value="${(coachWorkerUrl()||(DB.push&&DB.push.workerUrl)||"")}" autocomplete="off">
+    <div class="acts" style="margin-top:14px"><button class="btn-p" style="flex:1" onclick="saveCoachUrl()">Speichern &amp; öffnen</button></div>`);
+}
+function saveCoachUrl(){
+  const v=(document.getElementById("co_url").value||"").trim().replace(/\/$/,"");
+  if(!/^https:\/\//.test(v)){ toast("HTTPS-URL nötig"); return; }
+  coachCfg().workerUrl=v; save(); renderCoachChat();
+}
+function coachBubbles(){
+  const h=coachCfg().history;
+  if(!h.length) return `<div class="center muted" style="padding:30px 10px;font-size:.88rem">
+    ${ic("bulb",28)}<div style="margin-top:10px">Frag mich alles zu deinem Training.</div>
+    <div class="tiny" style="margin-top:14px;display:flex;flex-direction:column;gap:6px">
+      ${["Bin ich auf Sub-4:00-Kurs?","Warum ist meine Form gerade müde?","Soll ich den Long Run am Sonntag kürzen?","Wie sah meine letzte Woche aus?"].map(q=>`<a class="lnk" onclick="coachAsk('${q.replace(/'/g,"\\'")}')">„${q}"</a>`).join("")}
+    </div></div>`;
+  return h.map(m=>{
+    if(m.role==="user") return `<div style="display:flex;justify-content:flex-end;margin:8px 0"><div style="background:var(--accent);color:#fff;padding:10px 14px;border-radius:16px 16px 4px 16px;max-width:82%;font-size:.9rem">${escapeHtml(m.text)}</div></div>`;
+    return `<div style="display:flex;margin:8px 0"><div style="background:var(--card2);padding:10px 14px;border-radius:16px 16px 16px 4px;max-width:88%;font-size:.9rem;line-height:1.5">${mdLite(m.text)}</div></div>`;
+  }).join("") + (window._coachThinking?`<div style="display:flex;margin:8px 0"><div style="background:var(--card2);padding:10px 14px;border-radius:16px;color:var(--mut);font-size:.85rem">Coach denkt nach …</div></div>`:"");
+}
+function escapeHtml(s){ return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+function mdLite(s){ return escapeHtml(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\n/g,"<br>"); }
+function renderCoachChat(){
+  sheet(`<h2 style="display:flex;align-items:center;gap:8px">${ic("bulb",20)} Coach</h2>
+    <div class="between" style="margin:-4px 0 8px"><span class="tiny muted">Claude · Sonnet · kennt deine Daten</span>
+      ${coachCfg().history.length?`<button class="btn-sm btn-gh" style="padding:4px 8px" onclick="coachClear()">leeren</button>`:""}</div>
+    <div id="coachScroll" style="min-height:220px;max-height:52vh;overflow-y:auto;padding:4px 2px">${coachBubbles()}</div>
+    <div class="row" style="margin-top:12px;gap:8px;align-items:flex-end">
+      <textarea id="coachInput" placeholder="Frag deinen Coach …" style="flex:1;min-height:46px;max-height:120px" onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();coachSend();}"></textarea>
+      <button class="btn-p" style="flex:0 0 auto;height:46px" onclick="coachSend()" ${window._coachThinking?"disabled style=opacity:.5":""}>Senden</button>
+    </div>
+    <div class="tiny muted" style="margin-top:6px;text-align:right"><a class="lnk" onclick="openCoachSetup()">Einstellungen</a></div>`);
+  const sc=document.getElementById("coachScroll"); if(sc) sc.scrollTop=sc.scrollHeight;
+}
+function coachAsk(q){ const el=document.getElementById("coachInput"); if(el){ el.value=q; coachSend(); } }
+function coachClear(){ coachCfg().history=[]; save(); renderCoachChat(); }
+async function coachSend(){
+  if(window._coachThinking) return;
+  const el=document.getElementById("coachInput");
+  const text=(el?el.value:"").trim(); if(!text) return;
+  const url=coachWorkerUrl(); if(!url){ openCoachSetup(); return; }
+  const c=coachCfg();
+  c.history.push({role:"user",text}); save();
+  window._coachThinking=true; renderCoachChat();
+  try{
+    const apiMessages=c.history.map(m=>({role:m.role==="user"?"user":"assistant",content:m.text}));
+    const r=await fetch(url+"/coach",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ messages:apiMessages, context:buildCoachContext() })});
+    const data=await r.json().catch(()=>({}));
+    window._coachThinking=false;
+    if(!r.ok||data.error){ c.history.push({role:"assistant",text:"⚠ "+(data.error||("Fehler "+r.status))+(data.detail?"\n"+data.detail:"")}); }
+    else c.history.push({role:"assistant",text:data.text||"(keine Antwort)"});
+    save(); renderCoachChat();
+  }catch(e){ window._coachThinking=false; c.history.push({role:"assistant",text:"⚠ Verbindungsfehler: "+e.message}); save(); renderCoachChat(); }
 }
 
 function explainBriefing(idx){
@@ -2020,6 +2138,7 @@ function viewMehr(){
   return `<div class="wrap"><h1 style="margin-bottom:16px">Mehr</h1>
     ${cardCloud()}
     ${cardStrava()}
+    ${cardCoach()}
     ${cardPush()}
     <div class="card"><div class="between" style="margin-bottom:6px"><h2 style="margin:0">Freie Einheiten verwalten</h2></div>
       ${acts}<button class="btn-sm btn-p" style="width:100%;margin-top:12px" onclick="openActEdit(-1)">+ Einheit hinzufügen</button></div>
