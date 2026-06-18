@@ -725,6 +725,27 @@ async function pushTest(){
     if(r.ok) toast("Test gesendet — Benachrichtigung sollte kommen"); else toast("Fehler "+r.status+": "+(d.error||""));
   }catch(e){ toast("Fehler: "+e.message); }
 }
+function cardGarminRecovery(){
+  const c=garminCfg();
+  const active=!!(c.gistId&&CLOUD.token);
+  const d=latestWellness();
+  return `<div class="card"><h2>Garmin Recovery</h2>
+    <p class="sub" style="margin-bottom:10px">Holt täglich Schlaf, HRV, Ruhepuls &amp; Body Battery von Garmin (inoffiziell, via GitHub-Actions-Job). ${active?(d?`Aktiv — letzter Wert ${d.date}.`:"Aktiv — noch keine Daten, läuft morgens oder manuell im Actions-Tab."):"Setup nötig (einmalig)."}</p>
+    ${active?`<div class="acts"><button class="btn-sm btn-p" onclick="fetchWellness().then(()=>toast('Aktualisiert'))">Jetzt aktualisieren</button>
+      <button class="btn-sm btn-gh" onclick="delete DB.garmin.gistId;save();render();toast('Getrennt')">Trennen</button></div>`
+    :`<details style="background:transparent;border:none;margin-bottom:8px"><summary style="padding:6px 0">Setup-Anleitung</summary><div class="dc" style="padding:6px 0">
+      <ol style="margin-left:18px;line-height:1.7">
+        <li>Cloud-Sync muss aktiv sein (liefert den GitHub-Token zum Lesen).</li>
+        <li>Im Terminal: <code>cd garmin-sync &amp;&amp; pip install -r requirements.txt &amp;&amp; python login.py</code> → bei Garmin einloggen → den Base64-Block kopieren.</li>
+        <li><code>gh secret set GARMINTOKENS_B64 --repo jduscher-netizen/marathon-koeln-2026</code> → Block einfügen.</li>
+        <li>GitHub-PAT mit Scope „gist": <code>gh secret set GIST_TOKEN --repo jduscher-netizen/marathon-koeln-2026</code></li>
+        <li>Im GitHub Actions-Tab „Garmin Wellness Sync" einmal manuell starten.</li>
+      </ol>
+      <p class="tiny muted">Wellness-Gist-ID ist bereits vorbelegt. Inoffiziell, gegen Garmin-ToS, kann bei Garmin-Updates brechen.</p>
+    </div></details>
+    <div class="acts"><button class="btn-sm btn-p" onclick="DB.garmin.gistId='314a95dc92991eaf4e3df7320f02ada9';save();fetchWellness();toast('Verbunden — hole Daten');render()">Verbinden &amp; laden</button></div>`}
+  </div>`;
+}
 function cardCoach(){
   const url=coachWorkerUrl();
   const n=(DB.coach&&DB.coach.history)?DB.coach.history.length:0;
@@ -1378,6 +1399,14 @@ function briefingItems(){
   } else if(slot===undefined || runIsRest(w,slot)){
     items.push({ key:"rest", icon:"moon", main:"Heute kein fixer Lauf", sub:"freie Einheiten nach Lust — Recovery zählt mit." });
   }
+  // Recovery-Signal (Garmin) — nur wenn auffällig
+  const rec=latestWellness();
+  if(rec){
+    const hv=hrvTrend();
+    if(hv && hv.diff < -5) items.push({ key:"recovery", icon:"heart", main:`HRV niedrig (${rec.hrvLastNight} ms)`, sub:`${Math.round(hv.diff)} unter 7-Tage-Ø — harte Einheit ggf. verschieben`, color:"var(--warn)" });
+    else if(rec.sleepSeconds && rec.sleepSeconds<6.5*3600) items.push({ key:"recovery", icon:"moon", main:`Wenig Schlaf (${fmtH(rec.sleepSeconds)})`, sub:"Regeneration heute priorisieren", color:"var(--warn)" });
+    else if(rec.sleepScore && rec.sleepScore>=85) items.push({ key:"recovery", icon:"heart", main:`Gut erholt (Schlaf-Score ${rec.sleepScore})`, sub:"grünes Licht für Qualität", color:"var(--good)" });
+  }
   return items;
 }
 function todayCoachTip(kind, det, tsb, lastDrift){
@@ -1447,6 +1476,11 @@ function buildCoachContext(){
   if(maxLR) L.push(`Längster Long Run bisher: ${maxLR} / 32 km.`);
   const ws=[...(DB.weights||[])].sort((a,b)=>new Date(a.d)-new Date(b.d));
   if(ws.length) L.push(`Aktuelles Gewicht: ${ws[ws.length-1].kg} kg (Ziel 81 kg).`);
+  const rec=latestWellness();
+  if(rec){
+    const hv=hrvTrend();
+    L.push(`Recovery (Garmin, ${rec.date}): Schlaf ${fmtH(rec.sleepSeconds)}${rec.sleepScore?" (Score "+rec.sleepScore+")":""}, HRV ${rec.hrvLastNight||"?"} ms${hv?" ("+(hv.diff>=0?"+":"")+Math.round(hv.diff)+" vs 7-Tage-Ø)":""}, Ruhepuls ${rec.restingHr||"?"} bpm${rec.bodyBatteryLast!=null?", Body Battery "+rec.bodyBatteryLast:""}.`);
+  }
   // Marathon-Prognose
   const series=predictionSeries(runLogs());
   if(series.length){ const recent=series.slice(-3); const wsum=recent.reduce((a,s)=>a+(s.dist>=15?2:1),0); const pred=recent.reduce((a,s)=>a+s.pred*(s.dist>=15?2:1),0)/wsum; L.push(`Aktuelle Marathon-Hochrechnung: ${hms(Math.round(pred))} (Ziel Sub-4:00).`); }
@@ -1830,6 +1864,7 @@ function viewStats(){
   const runs=runLogs();
   return `<div class="wrap"><h1 style="margin-bottom:16px">Analyse <span class="sub">Plan vs. Realität · Köln 04.10.2026</span></h1>
     ${cardPrognose(runs)}
+    ${cardRecovery()}
     ${cardForm()}
     ${cardZonesTotal()}
     ${cardVolume()}
@@ -1906,6 +1941,69 @@ function cardPrognose(runs){
   </div>`;
 }
 // Form / Relative Belastung (Strava-Style Band)
+/* ============ GARMIN RECOVERY (Schlaf/HRV via Wellness-Gist) ============ */
+function garminCfg(){ if(!DB.garmin) DB.garmin={}; return DB.garmin; }
+async function fetchWellness(){
+  const c=garminCfg();
+  if(!c.gistId || !CLOUD.token) return;
+  try{
+    const r=await fetch("https://api.github.com/gists/"+c.gistId,{headers:{Authorization:"token "+CLOUD.token,Accept:"application/vnd.github+json"}});
+    if(!r.ok) return;
+    const g=await r.json();
+    const f=g.files&&g.files["garmin-wellness.json"];
+    if(!f) return;
+    const data=JSON.parse(f.content);
+    DB.wellness=data; c.lastFetch=Date.now(); save(); render();
+  }catch(e){ console.warn("wellness fetch", e.message); }
+}
+function latestWellness(){
+  const w=DB.wellness; if(!w||!w.days) return null;
+  // jüngster Tag mit Schlaf- oder HRV-Daten
+  for(const d of w.days){ if(d.sleepSeconds||d.hrvLastNight||d.restingHr) return d; }
+  return null;
+}
+function fmtH(sec){ if(!sec) return "–"; const h=Math.floor(sec/3600), m=Math.round((sec%3600)/60); return h+"h"+String(m).padStart(2,"0"); }
+function hrvTrend(){
+  const w=DB.wellness; if(!w||!w.days) return null;
+  const vals=w.days.map(d=>d.hrvLastNight).filter(v=>v);
+  if(vals.length<3) return null;
+  const recent=vals.slice(0,3).reduce((a,b)=>a+b,0)/3;
+  const base=vals.slice(0,7).reduce((a,b)=>a+b,0)/Math.min(7,vals.length);
+  return {recent:Math.round(recent), base:Math.round(base), diff:recent-base};
+}
+function cardRecovery(){
+  const url=(garminCfg().gistId&&CLOUD.token);
+  const d=latestWellness();
+  if(!d){
+    return `<div class="card"><h2>Recovery (Garmin)</h2>
+      <div class="sub">${url?"Noch keine Garmin-Daten — der tägliche Sync läuft morgens, oder im GitHub Actions-Tab manuell starten.":"Garmin-Schlaf/HRV-Sync nicht eingerichtet. Mehr → Garmin Recovery."}</div></div>`;
+  }
+  const hv=hrvTrend();
+  const sleepScore=d.sleepScore;
+  const bb=d.bodyBatteryCharged;
+  return `<div class="card"><h2>Recovery (Garmin)</h2>
+    <div class="tiny muted" style="margin-bottom:10px">Stand ${d.date}${DB.wellness.updated?` · Sync ${DB.wellness.updated.slice(5,10)}`:""}</div>
+    <div class="grid2">
+      <div class="stat"><div class="v">${fmtH(d.sleepSeconds)}</div><div class="l">Schlaf</div>
+        ${sleepScore?`<div class="d muted">Score ${sleepScore}/100</div>`:""}</div>
+      <div class="stat"><div class="v">${d.hrvLastNight||"–"}<span class="tiny"> ms</span></div><div class="l">HRV letzte Nacht</div>
+        ${hv?`<div class="d" style="color:${hv.diff>=-3?'var(--good)':'var(--warn)'}">${hv.diff>=0?"▲":"▼"} ${hv.diff>=0?"+":""}${Math.round(hv.diff)} vs 7-Tage-Ø</div>`:(d.hrvStatus?`<div class="d muted">${d.hrvStatus}</div>`:"")}</div>
+      <div class="stat"><div class="v">${d.restingHr||"–"}<span class="tiny"> bpm</span></div><div class="l">Ruhepuls</div></div>
+      <div class="stat"><div class="v">${d.bodyBatteryLast!=null?d.bodyBatteryLast:(bb!=null?"+"+bb:"–")}</div><div class="l">Body Battery</div>
+        ${bb!=null?`<div class="d muted">+${bb} geladen</div>`:""}</div>
+    </div>
+    ${recoveryInsight(d,hv)}
+  </div>`;
+}
+function recoveryInsight(d,hv){
+  const msgs=[];
+  if(d.sleepSeconds && d.sleepSeconds<6.5*3600) msgs.push("Wenig Schlaf — heute eher locker, Regeneration priorisieren.");
+  if(hv && hv.diff < -5) msgs.push("HRV unter deinem Schnitt — erhöhte Belastung/Stress, harte Einheit ggf. verschieben.");
+  if(d.sleepScore && d.sleepScore>=85 && (!hv||hv.diff>=0)) msgs.push("Gut erholt — grünes Licht für Qualität/Long Run.");
+  if(!msgs.length) return "";
+  return intelBox(msgs.join(" "));
+}
+
 function cardForm(){
   const s=loadSeries();
   if(s.length<7) return "";
@@ -2139,6 +2237,7 @@ function viewMehr(){
     ${cardCloud()}
     ${cardStrava()}
     ${cardCoach()}
+    ${cardGarminRecovery()}
     ${cardPush()}
     <div class="card"><div class="between" style="margin-bottom:6px"><h2 style="margin:0">Freie Einheiten verwalten</h2></div>
       ${acts}<button class="btn-sm btn-p" style="width:100%;margin-top:12px" onclick="openActEdit(-1)">+ Einheit hinzufügen</button></div>
@@ -2726,6 +2825,8 @@ if(CLOUD.token && CLOUD.gistId){ cloudPull(); }
 // Strava OAuth callback + initial fetch
 checkStravaCallback();
 if(stravaConnected()){ stravaFetchActivities(); }
+// Garmin-Wellness laden (Schlaf/HRV via Gist)
+if(DB.garmin && DB.garmin.gistId && CLOUD.token){ fetchWellness(); }
 // Service Worker still registrieren (für Push) — schadet auch ohne Worker-URL nicht
 if('serviceWorker' in navigator){ navigator.serviceWorker.register("./sw.js").catch(()=>{}); }
 </script>

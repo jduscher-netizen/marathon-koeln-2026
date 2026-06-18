@@ -1,0 +1,21 @@
+name: Garmin Wellness Sync
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # täglich 06:00 UTC = 08:00 MESZ
+  workflow_dispatch: {}    # manueller Start im Actions-Tab
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r garmin-sync/requirements.txt
+      - run: python garmin-sync/sync.py
+        env:
+          GARMINTOKENS_B64: ${{ secrets.GARMINTOKENS_B64 }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          WELLNESS_GIST_ID: ${{ secrets.WELLNESS_GIST_ID }}
