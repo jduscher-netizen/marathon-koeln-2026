@@ -2120,15 +2120,20 @@ function recoveryInsight(d,hv){
 /* ============ KALORIENVERBRAUCH (TDEE aus Garmin) ============ */
 function calorieStats(){
   const w=DB.wellness; if(!w||!w.days) return null;
-  const days=w.days.filter(d=>d.totalKcal);
-  if(!days.length) return null;
-  const avg=Math.round(days.reduce((a,d)=>a+d.totalKcal,0)/days.length);
-  const today=days[0];
-  const bmrDays=days.filter(d=>d.bmrKcal);
+  const all=w.days.filter(d=>d.totalKcal);
+  if(!all.length) return null;
+  const today=all[0];
+  // Laufenden Tag aus den Durchschnitten ausschließen — sein Verbrauch ist erst
+  // teilweise gezählt und würde den TDEE-Schnitt sonst nach unten verzerren.
+  const todayStr=new Date().toISOString().slice(0,10);
+  const full=all.filter(d=>d.date!==todayStr);
+  const base=full.length?full:all;
+  const avg=Math.round(base.reduce((a,d)=>a+d.totalKcal,0)/base.length);
+  const bmrDays=base.filter(d=>d.bmrKcal);
   const avgBmr=bmrDays.length?Math.round(bmrDays.reduce((a,d)=>a+d.bmrKcal,0)/bmrDays.length):null;
-  const stepDays=days.filter(d=>d.steps);
+  const stepDays=base.filter(d=>d.steps);
   const avgSteps=stepDays.length?Math.round(stepDays.reduce((a,d)=>a+d.steps,0)/stepDays.length):null;
-  return {avg, today, avgBmr, avgSteps, n:days.length};
+  return {avg, today, avgBmr, avgSteps, n:base.length};
 }
 function cardCalories(){
   const cs=calorieStats();
