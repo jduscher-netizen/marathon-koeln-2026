@@ -2415,36 +2415,50 @@ function calorieStats(){
   const w=DB.wellness; if(!w||!w.days) return null;
   const all=w.days.filter(d=>d.totalKcal);
   if(!all.length) return null;
+  const todayStr=new Date().toISOString().slice(0,10);
   const today=all[0];
   // Laufenden Tag aus den Durchschnitten ausschließen — sein Verbrauch ist erst
   // teilweise gezählt und würde den TDEE-Schnitt sonst nach unten verzerren.
-  const todayStr=new Date().toISOString().slice(0,10);
   const full=all.filter(d=>d.date!==todayStr);
   const base=full.length?full:all;
+  const lastFull=full[0]||all[0];   // jüngster vollständiger Tag für die Aufschlüsselung
   const avg=Math.round(base.reduce((a,d)=>a+d.totalKcal,0)/base.length);
   const bmrDays=base.filter(d=>d.bmrKcal);
   const avgBmr=bmrDays.length?Math.round(bmrDays.reduce((a,d)=>a+d.bmrKcal,0)/bmrDays.length):null;
   const stepDays=base.filter(d=>d.steps);
   const avgSteps=stepDays.length?Math.round(stepDays.reduce((a,d)=>a+d.steps,0)/stepDays.length):null;
-  return {avg, today, avgBmr, avgSteps, n:base.length};
+  return {avg, today, lastFull, todayStr, avgBmr, avgSteps, n:base.length};
 }
 function cardCalories(){
   const cs=calorieStats();
   if(!cs) return `<div class="card"><h2>Kalorienverbrauch</h2>
     <div class="sub">${(garminCfg().gistId&&CLOUD.token)?"Noch keine Garmin-Kaloriendaten — kommt mit dem nächsten Sync.":"Braucht den Garmin-Sync (Mehr → Einstellungen → Garmin Recovery)."}</div></div>`;
-  const t=cs.today;
-  // Empfehlung: Defizit ~400 kcal für ~0,4 kg/Woche (Aufbau-tauglich)
+  const lf=cs.lastFull, t=cs.today;
+  const num=n=>(n==null?"–":Math.round(n).toLocaleString("de"));
+  // Tages-Aufschlüsselung: Grundumsatz + Aktiv (= Schritte + alle Aktivitäten) = Gesamt
+  const bmr=lf.bmrKcal||0;
+  const act=(lf.activeKcal!=null?lf.activeKcal:(lf.totalKcal-bmr));
+  const tot=lf.totalKcal||(bmr+act);
+  const bmrPct=tot?Math.max(2,Math.min(98,Math.round(bmr/tot*100))):60;
+  const dayLabel=lf.date===cs.todayStr?"Heute (läuft)":fmtD(new Date(lf.date+"T00:00:00"));
+  const todayNote=(t&&t!==lf&&t.date===cs.todayStr)?` · heute bisher ${num(t.totalKcal)} (Sync läuft morgens)`:"";
   const target=cs.avg-400;
   return `<div class="card"><h2>Kalorienverbrauch</h2>
-    <div class="tiny muted" style="margin-bottom:10px">Aus Garmin (Grundumsatz + Aktivität) · Ø über ${cs.n} Tage</div>
-    <div class="grid2">
-      <div class="stat"><div class="v">${cs.avg}<span class="tiny"> kcal</span></div><div class="l">Ø Tagesverbrauch (TDEE)</div></div>
-      <div class="stat"><div class="v">${t.totalKcal||"–"}<span class="tiny"> kcal</span></div><div class="l">${t.date} gesamt</div>
-        ${t.activeKcal?`<div class="d muted">davon ${t.activeKcal} aktiv</div>`:""}</div>
-      <div class="stat"><div class="v">${cs.avgBmr||"–"}<span class="tiny"> kcal</span></div><div class="l">Ø Grundumsatz</div></div>
-      <div class="stat"><div class="v">${cs.avgSteps?cs.avgSteps.toLocaleString("de"):"–"}</div><div class="l">Ø Schritte</div></div>
+    <div class="tiny muted" style="margin-bottom:10px">Aus Garmin: Grundumsatz + alle Aktivitäten + Schritte</div>
+    <div class="between" style="align-items:flex-end"><span class="sub">${dayLabel}</span>
+      <b style="font-size:1.6rem;letter-spacing:-.5px">${num(tot)}<span class="tiny" style="font-weight:600"> kcal</span></b></div>
+    <div style="display:flex;height:13px;border-radius:7px;overflow:hidden;margin:9px 0 7px;background:var(--card2)">
+      <div style="width:${bmrPct}%;background:var(--accent)"></div><div style="flex:1;background:var(--good)"></div></div>
+    <div class="between tiny">
+      <span><span style="color:var(--accent)">●</span> Grundumsatz ${num(bmr)}</span>
+      <span><span style="color:var(--good)">●</span> Aktiv ${num(act)}</span>
+      <span class="muted">${lf.steps?num(lf.steps)+" Schritte":""}</span></div>
+    ${todayNote?`<div class="tiny muted" style="margin-top:5px">${todayNote.replace(/^ · /,"")}</div>`:""}
+    <div class="grid2" style="margin-top:16px">
+      <div class="stat"><div class="v">${num(cs.avg)}<span class="tiny"> kcal</span></div><div class="l">Ø Tagesverbrauch (TDEE) · ${cs.n} Tage</div></div>
+      <div class="stat"><div class="v">${cs.avgSteps?num(cs.avgSteps):"–"}</div><div class="l">Ø Schritte</div></div>
     </div>
-    ${intelBox(`Dein realer Tagesverbrauch liegt im Schnitt bei <b>${cs.avg} kcal</b>. Für ~0,4 kg/Woche Abnahme (Richtung 81 kg) wären rund <b>${target} kcal/Tag</b> Aufnahme das Ziel — moderates Defizit, aufbau-tauglich. An harten Lauf- und Long-Run-Tagen nicht unter den Grundumsatz essen.`)}
+    ${intelBox(`Dein realer Tagesverbrauch liegt im Schnitt bei <b>${num(cs.avg)} kcal</b>. Für ~0,4 kg/Woche Abnahme (Richtung 81 kg) wären rund <b>${num(target)} kcal/Tag</b> Aufnahme das Ziel — moderates Defizit, aufbau-tauglich. An harten Lauf- und Long-Run-Tagen nicht unter den Grundumsatz essen.`)}
   </div>`;
 }
 
@@ -2452,18 +2466,13 @@ function cardForm(){
   const s=loadSeries();
   if(s.length<7) return "";
   const f=s[s.length-1], fl=formLabel(f.tsb);
-  // Wochen-TRIMP aktuelle Woche vs 3-Wochen-Schnitt
-  const loc=locate(today()), cur=loc.week||1;
-  const weekTrimp=w=>{
-    let t=0;
-    RUNS.forEach(R=>{ const L=DB.logs[runId(w,R.slot)]; if(L?.sec) t+=trimpFor(L); });
-    return t;
-  };
-  const cw=weekTrimp(cur);
-  const prev=[cur-1,cur-2,cur-3].filter(w=>w>=1).map(weekTrimp);
-  const avg=prev.length?prev.reduce((a,b)=>a+b,0)/prev.length:0;
+  // Rollierend statt Kalenderwoche: letzte 7 Tage (akut) vs. typische 7-Tage-Last
+  // der letzten 4 Wochen (chronisch). So ist der Wert nicht bis zum Long-Run-Sonntag
+  // künstlich niedrig, sondern spiegelt immer die echte Belastung der letzten Woche.
+  const cw=s.slice(-7).reduce((a,d)=>a+d.t,0);
+  const win28=s.slice(-28);
+  const avg= win28.length ? (win28.reduce((a,d)=>a+d.t,0)/win28.length)*7 : 0;
   const rel= avg>0 ? cw/avg : 1;
-  const band = rel>1.25?"über":"in";
   const pos=Math.max(4,Math.min(96, 50+ (avg>0 ? ((cw-avg)/avg)*60 : 0) ));
   // TSB-Verlauf 28 Tage
   const last28=s.slice(-28);
@@ -2475,11 +2484,11 @@ function cardForm(){
   const line=vals.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
   const zero=Y(0);
   return `<div class="card"><h2>Relative Belastung</h2>
-    <div class="between" style="margin:8px 0 4px"><span class="sub">Diese Woche</span><b style="font-size:1.5rem">${Math.round(cw)}</b></div>
-    <div class="tiny muted" style="margin-bottom:10px">${rel>1.4?"Deutlich über deinem 3-Wochen-Schnitt — bewusst dosieren.":rel>1.15?"Etwas über Schnitt — passt in Build-Phasen.":rel<0.6&&avg>0?"Deutlich unter Schnitt — Entlastung oder Auslassungen.":"Du hast deine Belastung gut im Griff."}</div>
+    <div class="between" style="margin:8px 0 4px"><span class="sub">Letzte 7 Tage</span><b style="font-size:1.5rem">${Math.round(cw)}</b></div>
+    <div class="tiny muted" style="margin-bottom:10px">${rel>1.4?"Deutlich über deinem Schnitt — bewusst dosieren.":rel>1.15?"Etwas über Schnitt — passt in Build-Phasen.":rel<0.6&&avg>0?"Deutlich unter Schnitt — Entlastung oder Auslassungen.":"Du hast deine Belastung gut im Griff."}</div>
     <div style="position:relative;border-radius:10px;overflow:hidden">
       <div style="background:#ff4d5e;color:#fff;padding:8px 12px;font-size:.78rem;font-weight:700">Überdurchschnittlich</div>
-      <div style="background:var(--accent);color:#fff;padding:8px 12px;font-size:.78rem;font-weight:700">Dein 3-Wochen-Schnitt (${Math.round(avg)})</div>
+      <div style="background:var(--accent);color:#fff;padding:8px 12px;font-size:.78rem;font-weight:700">Dein Schnitt · 4 Wochen (${Math.round(avg)})</div>
       <div style="background:#3a3a46;color:#aaa;padding:8px 12px;font-size:.78rem;font-weight:700">Unterdurchschnittlich</div>
       <div style="position:absolute;right:14px;top:${(100-pos).toFixed(0)}%;transform:translateY(-50%);width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #333"></div>
     </div>
