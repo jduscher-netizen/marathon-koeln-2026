@@ -235,6 +235,8 @@
   .gex-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px}
   .gex-h b{font-size:.98rem}
   .gex-del{background:none;border:none;color:var(--mut);padding:2px 6px;cursor:pointer;width:auto;font-size:1.05rem;line-height:1}
+  .gex-mv{background:var(--card2);border:1px solid var(--line);color:var(--mut);width:26px;height:22px;border-radius:7px;padding:0;cursor:pointer;font-size:.8rem;line-height:1;display:flex;align-items:center;justify-content:center}
+  .gex-mv:disabled{opacity:.3}
   .gset{display:flex;align-items:center;gap:7px;margin-top:9px}
   .gset.done input{border-color:var(--good)}
   .gset.done{opacity:.7}
@@ -246,6 +248,11 @@
   .gdone.on{color:var(--good);border-color:var(--good)}
   .gdel{flex:0 0 auto;background:none;border:none;color:var(--mut);width:22px;padding:0;cursor:pointer;font-size:1.05rem}
   .gaddset{width:100%;margin-top:10px;background:var(--card2);border:1px dashed var(--line);color:var(--mut);border-radius:11px;padding:9px;font-size:.82rem;cursor:pointer}
+  .gym-mini{position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:90;display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--accent);border-radius:14px;padding:13px 16px;color:var(--txt);font-weight:600;font-size:.92rem;box-shadow:0 6px 26px rgba(0,0,0,.55);cursor:pointer;animation:miniIn .22s ease-out}
+  .gym-mini span{flex:1;text-align:left}
+  .gym-mini b{color:var(--accent);font-weight:800}
+  .gym-mini svg{color:var(--accent)}
+  @keyframes miniIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
 </style>
 
 </head>
@@ -1619,9 +1626,9 @@ function buildCoachContext(){
       L.push(`  • ${s.date} ${s.label.split("·")[0].trim()}: ${top||"—"}${vol?` (Vol. ${Math.round(vol)} kg)`:""}${s.hr?" · "+s.hr+" bpm":""}`);
     });
   }
-  // Marathon-Prognose
-  const series=predictionSeries(runLogs());
-  if(series.length){ const recent=series.slice(-3); const wsum=recent.reduce((a,s)=>a+(s.dist>=15?2:1),0); const pred=recent.reduce((a,s)=>a+s.pred*(s.dist>=15?2:1),0)/wsum; L.push(`Aktuelle Marathon-Hochrechnung: ${hms(Math.round(pred))} (Ziel Sub-4:00).`); }
+  // Marathon-Prognose (stabiler Schätzwert aus besten Efforts der letzten 6 Wochen)
+  const pred=marathonEstimate(predictionSeries(runLogs()));
+  if(pred){ L.push(`Aktuelle Marathon-Hochrechnung: ${hms(Math.round(pred))} (Ziel Sub-4:00) — aus Quality-/Long-Run-Efforts, lockere Läufe fließen nicht ein.`); }
   return L.join("\n");
 }
 
@@ -2121,8 +2128,12 @@ function gymBodyHtml(s){
         <button class="gdel" onclick="gymDelSet('${s.id}',${exi},${si})" aria-label="Satz löschen">×</button>
       </div>`;
     }).join("");
+    const n=s.ex.length;
     return `<div class="gex">
-      <div class="gex-h"><b>${e.name}</b><div style="display:flex;align-items:center;gap:10px">${e.target?`<span class="tiny muted">Ziel ${e.target}</span>`:""}<button class="gex-del" onclick="gymDelEx('${s.id}',${exi})" aria-label="Übung entfernen">×</button></div></div>
+      <div class="gex-h"><b>${e.name}</b><div style="display:flex;align-items:center;gap:6px">${e.target?`<span class="tiny muted" style="margin-right:4px">Ziel ${e.target}</span>`:""}
+        <button class="gex-mv" ${exi===0?"disabled":""} onclick="gymMoveEx('${s.id}',${exi},-1)" aria-label="nach oben">↑</button>
+        <button class="gex-mv" ${exi===n-1?"disabled":""} onclick="gymMoveEx('${s.id}',${exi},1)" aria-label="nach unten">↓</button>
+        <button class="gex-del" onclick="gymDelEx('${s.id}',${exi})" aria-label="Übung entfernen">×</button></div></div>
       ${rows}
       <button class="gaddset" onclick="gymAddSet('${s.id}',${exi})">+ Satz</button>
     </div>`;
@@ -2139,6 +2150,7 @@ function buildGymView(id){
       <button class="cv-back" onclick="closeGym()" aria-label="Zurück (pausieren)">‹</button>
       <div class="cv-av">${ic("dumbbell",19)}</div>
       <div class="cv-ti"><b>${s.label.split("·")[0].trim()}</b><span style="color:var(--mut)">${fmtD(new Date(s.date+"T00:00:00"))} · live</span></div>
+      <button class="cv-back" style="font-size:1.4rem" onclick="gymMinimize()" aria-label="Verkleinern (in der App nachschauen)">▾</button>
     </div>
     <div class="cv-msgs" id="gymBody">${gymBodyHtml(s)}</div>
     <div class="cv-foot">
@@ -2150,6 +2162,18 @@ function buildGymView(id){
 }
 function gymRefresh(id){ const s=gymSession(id), b=document.getElementById("gymBody"); if(s&&b) b.innerHTML=gymBodyHtml(s); }
 function gymIsEmpty(s){ return s && !s.stravaId && !s.counted && !s.ex.some(e=>e.sets.some(x=>x.kg||x.reps||x.done)); }
+// Verkleinern: Overlay weg, kleine schwebende Pille bleibt — App ist nutzbar, Training läuft weiter
+function gymMinimize(){
+  const id=window._gymOpen; if(!id){ closeGym(); return; }
+  const s=gymSession(id);
+  const w=document.getElementById("gymWin"); if(w) w.classList.remove("show"); unlockBody();
+  setTimeout(()=>{
+    const r=document.getElementById("gymRoot");
+    if(r) r.innerHTML=`<button class="gym-mini" onclick="buildGymView('${id}')" aria-label="Training fortsetzen">
+      ${ic("dumbbell",16)}<span>${s?s.label.split("·")[0].trim():"Training"} läuft</span><b>fortsetzen</b></button>`;
+  },280);
+  render();
+}
 function closeGym(){
   // Versehentlich geöffnete, komplett leere Einheit nicht als Müll behalten
   const id=window._gymOpen; window._gymOpen=null;
@@ -2177,6 +2201,7 @@ function gymToggle(id,exi,si){ const s=gymSession(id); if(!s)return; const set=s
 function gymAddSet(id,exi){ const s=gymSession(id); if(!s)return; const sets=s.ex[exi].sets, last=sets[sets.length-1]; sets.push({kg:last?last.kg:null, reps:last?last.reps:null, done:false}); save(); gymRefresh(id); }
 function gymDelSet(id,exi,si){ const s=gymSession(id); if(!s)return; s.ex[exi].sets.splice(si,1); save(); gymRefresh(id); }
 function gymDelEx(id,exi){ const s=gymSession(id); if(!s)return; if(!confirm("Übung „"+s.ex[exi].name+"\" aus dieser Einheit entfernen?"))return; s.ex.splice(exi,1); save(); gymRefresh(id); }
+function gymMoveEx(id,exi,dir){ const s=gymSession(id); if(!s)return; const j=exi+dir; if(j<0||j>=s.ex.length)return; const a=s.ex; [a[exi],a[j]]=[a[j],a[exi]]; save(); gymRefresh(id); }
 function gymAddEx(id){ const s=gymSession(id); if(!s)return; const name=prompt("Name der Übung:"); if(!name)return; s.ex.push({name:name.trim(), target:"", sets:[{kg:null,reps:null,done:false}]}); save(); gymRefresh(id); }
 function gymFinish(id){
   const s=gymSession(id); if(!s) return;
@@ -2194,15 +2219,18 @@ function delGymSession(id){
 }
 /* Vorlagen-Editor (Kern einmal einrichten) */
 function openGymTpl(day){
-  const tpl=gymTpl(day);
-  const rows=tpl.ex.map((e,i)=>`<div class="row" style="gap:6px;margin-bottom:7px">
+  const tpl=gymTpl(day), n=tpl.ex.length;
+  const rows=tpl.ex.map((e,i)=>`<div class="row" style="gap:5px;margin-bottom:7px;align-items:center">
+    <div style="display:flex;flex-direction:column;gap:2px;flex:0 0 auto">
+      <button class="gex-mv" ${i===0?"disabled":""} onclick="gymTplMove('${day}',${i},-1)" aria-label="hoch">↑</button>
+      <button class="gex-mv" ${i===n-1?"disabled":""} onclick="gymTplMove('${day}',${i},1)" aria-label="runter">↓</button></div>
     <input value="${(e.name||'').replace(/"/g,'&quot;')}" placeholder="Übung" style="flex:3" onchange="gymTplSet('${day}',${i},'name',this.value)">
-    <input value="${e.reps||''}" placeholder="Wdh" style="flex:0 0 64px" onchange="gymTplSet('${day}',${i},'reps',this.value)">
-    <input type="number" inputmode="numeric" value="${e.sets||3}" placeholder="Sätze" style="flex:0 0 56px" onchange="gymTplSet('${day}',${i},'sets',this.value)">
+    <input value="${e.reps||''}" placeholder="Wdh" style="flex:0 0 56px" onchange="gymTplSet('${day}',${i},'reps',this.value)">
+    <input type="number" inputmode="numeric" value="${e.sets||3}" placeholder="Sätze" style="flex:0 0 50px" onchange="gymTplSet('${day}',${i},'sets',this.value)">
     <button class="gex-del" onclick="gymTplDel('${day}',${i})">×</button>
   </div>`).join("");
   sheet(`<h2>Vorlage: ${tpl.short}</h2>
-    <div class="sub" style="margin:-6px 0 12px">Übung · Ziel-Wdh · Sätze. Das ist dein Grundgerüst — beim Training kannst du jede Einheit trotzdem frei abändern, ohne die Vorlage zu verändern.</div>
+    <div class="sub" style="margin:-6px 0 12px">Reihenfolge · Übung · Ziel-Wdh · Sätze. Das ist dein Grundgerüst — beim Training kannst du jede Einheit trotzdem frei abändern, ohne die Vorlage zu verändern.</div>
     <div id="gtplRows">${rows}</div>
     <button class="btn-sm" style="width:100%;margin-top:2px" onclick="gymTplAdd('${day}')">+ Übung</button>
     <div class="acts" style="margin-top:18px"><button class="btn-p" style="flex:1" onclick="closeModal();render();toast('Vorlage gespeichert ✓')">Fertig</button>
@@ -2215,6 +2243,7 @@ function gymTplSet(day,i,field,val){
 }
 function gymTplAdd(day){ gymTpl(day).ex.push({name:"Neue Übung", sets:3, reps:"8-12"}); save(); openGymTpl(day); }
 function gymTplDel(day,i){ gymTpl(day).ex.splice(i,1); save(); openGymTpl(day); }
+function gymTplMove(day,i,dir){ const ex=gymTpl(day).ex, j=i+dir; if(j<0||j>=ex.length)return; [ex[i],ex[j]]=[ex[j],ex[i]]; save(); openGymTpl(day); }
 function gymTplReset(day){ if(!confirm("Vorlage auf Standard-Übungen zurücksetzen?"))return; gymDB().templates[day]=JSON.parse(JSON.stringify(DEFAULT_GYM[day])); save(); openGymTpl(day); }
 
 /* ============ VIEW: STATS ============ */
@@ -2231,45 +2260,61 @@ function viewStats(){
     ${cardHR(runs)}
     ${cardActivities()}${cardRad()}${cardWeight()}${redFlagsBlock(false)}</div>`;
 }
-// Prognose pro Lauf (gewichtet: längere Läufe sind verlässlicher).
-// Quality-Läufe (Intervalle mit Pausen) verzerren Riegel → stattdessen deren besten 5k-Effort nutzen.
+// Marathon-Äquivalent pro Lauf via Riegel — ABER nur aus renn-repräsentativen
+// Einheiten: harte Quality-Efforts (bester 5k) und lange Läufe. Easy-/Recovery-
+// Läufe sind sub-maximal; ihr Riegel-Wert ist sinnlos langsam und wird ignoriert,
+// damit ein einzelner lockerer Lauf die Vorhersage nicht verzerrt.
 function predictionSeries(runs){
   const out=[];
   runs.forEach(r=>{
-    if(r.kind==="quality"){
-      if(r.details?.best5k?.sec){
-        out.push({ date:r.date, dist:5, pred: r.details.best5k.sec*Math.pow(42.195/5,1.06), src:"5k-Effort" });
-      }
-      return;
-    }
-    if(r.dist>=8) out.push({ date:r.date, dist:r.dist, pred: r.sec*Math.pow(42.195/r.dist,1.06), src:"Lauf" });
+    let dist=null,t=null,src=null,rel=1;
+    if(r.kind==="quality" && r.details?.best5k?.sec){ dist=5; t=r.details.best5k.sec; src="5k-Effort"; rel=1; }
+    else if(r.kind==="quality" && r.dist>=5){ dist=r.dist; t=r.sec; src="Tempo"; rel=.8; }
+    else if(r.kind==="long" && r.dist>=15){ dist=r.dist; t=r.sec; src="Long Run"; rel=1.2; }
+    else return; // easy/recovery & kurze Läufe ignorieren
+    out.push({ date:r.date, dist, pred: t*Math.pow(42.195/dist,1.06), src, rel });
   });
   return out;
 }
+// Stabiler Schätzwert: beste (schnellste) Hälfte der Efforts im 6-Wochen-Fenster,
+// recency- und verlässlichkeits-gewichtet. Ein neuer langsamer Lauf landet nie in
+// der „besten Hälfte" → keine Sprünge; ein echter neuer Top-Effort verbessert sie nur graduell.
+function marathonEstimate(series, asOf){
+  if(!series||!series.length) return null;
+  const now=asOf||today();
+  const ageD=s=>(now-s.date)/86400000;
+  let win=series.filter(s=>ageD(s)>=0 && ageD(s)<=42);
+  if(win.length<3) win=series.filter(s=>ageD(s)>=0).slice(-5);
+  if(!win.length) return null;
+  const sorted=[...win].sort((a,b)=>a.pred-b.pred);
+  const keep=sorted.slice(0, Math.max(2, Math.ceil(sorted.length/2)));
+  let wsum=0,psum=0;
+  keep.forEach(s=>{ const w=s.rel*Math.pow(0.5, ageD(s)/28); wsum+=w; psum+=s.pred*w; });
+  return wsum? psum/wsum : null;
+}
 function cardPrognose(runs){
   const series=predictionSeries(runs);
-  if(!series.length) return `<div class="card"><h2>Marathon-Vorhersage</h2><div class="sub">Noch kein Lauf ≥ 8 km erfasst — Vorhersage folgt nach den ersten Einheiten.</div></div>`;
-  // Gewichteter aktueller Stand: Ø der letzten 3 Vorhersagen, längere Läufe doppelt
-  const recent=series.slice(-3);
-  const wsum=recent.reduce((a,s)=>a+(s.dist>=15?2:1),0);
-  const pred=recent.reduce((a,s)=>a+s.pred*(s.dist>=15?2:1),0)/wsum;
+  const pred=marathonEstimate(series);
+  if(!pred) return `<div class="card"><h2>Marathon-Vorhersage</h2><div class="sub">Noch keine renn-tauglichen Einheiten erfasst. Die Vorhersage entsteht aus <b>Quality-Läufen</b> (harte Intervalle/Tempo) und <b>Long Runs ≥ 15 km</b> — lockere Dauerläufe fließen bewusst nicht ein.</div></div>`;
   const diff=pred-GOAL_SEC, onTrack=diff<=0;
-  // Delta: letzte Einzel-Vorhersage vs vorherige
-  let deltaHtml="";
-  if(series.length>=2){
-    const d=Math.round(series[series.length-1].pred - series[series.length-2].pred);
-    const better=d<0;
-    deltaHtml=`<div style="display:inline-flex;align-items:center;gap:5px;background:${better?'rgba(57,182,122,.15)':'rgba(224,168,59,.15)'};color:${better?'var(--good)':'var(--warn)'};padding:5px 12px;border-radius:8px;font-weight:800;font-size:.95rem">
-      ${better?"▼":"▲"} ${Math.abs(d)}s</div>`;
+  // Trend: aktueller Schätzwert vs. Stand vor 21 Tagen (stabil, nicht pro Einzel-Lauf)
+  let deltaHtml='<span class="tiny muted">—</span>';
+  const prev=marathonEstimate(series, new Date(today()-21*86400000));
+  if(prev){
+    const d=Math.round(pred-prev), better=d<0;
+    if(Math.abs(d)>=5) deltaHtml=`<div style="display:inline-flex;align-items:center;gap:5px;background:${better?'rgba(57,182,122,.15)':'rgba(224,168,59,.15)'};color:${better?'var(--good)':'var(--warn)'};padding:5px 12px;border-radius:8px;font-weight:800;font-size:.95rem">
+      ${better?"▼":"▲"} ${hms(Math.abs(d))}</div>`;
+    else deltaHtml=`<span class="tiny muted">stabil</span>`;
   }
-  // Trend-Sparkline mit Ziellinie
+  // Sparkline: gleitender Schätzwert über die Zeit (glatt) statt roher Einzelwerte
   let spark="";
-  if(series.length>=2){
+  const dates=[...new Set(series.map(s=>+s.date))].sort((a,b)=>a-b);
+  const pts=dates.map(t=>({t, v:marathonEstimate(series, new Date(t))})).filter(p=>p.v);
+  if(pts.length>=2){
     const W=340,H=90,p=8;
-    const vals=series.map(s=>s.pred);
-    const mn=Math.min(...vals,GOAL_SEC)-300, mx=Math.max(...vals,GOAL_SEC)+300, rg=mx-mn||1;
-    const X=i=>p+i*((W-2*p)/(series.length-1));
-    const Y=v=>p+(1-( (mx-v)/rg ))*(H-2*p); // schneller (kleiner) = oben → invertiert
+    const vals=pts.map(p=>p.v);
+    const mn=Math.min(...vals,GOAL_SEC)-180, mx=Math.max(...vals,GOAL_SEC)+180, rg=mx-mn||1;
+    const X=i=>p+i*((W-2*p)/(pts.length-1));
     const Yi=v=>p+((v-mn)/rg)*(H-2*p);
     const line=vals.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Yi(v).toFixed(1)).join(" ");
     const gy=Yi(GOAL_SEC);
@@ -2280,7 +2325,9 @@ function cardPrognose(runs){
       ${vals.map((v,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Yi(v).toFixed(1)}" r="3" fill="var(--accent)"/>`).join("")}
     </svg>`;
   }
-  const last=series[series.length-1];
+  const winN=series.filter(s=>(today()-s.date)/86400000<=42).length;
+  const lq=[...series].reverse().find(s=>s.src.includes("5k")||s.src==="Tempo");
+  const ll=[...series].reverse().find(s=>s.src==="Long Run");
   return `<div class="card"><h2>Marathon-Vorhersage</h2>
     <div style="display:flex;align-items:center;gap:16px;margin:10px 0 4px">
       <div style="width:62px;height:62px;border:3px solid var(--accent);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 0 auto">
@@ -2290,13 +2337,13 @@ function cardPrognose(runs){
         <b style="font-size:1.7rem;letter-spacing:-.5px">${hms(Math.round(pred))}</b>
         <div class="tiny" style="color:${onTrack?'var(--good)':'var(--warn)'};font-weight:700;margin-top:2px">${onTrack?hms(Math.round(-diff))+" unter Sub-4:00 ✓":hms(Math.round(diff))+" über Sub-4:00"}</div>
       </div>
-      <div style="flex:0 0 auto"><div class="tiny muted" style="text-align:right;margin-bottom:3px">Letzter Lauf</div>${deltaHtml||'<span class="tiny muted">—</span>'}</div>
+      <div style="flex:0 0 auto"><div class="tiny muted" style="text-align:right;margin-bottom:3px">Trend 3 Wo</div>${deltaHtml}</div>
     </div>
     ${spark}
     ${intelBox(onTrack
-      ? `Hochrechnung aus deinen letzten ${recent.length} Läufen (Riegel-Formel, lange Läufe doppelt gewichtet) — du liegst aktuell im Sub-4:00-Korridor. Long Runs ab 25 km machen die Vorhersage deutlich belastbarer.`
-      : `Hochrechnung ${hms(Math.round(diff))} über Ziel. Kein Alarm in Base-Phase: Die Vorhersage fällt typischerweise mit wachsendem Long-Run-Volumen. Wichtigster Hebel: MP-Blöcke im Long Run sauber treffen.`)}
-    <div class="tiny muted">Basis: ${series.length} Läufe ≥ 8 km · zuletzt ${last.dist} km am ${fmtD(last.date)}</div>
+      ? `Schätzwert aus deinen besten renn-tauglichen Efforts der letzten 6 Wochen (Quality-Tempo + Long Runs, Riegel-Formel). Lockere Läufe zählen bewusst nicht mit. Long Runs ab 25 km mit MP-Blöcken machen die Vorhersage am belastbarsten.`
+      : `Schätzwert ${hms(Math.round(diff))} über Ziel. In der Base-Phase normal: er sinkt mit Tempohärte und Long-Run-Volumen. Hebel: einen sauberen 5k-/Tempo-Effort setzen und MP-Blöcke im Long Run treffen.`)}
+    <div class="tiny muted">Basis: ${winN} Effort${winN===1?"":"s"} in 6 Wochen${lq?` · Tempo zuletzt ${fmtD(lq.date)}`:""}${ll?` · Long Run zuletzt ${ll.dist} km`:""}</div>
   </div>`;
 }
 // Form / Relative Belastung (Strava-Style Band)
@@ -2706,7 +2753,7 @@ function viewMehr(){
     </div></details>
 
     <details><summary>Ernährung &amp; Gewicht</summary><div class="dc">
-      <p>Bedarf bei 85 kg + 4 Läufen ~2.800–3.100 kcal. <b>Empfehlung 2.500–2.700 kcal</b> (Defizit 300–500) → 0,3–0,5 kg/Woche. 86→81 kg in 10–14 Wochen, fertig vor Peak.</p>
+      <p>Deinen <b>echten Tagesverbrauch (TDEE)</b> und die empfohlene Zufuhr berechnet jetzt die <b>Kalorien-Karte in Analyse</b> aus deinen Garmin-Daten — daran orientieren statt an Schätzwerten. Faustregel: ~400 kcal Defizit → ca. 0,4 kg/Woche; 86→81 kg fertig vor dem Peak. Long-Run-/harte Tage nicht unter den Grundumsatz essen.</p>
       <h3>Makros / Tag</h3><ul>
       <li>Eiweiß 150–170 g (Hähnchen, Pute, Magerquark, Skyr, Eier, Whey)</li>
       <li>Kohlenhydrate 300–380 g (Hafer, Reis, Kartoffeln, Obst)</li>
@@ -2723,7 +2770,7 @@ function viewMehr(){
       <li>Alkohol minimieren · Schlaf &gt;7 h · 1×/Woche nüchtern wiegen</li>
       <li>Long-Run-Tage NICHT unterkalorisieren (So/Mo 3.000+ kcal)</li></ul>
       <h3>Defizit pausieren wenn</h3>
-      <p>Long Run 2 Wochen zäh · HF im Easy +5–10 höher · Schlafprobleme/kein Drive · Verletzungs-Anzeichen → 1–2 Wochen Erhalt (2.800 kcal). Taper W19–21: kein Defizit, Glykogen laden.</p>
+      <p>Long Run 2 Wochen zäh · HF im Easy +5–10 höher · Schlafprobleme/kein Drive · Verletzungs-Anzeichen → 1–2 Wochen Erhalt (auf TDEE, kein Defizit). Taper W19–21: kein Defizit, Glykogen laden.</p>
     </div></details>
 
     <details><summary>Padel, Rennrad &amp; Red Flags</summary><div class="dc">
