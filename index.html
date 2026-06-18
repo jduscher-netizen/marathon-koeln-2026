@@ -17,23 +17,28 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0a0a0e;          /* sattes Schwarz mit Blaustich */
-    --card:#15151c;        /* elevated Surface */
-    --card2:#1e1e27;       /* höhere Elevation */
-    --line:#2a2a35;
-    --txt:#f6f6f8;
-    --mut:#8b8b97;
+    --bg:#08080b;          /* tiefes Schwarz (WHOOP-Look) */
+    --bg2:#050507;
+    --card:#141519;        /* schwebende Fläche */
+    --card2:#1b1c22;       /* höhere Elevation */
+    --line:rgba(255,255,255,.055);   /* sehr feine Kante statt harter Linie */
+    --line2:rgba(255,255,255,.10);
+    --txt:#f3f4f6;
+    --mut:#8e8f99;
+    --mut2:#65666f;
     --accent:#ff5e3e;      /* SUB4 Coral */
     --accent-d:#e6492a;
-    --accent-glow:rgba(255,94,62,.35);
+    --accent-glow:rgba(255,94,62,.22);
     --accent2:#7a1620;
     --orange:#ff9f43;
     --gold:#ffce4a;
-    --good:#2ee589;        /* Neon-Grün (Runna-Style) */
+    --good:#3ad79a;        /* ruhiges Teal-Grün statt Neon */
     --warn:#ffb340;
-    --bad:#ff4d5e;
-    --blue:#54a4ff;
-    --r:20px;
+    --bad:#ff5a6a;
+    --blue:#5aa6ff;
+    --r:22px;
+    --shadow:0 18px 44px -20px rgba(0,0,0,.85);
+    --shadow-sm:0 8px 24px -16px rgba(0,0,0,.7);
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{background:var(--bg);color:var(--txt);font-family:'Inter',-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;touch-action:manipulation;-webkit-text-size-adjust:100%;-webkit-user-select:none;user-select:none;overscroll-behavior-y:none}
@@ -44,10 +49,9 @@
   h1 .sub{font-size:.78rem;font-weight:500;display:block;margin-top:3px;color:var(--mut);letter-spacing:0}
   h2{font-size:1.1rem;font-weight:800;margin:0 0 10px;letter-spacing:-.3px;color:var(--txt)}
   .sub{color:var(--mut);font-size:.82rem}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:14px}
-  .hero{background:linear-gradient(150deg,#101016 0%,#1a1216 45%,#3d141a 80%,#5a1a1e 100%);border:1px solid rgba(255,94,62,.25);color:#fff;position:relative;overflow:hidden;padding:24px 20px}
-  .hero::before{content:"";position:absolute;top:-90px;right:-70px;width:280px;height:280px;background:radial-gradient(circle,var(--accent-glow),transparent 65%);pointer-events:none}
-  .hero::after{content:"";position:absolute;bottom:-120px;left:-50px;width:240px;height:240px;background:radial-gradient(circle,rgba(122,22,32,.5),transparent 70%);pointer-events:none}
+  .card{background:linear-gradient(180deg,#16171d 0%,#131318 100%);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+  .hero{background:linear-gradient(165deg,#181820 0%,#131218 55%,#1d1418 100%);border:1px solid var(--line);box-shadow:var(--shadow);color:#fff;position:relative;overflow:hidden;padding:26px 22px;border-radius:26px}
+  .hero::before{content:"";position:absolute;top:-110px;right:-90px;width:300px;height:300px;background:radial-gradient(circle,var(--accent-glow),transparent 62%);pointer-events:none}
   .hero > *{position:relative;z-index:1}
   .hero .ph{color:var(--accent);font-weight:800}
   .hero .sub{color:rgba(255,255,255,.6)}
@@ -57,7 +61,7 @@
   .hero .cd span{color:rgba(255,255,255,.5)}
   .hero .pill.run{background:rgba(255,94,62,.2);color:#ff8a70;border-color:rgba(255,94,62,.4)}
   .runcard{background:var(--card);border:1px solid var(--line)}
-  .runcard.logged{border-color:rgba(46,229,137,.3);background:linear-gradient(135deg,var(--card) 0%,rgba(46,229,137,.06) 100%)}
+  .runcard.logged{border-color:rgba(58,215,154,.3);background:linear-gradient(135deg,var(--card) 0%,rgba(58,215,154,.06) 100%)}
   .ring-wrap{position:relative;width:64px;height:64px;flex:0 0 auto}
   .ring-wrap svg{transform:rotate(-90deg)}
   .ring-wrap .rv{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;color:#fff}
@@ -66,20 +70,21 @@
   .pill{display:inline-block;padding:3px 11px;border-radius:999px;font-size:.7rem;font-weight:700;background:var(--card2);color:var(--mut);border:1px solid var(--line);letter-spacing:.2px}
   .pill.run{background:rgba(255,94,62,.16);color:#ff8a70;border-color:rgba(255,94,62,.35)}
   .pill.str{background:rgba(84,164,255,.14);color:#7fb9ff;border-color:rgba(84,164,255,.3)}
-  .pill.pad{background:rgba(46,229,137,.13);color:#5cf0a8;border-color:rgba(46,229,137,.3)}
+  .pill.pad{background:rgba(58,215,154,.13);color:#5cf0a8;border-color:rgba(58,215,154,.3)}
   .pill.bike{background:rgba(255,159,67,.14);color:#ffb878;border-color:rgba(255,159,67,.3)}
-  .pill.done{background:rgba(46,229,137,.16);color:#5cf0a8;border-color:rgba(46,229,137,.35)}
+  .pill.done{background:rgba(58,215,154,.16);color:#5cf0a8;border-color:rgba(58,215,154,.35)}
   .pill.skip{background:rgba(255,77,94,.13);color:#ff8a96;border-color:rgba(255,77,94,.3)}
   .pill.opt{background:var(--card2);color:var(--mut)}
   .hd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
   .hd .ph{font-size:.7rem;text-transform:uppercase;letter-spacing:1.4px;font-weight:800}
   .big{font-size:1.8rem;font-weight:900;line-height:1.1;letter-spacing:-.5px}
   .cd{display:flex;gap:12px;text-align:center;margin-top:6px}
-  .cd div{flex:1;background:var(--card2);border-radius:14px;padding:12px 4px}
+  .cd div{flex:1;background:var(--card2);border-radius:16px;padding:14px 4px}
   .cd b{display:block;font-size:1.6rem;font-weight:800;letter-spacing:-.5px}
   .cd span{font-size:.6rem;color:var(--mut);text-transform:uppercase;letter-spacing:.7px;font-weight:700}
-  .day{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 14px;margin-bottom:10px;transition:.15s}
-  .day.today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow),0 0 24px rgba(255,94,62,.12)}
+  .day{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:15px 16px;margin-bottom:10px;transition:.18s ease}
+  .day:active{transform:scale(.99)}
+  .day.today{border-color:rgba(255,94,62,.5);box-shadow:0 0 0 1px rgba(255,94,62,.3),0 12px 30px -16px rgba(255,94,62,.25)}
   .day .dn{font-weight:700;font-size:.95rem;color:var(--txt)}
   .day .dd{color:var(--mut);font-size:.74rem}
   .day .ds{margin-top:8px;font-size:.86rem;color:#cfcfd8}
@@ -87,12 +92,12 @@
   .acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
   button,.btn{font:inherit;font-family:inherit;cursor:pointer;border:none;border-radius:13px;padding:10px 16px;font-size:.85rem;font-weight:700;background:var(--card2);color:var(--txt);border:1px solid var(--line)}
   button:active{transform:scale(.97)}
-  .btn-p{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 4px 18px var(--accent-glow)}
+  .btn-p{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 8px 22px -10px var(--accent-glow)}
   .btn-p:hover{background:var(--accent-d);border-color:var(--accent-d)}
   .btn-sm{padding:7px 12px;font-size:.78rem}
   .btn-gh{background:transparent;border-color:transparent;color:var(--mut)}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .stat{background:var(--card2);border-radius:16px;padding:14px}
+  .stat{background:var(--card2);border-radius:18px;padding:16px}
   .stat .v{font-size:1.55rem;font-weight:800;letter-spacing:-.5px;color:var(--txt)}
   .stat .l{font-size:.66rem;color:var(--mut);text-transform:uppercase;letter-spacing:.8px;margin-top:3px;font-weight:700}
   .stat .d{font-size:.74rem;margin-top:4px;font-weight:500}
@@ -103,26 +108,29 @@
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,94,62,.18)}
   .seg{display:flex;gap:6px;flex-wrap:wrap}
   .seg button{flex:1;min-width:auto;background:var(--card2);border-color:transparent}
-  .seg button.on{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 2px 12px var(--accent-glow)}
+  .seg button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  input,select,textarea{border-radius:14px}
+  .seg button,button,.btn{border-radius:14px}
   .ico{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex:0 0 auto}
-  .nav{position:fixed;bottom:0;left:0;right:0;background:rgba(10,10,14,.88);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-top:1px solid var(--line);display:flex;padding:8px 6px calc(8px + env(safe-area-inset-bottom));z-index:50}
-  .nav a{flex:1;text-align:center;color:#6b6b78;font-size:.62rem;font-weight:700;text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px;letter-spacing:.2px;transition:color .15s}
-  .nav a .ni{font-size:1.3rem;line-height:1}
-  .nav a.on{color:var(--accent);text-shadow:0 0 18px var(--accent-glow)}
+  .nav{position:fixed;bottom:0;left:0;right:0;background:rgba(8,8,11,.82);backdrop-filter:blur(28px) saturate(1.4);-webkit-backdrop-filter:blur(28px) saturate(1.4);border-top:1px solid var(--line);display:flex;padding:10px 6px calc(10px + env(safe-area-inset-bottom));z-index:50}
+  .nav a{flex:1;text-align:center;color:var(--mut2);font-size:.6rem;font-weight:600;text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:5px;letter-spacing:.3px;transition:color .18s}
+  .nav a .ni{font-size:1.35rem;line-height:1;opacity:.85}
+  .nav a.on{color:var(--accent)}
+  .nav a.on .ni{opacity:1}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:flex-end;justify-content:center;z-index:100;overscroll-behavior:contain;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
   .sheet{position:relative;background:var(--card);border-radius:26px 26px 0 0;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;padding:20px 18px calc(28px + env(safe-area-inset-bottom));border:1px solid var(--line);border-bottom:none;touch-action:pan-y;will-change:transform;box-shadow:0 -12px 50px rgba(0,0,0,.5)}
   .sheet-close{position:absolute;top:10px;right:12px;width:36px;height:36px;border-radius:50%;background:var(--card2);color:var(--mut);border:none;font-size:1.4rem;font-weight:300;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;z-index:5;cursor:pointer}
   .sheet-close:active{background:var(--line);color:var(--txt)}
   body.locked{position:fixed;width:100%;overflow:hidden}
   .sheet h2{font-size:1.15rem}
-  .grab{width:42px;height:5px;background:var(--line);border-radius:3px;margin:-6px auto 14px}
+  .grab{width:40px;height:5px;background:rgba(255,255,255,.16);border-radius:3px;margin:-6px auto 16px}
   .bar{display:flex;align-items:flex-end;gap:5px;height:130px;margin-top:8px}
   .bar .b{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;min-width:0}
   .bar .b small{font-size:.58rem;color:var(--mut);white-space:nowrap;overflow:hidden;font-weight:600}
   .legend{display:flex;gap:14px;font-size:.72rem;color:var(--mut);margin-top:10px;flex-wrap:wrap;font-weight:500}
   .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
   .flag{display:flex;gap:10px;padding:12px 14px;border-radius:14px;margin-bottom:8px;font-size:.85rem;align-items:flex-start}
-  .flag.ok{background:rgba(46,229,137,.08);border:1px solid rgba(46,229,137,.25);color:#7df2b6}
+  .flag.ok{background:rgba(58,215,154,.08);border:1px solid rgba(58,215,154,.25);color:#7df2b6}
   .flag.w{background:rgba(255,179,64,.08);border:1px solid rgba(255,179,64,.28);color:#ffd089}
   .flag.b{background:rgba(255,77,94,.08);border:1px solid rgba(255,77,94,.28);color:#ff9aa4}
   .flag b{display:block;font-size:.88rem;margin-bottom:2px;font-weight:700}
@@ -137,7 +145,7 @@
   .sp{height:6px}
   .center{text-align:center}
   ::-webkit-scrollbar{width:0;height:0}
-  .toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:var(--accent);color:#fff;padding:12px 22px;border-radius:999px;font-size:.86rem;font-weight:700;z-index:200;opacity:0;transition:.25s;pointer-events:none;box-shadow:0 8px 30px var(--accent-glow)}
+  .toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:#22232b;color:#fff;padding:13px 24px;border-radius:999px;font-size:.86rem;font-weight:600;z-index:200;opacity:0;transition:.25s;pointer-events:none;box-shadow:var(--shadow);border:1px solid var(--line)}
   .toast.show{opacity:1}
   .act{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--line)}
   .act:last-child{border-bottom:none}
@@ -155,7 +163,7 @@
   .step button.acc{background:var(--accent);color:#fff}
   .dotline{display:flex;gap:4px;margin-top:6px}
   .dotline i{width:9px;height:9px;border-radius:50%;background:var(--card2);border:1px solid var(--line)}
-  .dotline i.f{background:var(--good);border-color:var(--good);box-shadow:0 0 8px rgba(46,229,137,.5)}
+  .dotline i.f{background:var(--good);border-color:var(--good);box-shadow:0 0 8px rgba(58,215,154,.5)}
   a.lnk{color:var(--accent);text-decoration:none;font-weight:600}
   details{background:var(--card);border:1px solid var(--line);border-radius:18px;margin-bottom:12px;overflow:hidden}
   details summary{list-style:none;cursor:pointer;padding:16px 18px;font-weight:800;font-size:.95rem;display:flex;align-items:center;justify-content:space-between;color:var(--txt)}
@@ -1432,7 +1440,7 @@ function runCard(w,slot,big){
     <div><b>${L.hr||"–"}</b><span>Ø HF</span></div></div>`; }
   return `<div class="card runcard${L?' logged':''}">
     <div class="row">
-      <div class="ico" style="background:${L?'rgba(46,229,137,.13)':'rgba(255,94,62,.13)'};color:${L?'var(--good)':'var(--accent)'}">${ic("activity",20)}</div>
+      <div class="ico" style="background:${L?'rgba(58,215,154,.13)':'rgba(255,94,62,.13)'};color:${L?'var(--good)':'var(--accent)'}">${ic("activity",20)}</div>
       <div style="flex:1;min-width:0">
         <div class="between"><b style="font-size:1rem">${c.title}</b>
           ${L?`<span class="pill done">✓</span>`:sk?`<span class="pill skip">übersprungen</span>`:`<span class="pill run">${DOWL[effDay(w,slot)]}</span>`}</div>
@@ -1889,7 +1897,7 @@ function viewHeute(){
     const todayRuns=RUNS.filter(R=>effDay(loc.week,R.slot)===loc.dayIdx&&!runIsRest(loc.week,R.slot));
     const upcoming=RUNS.filter(R=>effDay(loc.week,R.slot)>loc.dayIdx&&!runIsRest(loc.week,R.slot)).sort((a,b)=>effDay(loc.week,a.slot)-effDay(loc.week,b.slot));
     const done=runDoneKm(W.w), pct=Math.min(100, W.km?done/W.km*100:0);
-    const r=22, circ=2*Math.PI*r, off=circ*(1-pct/100);
+    const r=30, circ=2*Math.PI*r, off=circ*(1-pct/100);
     body=`
     <div class="card hero">
       <div class="hd"><div>
@@ -1898,13 +1906,15 @@ function viewHeute(){
         <div class="sub">${fmtD(td)} · ${W.dr}</div></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
           <div class="pill run">${dRace} Tage</div>
-          <div class="ring-wrap" title="Wochenfortschritt">
-            <svg width="64" height="64" viewBox="0 0 64 64">
-              <circle cx="32" cy="32" r="${r}" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="6"/>
-              <circle cx="32" cy="32" r="${r}" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"
+          <div class="ring-wrap" style="width:74px;height:74px" title="Wochenfortschritt">
+            <svg width="74" height="74" viewBox="0 0 74 74">
+              <defs><linearGradient id="hring" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ff8a5e"/><stop offset="1" stop-color="#ff5e3e"/></linearGradient></defs>
+              <circle cx="37" cy="37" r="${r}" fill="none" stroke="rgba(255,255,255,.09)" stroke-width="7"/>
+              <circle cx="37" cy="37" r="${r}" fill="none" stroke="url(#hring)" stroke-width="7" stroke-linecap="round"
                 stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/>
             </svg>
-            <div class="rv" style="color:#fff">${Math.round(pct)}%</div>
+            <div class="rv" style="color:#fff;font-size:1.05rem;font-weight:800">${Math.round(pct)}%</div>
           </div>
         </div></div>
       <div class="cd">
@@ -2486,11 +2496,11 @@ function cardForm(){
   return `<div class="card"><h2>Relative Belastung</h2>
     <div class="between" style="margin:8px 0 4px"><span class="sub">Letzte 7 Tage</span><b style="font-size:1.5rem">${Math.round(cw)}</b></div>
     <div class="tiny muted" style="margin-bottom:10px">${rel>1.4?"Deutlich über deinem Schnitt — bewusst dosieren.":rel>1.15?"Etwas über Schnitt — passt in Build-Phasen.":rel<0.6&&avg>0?"Deutlich unter Schnitt — Entlastung oder Auslassungen.":"Du hast deine Belastung gut im Griff."}</div>
-    <div style="position:relative;border-radius:10px;overflow:hidden">
-      <div style="background:#ff4d5e;color:#fff;padding:8px 12px;font-size:.78rem;font-weight:700">Überdurchschnittlich</div>
-      <div style="background:var(--accent);color:#fff;padding:8px 12px;font-size:.78rem;font-weight:700">Dein Schnitt · 4 Wochen (${Math.round(avg)})</div>
-      <div style="background:#3a3a46;color:#aaa;padding:8px 12px;font-size:.78rem;font-weight:700">Unterdurchschnittlich</div>
-      <div style="position:absolute;right:14px;top:${(100-pos).toFixed(0)}%;transform:translateY(-50%);width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #333"></div>
+    <div style="position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line)">
+      <div style="background:rgba(255,90,106,.16);color:#ff97a2;padding:9px 13px;font-size:.76rem;font-weight:600">Überdurchschnittlich</div>
+      <div style="background:rgba(255,94,62,.16);color:#ff9577;padding:9px 13px;font-size:.76rem;font-weight:700;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">Dein Schnitt · 4 Wochen (${Math.round(avg)})</div>
+      <div style="background:rgba(255,255,255,.03);color:var(--mut);padding:9px 13px;font-size:.76rem;font-weight:600">Unterdurchschnittlich</div>
+      <div style="position:absolute;right:14px;top:${(100-pos).toFixed(0)}%;transform:translateY(-50%);width:13px;height:13px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px var(--bg),0 2px 8px rgba(0,0,0,.6)"></div>
     </div>
     <div style="margin-top:16px"><b style="font-size:.9rem">Form-Verlauf (28 Tage)</b>
       <svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="margin-top:6px">
