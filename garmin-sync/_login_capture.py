@@ -25,12 +25,25 @@ def main():
         email=email,
         password=pw,
         prompt_mfa=lambda: ask("2FA-Code (falls gefragt): "),
+        retry_attempts=1,  # nicht hämmern — sonst verschärft sich Garmins Rate-Limit
     )
 
     # login(tokenstore) authentifiziert UND legt die Tokens in diesem
     # Verzeichnis ab — genau das Format, das sync.py später via g.login(dir) lädt.
     d = tempfile.mkdtemp()
-    g.login(d)
+    try:
+        g.login(d)
+    except Exception as e:
+        msg = str(e)
+        if "429" in msg or "rate" in msg.lower():
+            sys.stderr.write(
+                "\n✗ Garmin blockiert deine IP gerade (429, Rate-Limit).\n"
+                "  → Bitte 1–2 Stunden warten (oder anderes Netz/Handy-Hotspot)\n"
+                "    und dann setup.sh GENAU EINMAL erneut ausführen.\n"
+                "  Mehrfaches schnelles Wiederholen verlängert die Sperre.\n"
+            )
+            sys.exit(2)
+        raise
 
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
