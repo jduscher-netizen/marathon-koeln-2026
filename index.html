@@ -695,8 +695,9 @@ async function stravaImport(actId){
   let resultMsg="";
 
   if(kind==="ride"){
+    const kcal = await fetchStravaCalories(a.id);
     DB.rides.push({id:"R"+Date.now()+Math.random().toString(36).slice(2,5),
-      date:dkey(date), w:(locate(date).week||0), dist, sec, hr, elev, rpe:null, note:"Strava: "+(a.name||"")});
+      date:dkey(date), w:(locate(date).week||0), dist, sec, hr, elev, kcal, rpe:null, note:"Strava: "+(a.name||"")});
     resultMsg="Fahrt importiert ✓";
   } else if(kind==="run"){
     const m = matchRunSlot(date);
@@ -706,7 +707,8 @@ async function stravaImport(actId){
     else {
       const streams = await fetchStravaStreams(a.id);
       const details = streams ? streamsToDetails(streams, a.start_date) : null;
-      DB.logs[id] = {dist, sec, hr, elev, maxHr:a.max_heartrate?Math.round(a.max_heartrate):null,
+      const kcal = await fetchStravaCalories(a.id);
+      DB.logs[id] = {dist, sec, hr, elev, kcal, maxHr:a.max_heartrate?Math.round(a.max_heartrate):null,
         cadence:a.average_cadence?Math.round(a.average_cadence*2):null,
         rpe:null, feel:null, pain:false, note:"Strava: "+(a.name||""), details};
       resultMsg="Lauf importiert ✓"+(details?" + Analyse":"");
@@ -2449,34 +2451,48 @@ function calorieStats(){
   const avgSteps=stepDays.length?Math.round(stepDays.reduce((a,d)=>a+d.steps,0)/stepDays.length):null;
   return {avg, today, lastFull, todayStr, avgBmr, avgSteps, n:base.length};
 }
+function bodyWeightKg(){ const ws=[...(DB.weights||[])].sort((a,b)=>new Date(b.d)-new Date(a.d)); return ws[0]?ws[0].kg:85; }
+// Heute LIVE: voller Tages-Grundumsatz + heute erfasste Aktivitäten (echte Strava-kcal
+// bevorzugt, sonst geschätzt). Nötig, weil der Garmin-Tagestotal erst beim Morgen-Sync
+// kommt und den heutigen Lauf/das Studio noch nicht enthält.
+function todayBurn(){
+  const cs=calorieStats();
+  const bmrFull = (cs&&cs.avgBmr) || (cs&&cs.lastFull&&cs.lastFull.bmrKcal) || 1900;
+  const td=dkey(today()), w=bodyWeightKg(), items=[];
+  runLogs().forEach(r=>{ if(dkey(r.date)!==td) return; const k=r.kcal||Math.round(r.dist*w*1.036); items.push({label:"Lauf "+r.dist+" km", k}); });
+  (DB.rides||[]).forEach(r=>{ if(r.date!==td) return; const k=r.kcal||Math.round((r.sec/60)*8); items.push({label:"Rad "+r.dist+" km", k}); });
+  gymSessions().forEach(s=>{ if(s.date!==td) return; const k=s.kcal||(s.sec?Math.round(s.sec/60*6):300); items.push({label:s.label.split("·")[0].trim(), k}); });
+  (DB.workouts||[]).forEach(x=>{ if(x.date!==td) return; const k=x.kcal||(x.sec?Math.round(x.sec/60*6):0); if(k) items.push({label:x.label||x.type, k}); });
+  const active=items.reduce((a,i)=>a+i.k,0);
+  return {bmr:Math.round(bmrFull), active, total:Math.round(bmrFull)+active, items};
+}
 function cardCalories(){
   const cs=calorieStats();
   if(!cs) return `<div class="card"><h2>Kalorienverbrauch</h2>
     <div class="sub">${(garminCfg().gistId&&CLOUD.token)?"Noch keine Garmin-Kaloriendaten — kommt mit dem nächsten Sync.":"Braucht den Garmin-Sync (Mehr → Einstellungen → Garmin Recovery)."}</div></div>`;
-  const lf=cs.lastFull, t=cs.today;
   const num=n=>(n==null?"–":Math.round(n).toLocaleString("de"));
-  // Tages-Aufschlüsselung: Grundumsatz + Aktiv (= Schritte + alle Aktivitäten) = Gesamt
-  const bmr=lf.bmrKcal||0;
-  const act=(lf.activeKcal!=null?lf.activeKcal:(lf.totalKcal-bmr));
-  const tot=lf.totalKcal||(bmr+act);
-  const bmrPct=tot?Math.max(2,Math.min(98,Math.round(bmr/tot*100))):60;
-  const dayLabel=lf.date===cs.todayStr?"Heute (läuft)":fmtD(new Date(lf.date+"T00:00:00"));
-  const todayNote=(t&&t!==lf&&t.date===cs.todayStr)?` · heute bisher ${num(t.totalKcal)} (Sync läuft morgens)`:"";
+  const tb=todayBurn();
+  const bmrPct=tb.total?Math.max(2,Math.min(98,Math.round(tb.bmr/tb.total*100))):100;
+  const itemsHtml=tb.items.length
+    ? tb.items.map(i=>`<div class="between tiny" style="margin-top:4px"><span class="muted">${i.label}</span><span style="font-weight:600">+${num(i.k)} kcal</span></div>`).join("")
+    : `<div class="tiny muted" style="margin-top:5px">Noch keine Aktivität heute erfasst.</div>`;
+  // letzter voller Garmin-Tag als belastbare Referenz (inkl. Schritte/Alltag)
+  const lf=cs.lastFull, ltot=lf.totalKcal||0;
   const target=cs.avg-400;
   return `<div class="card"><h2>Kalorienverbrauch</h2>
-    <div class="tiny muted" style="margin-bottom:10px">Aus Garmin: Grundumsatz + alle Aktivitäten + Schritte</div>
-    <div class="between" style="align-items:flex-end"><span class="sub">${dayLabel}</span>
-      <b style="font-size:1.6rem;letter-spacing:-.5px">${num(tot)}<span class="tiny" style="font-weight:600"> kcal</span></b></div>
-    <div style="display:flex;height:13px;border-radius:7px;overflow:hidden;margin:9px 0 7px;background:var(--card2)">
+    <div class="tiny muted" style="margin-bottom:10px">Heute live · Grundumsatz + erfasste Aktivitäten</div>
+    <div class="between" style="align-items:flex-end"><span class="sub">Heute</span>
+      <b style="font-size:1.7rem;letter-spacing:-.5px">${num(tb.total)}<span class="tiny" style="font-weight:600"> kcal</span></b></div>
+    <div style="display:flex;height:13px;border-radius:7px;overflow:hidden;margin:9px 0 8px;background:var(--card2)">
       <div style="width:${bmrPct}%;background:var(--accent)"></div><div style="flex:1;background:var(--good)"></div></div>
-    <div class="between tiny">
-      <span><span style="color:var(--accent)">●</span> Grundumsatz ${num(bmr)}</span>
-      <span><span style="color:var(--good)">●</span> Aktiv ${num(act)}</span>
-      <span class="muted">${lf.steps?num(lf.steps)+" Schritte":""}</span></div>
-    ${todayNote?`<div class="tiny muted" style="margin-top:5px">${todayNote.replace(/^ · /,"")}</div>`:""}
+    <div class="between tiny" style="margin-bottom:2px">
+      <span><span style="color:var(--accent)">●</span> Grundumsatz ${num(tb.bmr)}</span>
+      <span><span style="color:var(--good)">●</span> Aktiv ${num(tb.active)}</span></div>
+    ${itemsHtml}
+    <div class="tiny muted" style="margin-top:7px">Alltags-Schritte fließen mit dem nächsten Garmin-Sync vollständig dazu.</div>
     <div class="grid2" style="margin-top:16px">
       <div class="stat"><div class="v">${num(cs.avg)}<span class="tiny"> kcal</span></div><div class="l">Ø Tagesverbrauch (TDEE) · ${cs.n} Tage</div></div>
-      <div class="stat"><div class="v">${cs.avgSteps?num(cs.avgSteps):"–"}</div><div class="l">Ø Schritte</div></div>
+      <div class="stat"><div class="v">${num(ltot)}<span class="tiny"> kcal</span></div><div class="l">${fmtD(new Date(lf.date+"T00:00:00"))} (Garmin gesamt)</div></div>
     </div>
     ${intelBox(`Dein realer Tagesverbrauch liegt im Schnitt bei <b>${num(cs.avg)} kcal</b>. Für ~0,4 kg/Woche Abnahme (Richtung 81 kg) wären rund <b>${num(target)} kcal/Tag</b> Aufnahme das Ziel — moderates Defizit, aufbau-tauglich. An harten Lauf- und Long-Run-Tagen nicht unter den Grundumsatz essen.`)}
   </div>`;
