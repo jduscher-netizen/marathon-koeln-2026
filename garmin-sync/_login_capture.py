@@ -26,10 +26,12 @@ def main():
         password=pw,
         prompt_mfa=lambda: ask("2FA-Code (falls gefragt): "),
     )
-    g.login()
 
+    # login(tokenstore) authentifiziert UND legt die Tokens in diesem
+    # Verzeichnis ab — genau das Format, das sync.py später via g.login(dir) lädt.
     d = tempfile.mkdtemp()
-    g.garth.dump(d)
+    g.login(d)
+
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
         for fn in os.listdir(d):

@@ -23,9 +23,8 @@ def main():
     email = input("Garmin E-Mail: ").strip()
     pw = getpass("Garmin Passwort: ")
     g = Garmin(email=email, password=pw, prompt_mfa=lambda: input("2FA-Code (falls gefragt): ").strip())
-    g.login()
     tokendir = tempfile.mkdtemp()
-    g.garth.dump(tokendir)
+    g.login(tokendir)  # authentifiziert + speichert Tokens in tokendir (garminconnect >=0.3)
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
         for fn in os.listdir(tokendir):
