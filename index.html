@@ -540,16 +540,28 @@ async function stravaFetchActivities(){
     });
     if(!r.ok){ toast("Strava-Abruf Fehler "+r.status); return; }
     const acts = await r.json();
-    const types = /^(Run|VirtualRun|TrailRun|Ride|VirtualRide|GravelRide|MountainBikeRide)$/;
     const ignored = new Set(c.importedIds||[]);
-    c.pending = acts.filter(a=>types.test(a.type) && !ignored.has(a.id)).map(a=>({
-      id:a.id, type:a.type, name:a.name, distance:a.distance, moving_time:a.moving_time,
-      average_heartrate:a.average_heartrate, start_date:a.start_date
+    // ALLE Aktivitätstypen übernehmen (Lauf, Rad, Kraft, Padel, …)
+    c.pending = acts.filter(a=>!ignored.has(a.id)).map(a=>({
+      id:a.id, type:a.type, sport:a.sport_type||a.type, name:a.name,
+      distance:a.distance, moving_time:a.moving_time, elapsed_time:a.elapsed_time,
+      average_heartrate:a.average_heartrate, max_heartrate:a.max_heartrate,
+      total_elevation_gain:a.total_elevation_gain, average_cadence:a.average_cadence,
+      average_watts:a.average_watts, start_date:a.start_date
     }));
     c.lastFetch = Date.now(); save();
     if(c.pending.length) toast(`${c.pending.length} neue Strava-Aktivität(en)`);
   }catch(e){ toast("Strava-Abruf Fehler: "+e.message); }
 }
+// Klassifizierung: 'run' (→Plan-Slot), 'ride' (→Rad), 'other' (→Workout-Log)
+function stravaKind(t){ t=t||""; if(/Run/i.test(t)) return "run"; if(/Ride/i.test(t)) return "ride"; if(/Swim/i.test(t)) return "ride"; return "other"; }
+function actLabel(t){
+  const map={Run:"Lauf",TrailRun:"Trail-Lauf",VirtualRun:"Lauf (virtuell)",Ride:"Radfahren",VirtualRide:"Rad (virtuell)",GravelRide:"Gravel",MountainBikeRide:"MTB",
+    WeightTraining:"Krafttraining",Workout:"Workout",Crossfit:"Crossfit",HIIT:"HIIT",Yoga:"Yoga",Pilates:"Pilates",
+    Tennis:"Tennis",Padel:"Padel",Squash:"Squash",Racquetball:"Racquet",Walk:"Gehen",Hike:"Wandern",Swim:"Schwimmen",Elliptical:"Crosstrainer",Rowing:"Rudern"};
+  return map[t]||t;
+}
+function actIcon(t){ const k=stravaKind(t); if(k==="run") return "activity"; if(k==="ride") return "bike"; if(/Tennis|Padel|Squash|Racquet/i.test(t)) return "target"; return "zap"; }
 function stravaConnect(){
   const cid=(document.getElementById("s_cid")||{}).value?.trim();
   const cs=(document.getElementById("s_cs")||{}).value?.trim();
@@ -587,38 +599,58 @@ function streamsToDetails(streams, startDate){
   }
   return computeDetails(pts);
 }
+// Kalorien aus Strava-Detail (Summary enthält keine kcal)
+async function fetchStravaCalories(id){
+  if(!await ensureStravaToken()) return null;
+  try{
+    const r=await fetch(`https://www.strava.com/api/v3/activities/${id}`,{headers:{"Authorization":"Bearer "+sCfg().accessToken}});
+    if(!r.ok) return null;
+    const d=await r.json();
+    return d.calories!=null?Math.round(d.calories):null;
+  }catch(e){ return null; }
+}
 async function stravaImport(actId){
   const c = sCfg();
   const a = (c.pending||[]).find(x=>x.id===actId);
   if(!a){ toast("Aktivität nicht mehr in der Liste"); return; }
-  const isRide = /Ride/.test(a.type);
+  const kind = stravaKind(a.type);
   const date = new Date(a.start_date);
-  const dist = +(a.distance/1000).toFixed(2);
-  const sec = a.moving_time;
+  const dist = +((a.distance||0)/1000).toFixed(2);
+  const sec = a.moving_time || a.elapsed_time;
   const hr = a.average_heartrate ? Math.round(a.average_heartrate) : null;
-  if(isRide){
+  const elev = a.total_elevation_gain!=null ? Math.round(a.total_elevation_gain) : null;
+  let resultMsg="";
+
+  if(kind==="ride"){
     DB.rides.push({id:"R"+Date.now()+Math.random().toString(36).slice(2,5),
-      date:dkey(date), w:(locate(date).week||0), dist, sec, hr, rpe:null, note:"Strava: "+(a.name||"")});
-  } else {
+      date:dkey(date), w:(locate(date).week||0), dist, sec, hr, elev, rpe:null, note:"Strava: "+(a.name||"")});
+    resultMsg="Fahrt importiert ✓";
+  } else if(kind==="run"){
     const m = matchRunSlot(date);
     if(!m){ toast("Kein passender Lauf-Slot am "+dkey(date)); return; }
     const id = runId(m.w, m.slot);
-    if(DB.logs[id]){ toast("Bereits erfasst – übersprungen"); }
+    if(DB.logs[id]){ resultMsg="Bereits erfasst – übersprungen"; }
     else {
-      // Streams ziehen für die Strava-Style Analyse (Splits/Zonen/Hälften/Bestleistungen)
       const streams = await fetchStravaStreams(a.id);
       const details = streams ? streamsToDetails(streams, a.start_date) : null;
-      DB.logs[id] = {dist, sec, hr, rpe:null, feel:null, pain:false, note:"Strava: "+(a.name||""), details};
+      DB.logs[id] = {dist, sec, hr, elev, maxHr:a.max_heartrate?Math.round(a.max_heartrate):null,
+        cadence:a.average_cadence?Math.round(a.average_cadence*2):null,
+        rpe:null, feel:null, pain:false, note:"Strava: "+(a.name||""), details};
+      resultMsg="Lauf importiert ✓"+(details?" + Analyse":"");
     }
+  } else {
+    // Kraft, Padel, Yoga, … → Workout-Log mit HF + Kalorien
+    if(!DB.workouts) DB.workouts=[];
+    const kcal = await fetchStravaCalories(a.id);
+    DB.workouts.push({ id:"W"+Date.now()+Math.random().toString(36).slice(2,5), stravaId:a.id,
+      type:a.type, label:actLabel(a.type), date:dkey(date), w:(locate(date).week||0),
+      sec, hr, maxHr:a.max_heartrate?Math.round(a.max_heartrate):null, kcal, elev,
+      note:a.name||"" });
+    resultMsg=actLabel(a.type)+" importiert ✓";
   }
   c.importedIds = (c.importedIds||[]).concat([a.id]);
   c.pending = (c.pending||[]).filter(x=>x.id!==a.id);
-  save(); render();
-  if(isRide) toast("Fahrt importiert ✓");
-  else {
-    const m=matchRunSlot(date), hasDetails = m && DB.logs[runId(m.w,m.slot)]?.details;
-    toast("Lauf importiert ✓"+(hasDetails?" + Analyse":""));
-  }
+  save(); render(); toast(resultMsg);
 }
 async function stravaImportAll(){
   const list = ((DB.strava||{}).pending||[]).slice();
@@ -646,9 +678,11 @@ function stravaPendingBlock(){
   return `<div class="card" style="border-color:var(--accent)">
     <div class="between" style="margin-bottom:8px"><h2 style="margin:0">Neue Strava-Aktivitäten</h2>
       <span class="pill run">${p.length}</span></div>
-    ${p.map(a=>{ const isRide=/Ride/.test(a.type); return `<div class="between" style="padding:9px 0;border-bottom:1px solid var(--line);gap:8px">
-      <div style="flex:1;min-width:0"><b style="display:inline-flex;align-items:center;gap:6px">${ic(isRide?"bike":"activity",14)} ${(a.distance/1000).toFixed(1)} km</b>
-      <div class="tiny muted">${fmt(a.start_date)} · ${hms(a.moving_time)}${a.average_heartrate?" · "+Math.round(a.average_heartrate)+" bpm":""}${a.name?" · "+a.name:""}</div></div>
+    ${p.map(a=>{ const k=stravaKind(a.type); const dist=(a.distance||0)/1000;
+      const head = k==="other" ? actLabel(a.type) : dist.toFixed(1)+" km";
+      return `<div class="between" style="padding:9px 0;border-bottom:1px solid var(--line);gap:8px">
+      <div style="flex:1;min-width:0"><b style="display:inline-flex;align-items:center;gap:6px">${ic(actIcon(a.type),14)} ${head}</b>
+      <div class="tiny muted">${fmt(a.start_date)} · ${hms(a.moving_time||a.elapsed_time)}${a.average_heartrate?" · "+Math.round(a.average_heartrate)+" bpm":""}${a.total_elevation_gain?" · "+Math.round(a.total_elevation_gain)+" hm":""}${k==="other"&&a.name?" · "+a.name:""}</div></div>
       <button class="btn-sm btn-p" onclick="stravaImport(${a.id})">Übernehmen</button>
       <button class="btn-sm btn-gh" style="padding:6px 10px" onclick="stravaDismiss(${a.id})" title="Vorschlag entfernen">✕</button></div>`;}).join("")}
     ${p.length>1?`<div class="acts" style="margin-top:10px"><button class="btn-sm" style="flex:1" onclick="stravaImportAll()">Alle übernehmen</button><button class="btn-sm btn-gh" onclick="stravaDismissAll()">Alle entfernen</button></div>`:""}
@@ -1512,6 +1546,10 @@ function buildCoachContext(){
     const hv=hrvTrend();
     L.push(`Recovery (Garmin, ${rec.date}): Schlaf ${fmtH(rec.sleepSeconds)}${rec.sleepScore?" (Score "+rec.sleepScore+")":""}, HRV ${rec.hrvLastNight||"?"} ms${hv?" ("+(hv.diff>=0?"+":"")+Math.round(hv.diff)+" vs 7-Tage-Ø)":""}, Ruhepuls ${rec.restingHr||"?"} bpm${rec.bodyBatteryLast!=null?", Body Battery "+rec.bodyBatteryLast:""}.`);
   }
+  const cs=calorieStats();
+  if(cs) L.push(`Kalorienverbrauch (Garmin): Ø ${cs.avg} kcal/Tag (TDEE)${cs.avgBmr?", Grundumsatz Ø "+cs.avgBmr:""}${cs.avgSteps?", Ø "+cs.avgSteps+" Schritte":""}.`);
+  const wo=[...(DB.workouts||[])].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
+  if(wo.length){ L.push(`Letzte Workouts (Kraft/Padel etc.): `+wo.map(x=>`${x.date} ${x.label||x.type} ${hms(x.sec)}${x.hr?"/"+x.hr+"bpm":""}`).join("; ")+"."); }
   // Marathon-Prognose
   const series=predictionSeries(runLogs());
   if(series.length){ const recent=series.slice(-3); const wsum=recent.reduce((a,s)=>a+(s.dist>=15?2:1),0); const pred=recent.reduce((a,s)=>a+s.pred*(s.dist>=15?2:1),0)/wsum; L.push(`Aktuelle Marathon-Hochrechnung: ${hms(Math.round(pred))} (Ziel Sub-4:00).`); }
@@ -1920,10 +1958,18 @@ function viewTrack(){
     ${rides.length? rides.slice(0,8).map(r=>`<div class="day" onclick="openRideEdit('${r.id}')">
       <div class="between"><span class="dn" style="display:inline-flex;align-items:center;gap:6px">${ic("bike",15)} ${r.dist} km</span><span class="dd">${r.date}</span></div>
       <div class="ds muted">${hms(r.sec)} · ${pace(r.sec/r.dist)}/km${r.hr?" · "+r.hr+" bpm":""}</div></div>`).join(""):`<div class="sub card center">Noch keine Fahrt erfasst.</div>`}
+    <h2 style="margin-top:18px">Workouts (Kraft, Padel …)</h2>
+    ${(()=>{ const wo=[...(DB.workouts||[])].sort((a,b)=>new Date(b.date)-new Date(a.date));
+      return wo.length? wo.slice(0,10).map(x=>`<div class="day">
+        <div class="between"><span class="dn" style="display:inline-flex;align-items:center;gap:6px">${ic(actIcon(x.type),15)} ${x.label||actLabel(x.type)}</span><span class="dd">${x.date}</span></div>
+        <div class="ds muted">${hms(x.sec)}${x.hr?" · "+x.hr+" bpm":""}${x.kcal?" · "+x.kcal+" kcal":""}${x.elev?" · "+x.elev+" hm":""}${x.note?" · "+x.note:""}
+          <button class="btn-sm btn-gh" style="float:right;padding:2px 8px;margin-top:-2px" onclick="delWorkout('${x.id}')">✕</button></div></div>`).join("")
+        : `<div class="sub card center">Über Strava importierte Kraft-/Padel-Einheiten landen hier (mit HF &amp; Kalorien).</div>`; })()}
     <h2 style="margin-top:18px">Zuletzt gelaufen</h2>
     ${done.length? done.slice(0,12).map(dc).join("") : `<div class="sub card center">Noch nichts erfasst.</div>`}
   </div>`;
 }
+function delWorkout(id){ DB.workouts=(DB.workouts||[]).filter(x=>x.id!==id); save(); render(); toast("Workout gelöscht"); }
 
 /* ============ VIEW: STATS ============ */
 function viewStats(){
@@ -1931,6 +1977,7 @@ function viewStats(){
   return `<div class="wrap"><h1 style="margin-bottom:16px">Analyse <span class="sub">Plan vs. Realität · Köln 04.10.2026</span></h1>
     ${cardPrognose(runs)}
     ${cardRecovery()}
+    ${cardCalories()}
     ${cardForm()}
     ${cardZonesTotal()}
     ${cardVolume()}
@@ -2068,6 +2115,39 @@ function recoveryInsight(d,hv){
   if(d.sleepScore && d.sleepScore>=85 && (!hv||hv.diff>=0)) msgs.push("Gut erholt — grünes Licht für Qualität/Long Run.");
   if(!msgs.length) return "";
   return intelBox(msgs.join(" "));
+}
+
+/* ============ KALORIENVERBRAUCH (TDEE aus Garmin) ============ */
+function calorieStats(){
+  const w=DB.wellness; if(!w||!w.days) return null;
+  const days=w.days.filter(d=>d.totalKcal);
+  if(!days.length) return null;
+  const avg=Math.round(days.reduce((a,d)=>a+d.totalKcal,0)/days.length);
+  const today=days[0];
+  const bmrDays=days.filter(d=>d.bmrKcal);
+  const avgBmr=bmrDays.length?Math.round(bmrDays.reduce((a,d)=>a+d.bmrKcal,0)/bmrDays.length):null;
+  const stepDays=days.filter(d=>d.steps);
+  const avgSteps=stepDays.length?Math.round(stepDays.reduce((a,d)=>a+d.steps,0)/stepDays.length):null;
+  return {avg, today, avgBmr, avgSteps, n:days.length};
+}
+function cardCalories(){
+  const cs=calorieStats();
+  if(!cs) return `<div class="card"><h2>Kalorienverbrauch</h2>
+    <div class="sub">${(garminCfg().gistId&&CLOUD.token)?"Noch keine Garmin-Kaloriendaten — kommt mit dem nächsten Sync.":"Braucht den Garmin-Sync (Mehr → Einstellungen → Garmin Recovery)."}</div></div>`;
+  const t=cs.today;
+  // Empfehlung: Defizit ~400 kcal für ~0,4 kg/Woche (Aufbau-tauglich)
+  const target=cs.avg-400;
+  return `<div class="card"><h2>Kalorienverbrauch</h2>
+    <div class="tiny muted" style="margin-bottom:10px">Aus Garmin (Grundumsatz + Aktivität) · Ø über ${cs.n} Tage</div>
+    <div class="grid2">
+      <div class="stat"><div class="v">${cs.avg}<span class="tiny"> kcal</span></div><div class="l">Ø Tagesverbrauch (TDEE)</div></div>
+      <div class="stat"><div class="v">${t.totalKcal||"–"}<span class="tiny"> kcal</span></div><div class="l">${t.date} gesamt</div>
+        ${t.activeKcal?`<div class="d muted">davon ${t.activeKcal} aktiv</div>`:""}</div>
+      <div class="stat"><div class="v">${cs.avgBmr||"–"}<span class="tiny"> kcal</span></div><div class="l">Ø Grundumsatz</div></div>
+      <div class="stat"><div class="v">${cs.avgSteps?cs.avgSteps.toLocaleString("de"):"–"}</div><div class="l">Ø Schritte</div></div>
+    </div>
+    ${intelBox(`Dein realer Tagesverbrauch liegt im Schnitt bei <b>${cs.avg} kcal</b>. Für ~0,4 kg/Woche Abnahme (Richtung 81 kg) wären rund <b>${target} kcal/Tag</b> Aufnahme das Ziel — moderates Defizit, aufbau-tauglich. An harten Lauf- und Long-Run-Tagen nicht unter den Grundumsatz essen.`)}
+  </div>`;
 }
 
 function cardForm(){
@@ -2300,16 +2380,8 @@ function viewMehr(){
       <button class="btn-sm" onclick="openActEdit(${i})">${ic("edit",13)}</button>
       <button class="btn-sm btn-gh" onclick="delAct(${i})">✕</button></div></div>`).join("");
   return `<div class="wrap"><h1 style="margin-bottom:16px">Mehr</h1>
-    ${cardCloud()}
-    ${cardStrava()}
-    ${cardCoach()}
-    ${cardGarminRecovery()}
-    ${cardPush()}
     <div class="card"><div class="between" style="margin-bottom:6px"><h2 style="margin:0">Freie Einheiten verwalten</h2></div>
       ${acts}<button class="btn-sm btn-p" style="width:100%;margin-top:12px" onclick="openActEdit(-1)">+ Einheit hinzufügen</button></div>
-    <div class="card"><h2>Trainingsplan</h2>
-      <p class="sub" style="margin-bottom:10px">Plan v2 · 4 Läufe/Woche · polarisiert (80/20) · Stand 13.05.2026. Lauf-Inhalte je Woche unter „Plan ändern" am Lauf editierbar.</p>
-      <button class="btn-sm btn-gh" style="width:100%" onclick="resetPlan()">Alle Plan-Anpassungen zurücksetzen</button></div>
 
     <h2 style="margin:18px 0 10px">Wissen &amp; Referenz</h2>
 
@@ -2422,16 +2494,36 @@ function viewMehr(){
       <p><b>Logistik:</b> Carb-Loading Fr/Sa (~70% KH), Sa Abend gewohnte Mahlzeit (nichts Neues!). So 3 h vor Start 80–100 g KH.</p>
     </div></details>
 
-    <div class="card"><h2>Läufe importieren</h2>
-      <p class="sub" style="margin-bottom:12px">Strava → Aktivität → „Export GPX/TCX". Mehrere Dateien gleichzeitig wählbar, oder die Strava-<i>activities.csv</i> (Bulk-Export aller Aktivitäten). Zuordnung automatisch per Datum; Radfahrten landen bei „Rad". Bereits erfasste Läufe werden nicht überschrieben.</p>
-      <button class="btn-sm btn-p" style="width:100%" onclick="document.getElementById('bulk').click()">GPX / TCX / CSV importieren</button>
-      <input id="bulk" type="file" accept=".gpx,.tcx,.xml,.csv" multiple style="display:none" onchange="bulkImport(event)"></div>
-    <div class="card"><h2>Daten-Backup</h2><p class="sub" style="margin-bottom:12px">Alle Daten liegen lokal auf diesem Gerät. App-Updates ändern die Daten nicht. Zusätzlich werden bis zu 10 Auto-Backups in localStorage gehalten (≥5 min Abstand).</p>
-      <div class="acts"><button class="btn-sm btn-p" onclick="exportData()">Export (Backup-Datei)</button>
-        <button class="btn-sm" onclick="document.getElementById('imp').click()">Import</button>
-        <input id="imp" type="file" accept="application/json" style="display:none" onchange="importData(event)">
-        <button class="btn-sm btn-gh" onclick="resetData()">Zurücksetzen</button></div></div>
-    ${cardRestore()}
+    <h2 style="margin:20px 0 10px">Einstellungen</h2>
+    <details class="card" style="padding:0"><summary style="padding:15px 16px;font-size:.95rem">Verbindungen &amp; Sync</summary>
+      <div style="padding:0 12px 10px">
+        ${cardCloud()}
+        ${cardStrava()}
+        ${cardGarminRecovery()}
+        ${cardCoach()}
+        ${cardPush()}
+      </div>
+    </details>
+    <details class="card" style="padding:0"><summary style="padding:15px 16px;font-size:.95rem">Daten &amp; Backup</summary>
+      <div style="padding:0 12px 10px">
+        <div class="card"><h2>Läufe importieren (Datei)</h2>
+          <p class="sub" style="margin-bottom:12px">Manuell: GPX/TCX-Export aus Strava, oder Strava-<i>activities.csv</i>. Zuordnung per Datum; Radfahrten → „Rad". Überschreibt nichts.</p>
+          <button class="btn-sm btn-p" style="width:100%" onclick="document.getElementById('bulk').click()">GPX / TCX / CSV importieren</button>
+          <input id="bulk" type="file" accept=".gpx,.tcx,.xml,.csv" multiple style="display:none" onchange="bulkImport(event)"></div>
+        <div class="card"><h2>Daten-Backup</h2><p class="sub" style="margin-bottom:12px">Alle Daten liegen lokal + im Cloud-Sync. Zusätzlich 10 Auto-Backups in localStorage.</p>
+          <div class="acts"><button class="btn-sm btn-p" onclick="exportData()">Export (Backup-Datei)</button>
+            <button class="btn-sm" onclick="document.getElementById('imp').click()">Import</button>
+            <input id="imp" type="file" accept="application/json" style="display:none" onchange="importData(event)">
+            <button class="btn-sm btn-gh" onclick="resetData()">Zurücksetzen</button></div></div>
+        ${cardRestore()}
+      </div>
+    </details>
+    <details class="card" style="padding:0"><summary style="padding:15px 16px;font-size:.95rem">Trainingsplan</summary>
+      <div style="padding:0 16px 16px">
+        <p class="sub" style="margin-bottom:10px">Plan v2 · 4 Läufe/Woche · polarisiert (80/20) · Stand 13.05.2026. Lauf-Inhalte je Woche unter „Plan ändern" am Lauf editierbar.</p>
+        <button class="btn-sm btn-gh" style="width:100%" onclick="resetPlan()">Alle Plan-Anpassungen zurücksetzen</button>
+      </div>
+    </details>
     <div class="center tiny muted" style="margin:10px 0 20px">SUB4 · Marathon Köln · 04.10.2026</div></div>`;
 }
 

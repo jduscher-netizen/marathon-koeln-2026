@@ -69,6 +69,12 @@ def day_entry(g, ds):
         val = rhr.get("restingHeartRate")
     e["restingHr"] = val
 
+    stats = safe(lambda: g.get_stats(ds), {}) or {}
+    e["totalKcal"] = stats.get("totalKilocalories")
+    e["activeKcal"] = stats.get("activeKilocalories")
+    e["bmrKcal"] = stats.get("bmrKilocalories")
+    e["steps"] = stats.get("totalSteps")
+
     bb = safe(lambda: g.get_body_battery(ds, ds), []) or []
     if isinstance(bb, list) and bb:
         e["bodyBatteryCharged"] = bb[0].get("charged")
