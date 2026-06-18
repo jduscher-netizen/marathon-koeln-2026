@@ -206,6 +206,8 @@
   .cv-ti span i{width:7px;height:7px;border-radius:50%;background:var(--good);display:inline-block;box-shadow:0 0 6px var(--good)}
   .cv-msgs{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:16px 14px 8px;display:flex;flex-direction:column;gap:3px}
   .cv-input{flex:0 0 auto;display:flex;align-items:flex-end;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:rgba(10,10,14,.92);backdrop-filter:blur(12px)}
+  .cv-foot{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:7px 12px calc(7px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:rgba(10,10,14,.92);backdrop-filter:blur(12px)}
+  .cv-foot button{padding:10px 16px}
   .cv-input textarea{flex:1;min-height:44px;max-height:130px;border-radius:22px;padding:11px 16px;resize:none;background:var(--card2);border:1px solid var(--line)}
   .cv-send{width:44px;height:44px;border-radius:50%;background:var(--accent);border:none;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto;cursor:pointer;box-shadow:0 2px 12px var(--accent-glow);transition:.15s}
   .cv-send:disabled{opacity:.4;box-shadow:none}
@@ -2129,24 +2131,42 @@ function gymBodyHtml(s){
 }
 function buildGymView(id){
   const s=gymSession(id); if(!s) return;
+  window._gymOpen=id;
   lockBody();
   const root=document.getElementById("gymRoot");
   root.innerHTML=`<div class="cv" id="gymWin">
     <div class="cv-head">
-      <button class="cv-back" onclick="closeGym()" aria-label="Zurück">‹</button>
+      <button class="cv-back" onclick="closeGym()" aria-label="Zurück (pausieren)">‹</button>
       <div class="cv-av">${ic("dumbbell",19)}</div>
       <div class="cv-ti"><b>${s.label.split("·")[0].trim()}</b><span style="color:var(--mut)">${fmtD(new Date(s.date+"T00:00:00"))} · live</span></div>
     </div>
     <div class="cv-msgs" id="gymBody">${gymBodyHtml(s)}</div>
-    <div class="cv-input" style="gap:10px">
-      <button class="btn-gh" style="flex:0 0 auto" onclick="closeGym()">Pause</button>
+    <div class="cv-foot">
+      <button class="btn-gh" style="flex:0 0 auto" onclick="gymCancel('${s.id}')">Abbrechen</button>
       <button class="btn-p" style="flex:1" onclick="gymFinish('${s.id}')">Training beenden</button>
     </div>
   </div>`;
   requestAnimationFrame(()=>{ const w=document.getElementById("gymWin"); if(w) w.classList.add("show"); });
 }
 function gymRefresh(id){ const s=gymSession(id), b=document.getElementById("gymBody"); if(s&&b) b.innerHTML=gymBodyHtml(s); }
-function closeGym(){ const w=document.getElementById("gymWin"); if(w) w.classList.remove("show"); unlockBody(); setTimeout(()=>{ const r=document.getElementById("gymRoot"); if(r) r.innerHTML=""; },280); render(); }
+function gymIsEmpty(s){ return s && !s.stravaId && !s.counted && !s.ex.some(e=>e.sets.some(x=>x.kg||x.reps||x.done)); }
+function closeGym(){
+  // Versehentlich geöffnete, komplett leere Einheit nicht als Müll behalten
+  const id=window._gymOpen; window._gymOpen=null;
+  const s=id&&gymSession(id);
+  if(s && gymIsEmpty(s)){ gymDB().sessions=gymSessions().filter(x=>x.id!==id); save(); }
+  const w=document.getElementById("gymWin"); if(w) w.classList.remove("show"); unlockBody();
+  setTimeout(()=>{ const r=document.getElementById("gymRoot"); if(r) r.innerHTML=""; },280); render();
+}
+function gymCancel(id){
+  const s=gymSession(id);
+  if(s && !gymIsEmpty(s) && !confirm("Dieses Training verwerfen? Eingetragene Sätze gehen verloren.")) return;
+  if(s){
+    if(s.counted){ const tpl=gymTpl(s.day); if(tpl&&tpl.actId) actInc(s.w,tpl.actId,-1); }
+    gymDB().sessions=gymSessions().filter(x=>x.id!==id); save();
+  }
+  window._gymOpen=null; closeGym(); toast("Verworfen");
+}
 function gymSet(id,exi,si,field,val){
   const s=gymSession(id); if(!s) return;
   const set=s.ex[exi].sets[si]; if(!set) return;
