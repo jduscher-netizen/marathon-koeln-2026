@@ -1057,6 +1057,15 @@ function dailyTrimpMap(){
     map[k]=(map[k]||0)+trimpFor(L);
   }));
   (DB.rides||[]).forEach(r=>{ if(!r?.sec) return; map[r.date]=(map[r.date]||0)+trimpFor(r)*0.85; });
+  // Krafttraining zählt mit in die Belastung: HF-basiert (gemergt) abgewertet,
+  // sonst grob aus der Anzahl Arbeitssätze geschätzt.
+  ((DB.gym&&DB.gym.sessions)||[]).forEach(s=>{
+    if(!s||!s.date||!s.ex) return;
+    let t;
+    if(s.hr && s.sec) t=trimpFor({hr:s.hr,sec:s.sec})*0.7;
+    else { const sets=s.ex.reduce((n,e)=>n+e.sets.filter(x=>x.kg||x.done).length,0); t=sets*2.2; }
+    if(t) map[s.date]=(map[s.date]||0)+t;
+  });
   return map;
 }
 function loadSeries(){
@@ -2401,6 +2410,7 @@ function viewStats(){
     ${cardVolume()}
     ${cardLongRun()}
     ${cardHR(runs)}
+    ${cardStrength()}
     ${cardActivities()}${cardRad()}${cardWeight()}${redFlagsBlock(false)}</div>`;
 }
 // Marathon-Äquivalent pro Lauf via Riegel — ABER nur aus renn-repräsentativen
@@ -2659,6 +2669,72 @@ function cardCalories(){
       <div class="stat"><div class="v" style="color:${diffToday>=0?'var(--good)':'var(--mut)'}">${diffToday>=0?"+":""}${num(diffToday)}<span class="tiny"> kcal</span></div><div class="l">Heute vs. Ø</div></div>
     </div>
     ${intelBox(`Dein realer Tagesverbrauch liegt im Schnitt bei <b>${num(cs.avg)} kcal</b>. Für ~0,4 kg/Woche Abnahme (Richtung 81 kg) wären rund <b>${num(target)} kcal/Tag</b> Aufnahme das Ziel — moderates Defizit, aufbau-tauglich. An harten Lauf- und Long-Run-Tagen nicht unter den Grundumsatz essen.`)}
+  </div>`;
+}
+
+/* ============ KRAFTTRAINING-ANALYSE ============ */
+function sessVolume(s){ return s.ex.reduce((v,e)=>v+e.sets.reduce((vv,x)=>vv+((+x.kg||0)*(+x.reps||0)),0),0); }
+function strengthStats(){
+  const sessions=[...gymSessions()].filter(s=>s.ex&&s.ex.length).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  if(!sessions.length) return null;
+  const now=today();
+  const ageD=s=>(now-new Date(s.date+"T00:00:00"))/86400000;
+  const recent=sessions.filter(s=>ageD(s)<=42);
+  const totalVol=recent.reduce((a,s)=>a+sessVolume(s),0);
+  // Pro Übung: Top-Satz-Verlauf
+  const byEx={};
+  sessions.forEach(s=>s.ex.forEach(e=>{
+    const top=e.sets.reduce((m,x)=>(+x.kg||0)>(m?+m.kg||0:0)?x:m,null);
+    if(top&&top.kg) (byEx[e.name]=byEx[e.name]||[]).push({date:s.date, kg:+top.kg, reps:+top.reps||0});
+  }));
+  const lifts=Object.entries(byEx).map(([name,arr])=>{
+    arr.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+    const best=arr.reduce((m,x)=>x.kg>m.kg?x:m,arr[0]);
+    return {name, last:arr[arr.length-1], best, delta:arr[arr.length-1].kg-arr[0].kg, n:arr.length};
+  }).sort((a,b)=>b.n-a.n||b.last.kg-a.last.kg);
+  return {sessions, recent, totalVol, lifts, n:recent.length};
+}
+function cardStrength(){
+  const st=strengthStats();
+  if(!st) return `<div class="card"><h2>Krafttraining</h2>
+    <div class="sub">Noch keine Krafteinheit erfasst. Starte unter <b>Tracken</b> dein erstes Training (Push/Pull/Beine) — Volumen &amp; Progression erscheinen dann hier.</div></div>`;
+  const num=n=>Math.round(n).toLocaleString("de");
+  const perWk=(st.n/6).toFixed(1).replace(".",",");
+  // Volumen-Verlauf (letzte bis 10 Einheiten) als Gradient-Fläche
+  const pts=st.sessions.slice(-10).map(s=>sessVolume(s));
+  let spark="";
+  if(pts.length>=2){
+    const W=320,H=70,p=6, mx=Math.max(...pts), mn=Math.min(...pts), rg=(mx-mn)||1;
+    const X=i=>p+i*((W-2*p)/(pts.length-1)), Y=v=>p+(1-(v-mn)/rg)*(H-2*p);
+    const line=pts.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
+    const gid="sg"+(window._gid=(window._gid||0)+1);
+    spark=`<svg width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="margin:10px 0 2px">
+      <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".3"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+      <path d="${line} L${(W-p).toFixed(1)} ${H-p} L${p} ${H-p} Z" fill="url(#${gid})"/>
+      <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linejoin="round"/>
+      ${pts.map((v,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="2.6" fill="var(--accent)"/>`).join("")}</svg>
+      <div class="tiny muted" style="margin-bottom:4px">Volumen je Einheit (kg) · letzte ${pts.length}</div>`;
+  }
+  const liftsHtml=st.lifts.slice(0,5).map(l=>{
+    const better=l.delta>0;
+    const badge = l.n<2 ? `<span class="tiny muted">neu</span>`
+      : l.delta!==0 ? `<span style="color:${better?'var(--good)':'var(--mut)'};font-weight:700;font-size:.85rem">${better?"▲ +":"▼ "}${Math.abs(l.delta).toLocaleString("de")} kg</span>`
+      : `<span class="tiny muted">stabil</span>`;
+    return `<div class="between" style="padding:9px 0;border-bottom:1px solid var(--line)">
+      <div style="min-width:0"><b style="font-size:.92rem">${l.name}</b><div class="tiny muted">Best ${l.best.kg.toLocaleString("de")} kg × ${l.best.reps} · ${l.n}×</div></div>${badge}</div>`;
+  }).join("");
+  const topLift=st.lifts.find(l=>l.n>=2&&l.delta>0);
+  const tip = topLift
+    ? `Gute Progression: <b>${topLift.name} +${topLift.delta.toLocaleString("de")} kg</b> seit Start. Für den Marathon reicht Erhaltung (1–2×/Woche) — Beine, Rumpf & Hüfte priorisieren, in Peak-/Taper-Wochen Volumen zurückfahren.`
+    : `Kraft zählt jetzt mit in Belastung & Form. Für den Marathon: 1–2×/Woche Erhaltung, Beine/Rumpf priorisieren, schwere Beine nicht direkt vor Quality/Long Run.`;
+  return `<div class="card"><h2>Krafttraining</h2>
+    <div class="grid2">
+      <div class="stat"><div class="v">${st.n}<span class="tiny"> · ${perWk}/Wo</span></div><div class="l">Einheiten · 6 Wochen</div></div>
+      <div class="stat"><div class="v">${num(st.totalVol)}<span class="tiny"> kg</span></div><div class="l">Volumen · 6 Wochen</div></div>
+    </div>
+    ${spark}
+    <div style="margin-top:8px"><b style="font-size:.9rem">Progression (Top-Sätze)</b>${liftsHtml||`<div class="tiny muted" style="margin-top:6px">Mehr Einheiten = Verlauf je Übung.</div>`}</div>
+    ${intelBox(tip)}
   </div>`;
 }
 
