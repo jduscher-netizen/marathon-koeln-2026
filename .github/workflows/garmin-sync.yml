@@ -2,7 +2,8 @@ name: Garmin Wellness Sync
 
 on:
   schedule:
-    - cron: "0 6 * * *"   # täglich 06:00 UTC = 08:00 MESZ
+    - cron: "0 6 * * *"   # 06:00 UTC = 08:00 MESZ — Morgen-Sync (frische Schlafdaten)
+    - cron: "0 9 * * *"   # 09:00 UTC = 11:00 MESZ — Sicherheits-Sync, falls die Uhr morgens spät synct
   workflow_dispatch: {}    # manueller Start im Actions-Tab
 
 jobs:

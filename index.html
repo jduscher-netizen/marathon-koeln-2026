@@ -1595,13 +1595,34 @@ function statusTile(label,value,color,onclick){
 function kindWordLong(k){ return ({long:"ein ruhiger langer Lauf",quality:"eine harte Tempo-Einheit",easy:"ein lockerer Dauerlauf",recovery:"ein kurzer Regenerationslauf"})[k]||"ein Lauf"; }
 function kindWordShort(k){ return ({long:"Long Run",quality:"Tempo",easy:"GA1 locker",recovery:"Recovery"})[k]||"Lauf"; }
 function homeSummary(hasRun,c,kind,form,score){
-  if(!hasRun) return "Heute kein fixer Lauf. Freie Einheit nach Lust — Erholung zählt genauso.";
-  const tired=(score!=null&&score<34)||form.tsb<-20;
-  const fresh=(score!=null&&score>=67)||form.tsb>=5;
-  const status= tired?"Geh's heute bewusst ruhiger an — Erholung geht vor."
-    : fresh?"Du bist gut erholt — grünes Licht."
-    : "Steuere die Einheit nach Gefühl.";
-  return `Heute steht <b>${kindWordLong(kind)}</b> an: ${c.det}. ${status}`;
+  const lead = hasRun ? `Heute: <b>${kindWordLong(kind)}</b> · ${c.det}.` : "Heute kein fixer Lauf — freie Einheit nach Lust.";
+  const tsb=form.tsb;
+  const formS = tsb>=5?"frisch":tsb>=-10?"normal":tsb>=-25?"müde":"überlastet";
+  const formTired = formS==="müde"||formS==="überlastet";
+  let read;
+  if(score==null){
+    // Nur Trainingsform (kein Garmin-Recovery)
+    read = formS==="frisch" ? "Du bist ausgeruht — guter Tag, um Qualität zu setzen."
+      : formS==="normal" ? "Trainingsstand normal — Einheit wie geplant."
+      : formS==="müde" ? "Trainingsstand müde — heute bewusst dosieren statt reinhängen."
+      : "Stark belastet — ein lockerer Tag oder eine Pause bringt jetzt mehr.";
+  } else {
+    const recGood=score>=67, recLow=score<34;
+    if(recGood && formTired)
+      read = "Interessanter Mix: dein Körper ist erholt (Schlaf & HRV gut), aber dein Trainingsstand ist müde von der Last der letzten Tage. Locker bis moderat läuft super — die ganz harten Reize aber noch aufsparen.";
+    else if(recGood && formS==="frisch")
+      read = "Alles grün — Körper erholt und Trainingsstand frisch. Idealer Tag für eine harte Einheit oder einen Test.";
+    else if(recGood)
+      read = "Gut erholt und solider Trainingsstand — grünes Licht für die geplante Einheit.";
+    else if(recLow && formS==="frisch")
+      read = "Dein Trainingsstand ist frisch, aber heute meldet der Körper Erholungsbedarf (Schlaf/HRV niedrig). Lieber locker halten, als die Frische zu verbrennen.";
+    else if(recLow)
+      read = "Körper beansprucht und Trainingsstand müde — heute klar auf Erholung setzen, Hartes ggf. schieben.";
+    else // Recovery mittel
+      read = formTired ? "Halb erholt und trainingsmüde — heute nach Gefühl, im Zweifel die ruhigere Variante."
+                       : "Solide erholt — Einheit wie geplant, Intensität nach Gefühl.";
+  }
+  return `${lead} ${read}`;
 }
 function briefingCard(){
   const loc=locate(today()); if(!loc.week) return "";
@@ -1662,6 +1683,8 @@ function openRecoveryDetail(){
 
 /* ============ COACH-CHAT (Claude API via Worker) ============ */
 function coachCfg(){ if(!DB.coach) DB.coach={history:[]}; if(!DB.coach.history) DB.coach.history=[]; return DB.coach; }
+// Chat leert sich täglich: beim Öffnen an einem neuen Tag wird der Verlauf zurückgesetzt
+function coachDailyReset(){ const c=coachCfg(), t=dkey(today()); if(c.day!==t){ c.history=[]; c.day=t; save(); } }
 function coachWorkerUrl(){ const c=coachCfg(); return (c.workerUrl||(DB.push&&DB.push.workerUrl)||"").replace(/\/$/,""); }
 
 // Kompakter Trainingszustand als Text für den Coach
@@ -1758,6 +1781,7 @@ function bubbleHtml(m){
   return `<div class="bub a${m.err?' err':''}">${mdLite(m.text)}</div>${t}`;
 }
 function buildCoachView(){
+  coachDailyReset();
   lockBody();
   const root=document.getElementById("coachRoot");
   const h=coachCfg().history;
