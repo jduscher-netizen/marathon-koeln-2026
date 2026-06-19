@@ -63,6 +63,13 @@
   .ring-wrap.hero-ring .rv span{font-size:.55rem;text-transform:uppercase;letter-spacing:1.4px;color:rgba(255,255,255,.5);font-weight:700;margin-top:4px}
   .hero-meta{flex:1;min-width:0}
   .hero-meta .big{font-size:1.8rem;letter-spacing:-.8px;color:#fff;font-weight:800;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Status-Kacheln mit glühendem Balken (WHOOP-Stil) */
+  .stiles{display:flex;gap:10px}
+  .stile{flex:1;min-width:0;background:var(--card2);border-radius:16px;padding:14px 14px 17px;cursor:pointer;position:relative;overflow:hidden;transition:.15s;border:1px solid var(--line)}
+  .stile:active{transform:scale(.97)}
+  .stile .sl{font-size:.58rem;text-transform:uppercase;letter-spacing:1.2px;color:var(--mut);font-weight:700}
+  .stile .sv{font-size:1.05rem;font-weight:800;margin-top:8px;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stile .sbar{position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--c);box-shadow:0 0 14px var(--c),0 -1px 6px var(--c)}
   .hero .cd div{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(6px)}
   .hero .cd b{color:#fff}
   .hero .cd span{color:rgba(255,255,255,.5)}
@@ -1579,23 +1586,78 @@ function todayCoachTip(kind, det, tsb, lastDrift){
   return null;
 }
 
+// Einfache, verständliche Tages-Übersicht statt technischer Briefing-Liste.
+// Ein Klartext-Satz + 2–3 farbcodierte Status-Kacheln (Klick → Detail-Sheet).
+function statusTile(label,value,color,onclick){
+  return `<div class="stile" style="--c:${color}" onclick="${onclick}">
+    <div class="sl">${label}</div><div class="sv" style="color:${color}">${value}</div><div class="sbar"></div></div>`;
+}
+function kindWordLong(k){ return ({long:"ein ruhiger langer Lauf",quality:"eine harte Tempo-Einheit",easy:"ein lockerer Dauerlauf",recovery:"ein kurzer Regenerationslauf"})[k]||"ein Lauf"; }
+function kindWordShort(k){ return ({long:"Long Run",quality:"Tempo",easy:"GA1 locker",recovery:"Recovery"})[k]||"Lauf"; }
+function homeSummary(hasRun,c,kind,form,score){
+  if(!hasRun) return "Heute kein fixer Lauf. Freie Einheit nach Lust — Erholung zählt genauso.";
+  const tired=(score!=null&&score<34)||form.tsb<-20;
+  const fresh=(score!=null&&score>=67)||form.tsb>=5;
+  const status= tired?"Geh's heute bewusst ruhiger an — Erholung geht vor."
+    : fresh?"Du bist gut erholt — grünes Licht."
+    : "Steuere die Einheit nach Gefühl.";
+  return `Heute steht <b>${kindWordLong(kind)}</b> an: ${c.det}. ${status}`;
+}
 function briefingCard(){
-  const items=briefingItems(); if(!items||!items.length) return "";
-  // Items im Window stashen, damit explainBriefing() Zugriff hat
-  window._briefingItems = items;
-  return `<div class="card" style="background:linear-gradient(180deg,var(--card) 0%,var(--card2) 100%)">
-    <div class="between" style="margin-bottom:12px"><h2 style="margin:0">Coach-Briefing</h2>
-      <span class="tiny muted">tippen für Erklärung</span></div>
-    ${items.map((it,i)=>`<div onclick="explainBriefing(${i})" style="display:flex;gap:12px;padding:10px 6px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:8px;transition:background .15s" onmouseover="this.style.background='var(--card2)'" onmouseout="this.style.background=''">
-      <div style="flex:0 0 24px;text-align:center;color:${it.color||'var(--mut)'}">${ic(it.icon,18)}</div>
-      <div style="flex:1;min-width:0">
-        <b style="color:${it.color||'var(--txt)'};font-size:.92rem">${it.main}</b>
-        ${it.sub?`<div class="tiny muted" style="margin-top:2px">${it.sub}</div>`:""}
-      </div>
-      <div style="color:var(--mut);font-size:1rem;align-self:center">›</div>
-    </div>`).join("")}
-    <button class="btn-p" style="width:100%;margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="openCoachChat()">${ic("bulb",17)} Coach fragen</button>
+  const loc=locate(today()); if(!loc.week) return "";
+  const w=loc.week, d=loc.dayIdx;
+  const form=currentForm(), fl=formLabel(form.tsb);
+  const rec=latestWellness(), score=rec?recoveryScore(rec):null;
+  const SLOTS={1:"di",3:"do",4:"fr",6:"so"}, slot=SLOTS[d];
+  const hasRun = slot && !runIsRest(w,slot);
+  const c = hasRun?runContent(w,slot):null;
+  const kind = hasRun?(RUNS.find(r=>r.slot===slot)||{}).kind:null;
+  const tiles=[];
+  if(score!=null) tiles.push(statusTile("Recovery", recoveryLabel(score), recoveryColor(score), "openRecoveryDetail()"));
+  tiles.push(statusTile("Form", fl.label, fl.color, "openFormDetail()"));
+  if(score==null){
+    let pn=0,dn=0; RUNS.forEach(R=>{ if(runIsRest(w,R.slot))return; const dt=dateOf(w,effDay(w,R.slot)); if(dt>today())return; pn++; if(DB.logs[runId(w,R.slot)])dn++; });
+    const pct=pn?Math.round(dn/pn*100):0, wcol=pn===0?"var(--mut)":pct>=80?"var(--good)":pct>=50?"var(--warn)":"var(--bad)";
+    tiles.push(statusTile("Diese Woche", pn?`${dn}/${pn} Läufe`:"—", wcol, "go('woche')"));
+  }
+  return `<div class="card">
+    <h2 style="margin:0 0 10px">Dein Tag</h2>
+    <div style="font-size:1.05rem;line-height:1.45;margin-bottom:16px">${homeSummary(hasRun,c,kind,form,score)}</div>
+    <div class="stiles">${tiles.join("")}</div>
+    <button class="btn-p" style="width:100%;margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="openCoachChat()">${ic("bulb",17)} Coach fragen</button>
   </div>`;
+}
+function openFormDetail(){
+  const f=currentForm(), fl=formLabel(f.tsb);
+  const adv = f.tsb>=5?"Gute Tage für harte Einheiten oder einen Test." : f.tsb>=-10?"Normaler Trainingszustand — Plan wie vorgesehen." : f.tsb>=-25?"Etwas müde — Qualität dosieren, Schlaf priorisieren." : "Stark belastet — ein bewusst lockerer Tag oder eine Pause hilft mehr als Durchbeißen.";
+  sheet(`<h2 style="color:${fl.color}">Form: ${fl.label}</h2>
+    <div class="sub" style="margin:-4px 0 14px">Wie frisch oder müde du gerade bist · Wert ${f.tsb>=0?"+":""}${Math.round(f.tsb)}</div>
+    <p style="line-height:1.55;margin-bottom:14px">Deine <b>Fitness</b> (über Wochen aufgebaute Belastung) liegt bei <b>${Math.round(f.ctl)}</b>, deine <b>Müdigkeit</b> (Belastung der letzten Tage) bei <b>${Math.round(f.atl)}</b>. Die Differenz ist deine <b>Form</b>.</p>
+    <div style="background:var(--card2);border-radius:14px;padding:14px;font-size:.88rem;line-height:1.7">
+      <div>＋ &nbsp;frisch / ausgeruht — ideal für hart & Wettkampf</div>
+      <div>０ &nbsp;normal — mitten im Training</div>
+      <div>－ &nbsp;müde — Volumen & Intensität dosieren</div>
+    </div>
+    <p style="margin-top:14px;line-height:1.5">${adv}</p>
+    <div class="acts" style="margin-top:18px"><button class="btn-p" style="flex:1" onclick="closeModal()">Verstanden</button>
+      <button class="btn-gh" onclick="closeModal();go('stats')">Mehr in Analyse</button></div>`);
+}
+function openRecoveryDetail(){
+  const d=latestWellness(); if(!d){ go('stats'); return; }
+  const score=recoveryScore(d), col=recoveryColor(score), hv=hrvTrend();
+  const adv = score>=67?"Gut erholt — grünes Licht für Qualität oder Long Run." : score>=34?"Solide erholt — Einheit nach Gefühl steuern." : "Beansprucht — heute eher locker, harte Einheit ggf. verschieben.";
+  sheet(`<h2 style="color:${col}">Recovery: ${recoveryLabel(score)}</h2>
+    <div class="sub" style="margin:-4px 0 12px">Erholungs-Score ${score}/100 aus Schlaf, HRV und Body Battery · Stand ${d.date}</div>
+    <div style="display:flex;justify-content:center;margin:8px 0 16px">${scoreRing(score,col)}</div>
+    <div class="grid2">
+      <div class="stat"><div class="v">${fmtH(d.sleepSeconds)}</div><div class="l">Schlaf${d.sleepScore?" · "+d.sleepScore:""}</div></div>
+      <div class="stat"><div class="v">${d.hrvLastNight||"–"}<span class="tiny"> ms</span></div><div class="l">HRV${hv?` · ${hv.diff>=0?"+":""}${Math.round(hv.diff)} vs Ø`:""}</div></div>
+      <div class="stat"><div class="v">${d.restingHr||"–"}<span class="tiny"> bpm</span></div><div class="l">Ruhepuls</div></div>
+      <div class="stat"><div class="v">${d.bodyBatteryLast!=null?d.bodyBatteryLast:"–"}</div><div class="l">Body Battery</div></div>
+    </div>
+    <p style="margin-top:14px;line-height:1.5">${adv}</p>
+    <div class="acts" style="margin-top:16px"><button class="btn-p" style="flex:1" onclick="closeModal()">Verstanden</button>
+      <button class="btn-gh" onclick="closeModal();go('stats')">Mehr in Analyse</button></div>`);
 }
 
 /* ============ COACH-CHAT (Claude API via Worker) ============ */
