@@ -53,7 +53,7 @@
   /* THE LINE: flacher, near-black Hintergrund auf jeder Seite */
   body{background:var(--bg);min-height:100vh}
   input,textarea{-webkit-user-select:text;user-select:text}
-  body{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+  body{padding-bottom:calc(60px + env(safe-area-inset-bottom))}
   .wrap{max-width:440px;margin:0 auto;padding:calc(8px + env(safe-area-inset-top)) 22px 22px}
   /* ===== THE LINE — Primitives (für alle Screens) ===== */
   .eyebrow{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:1.5px;color:var(--mut);text-transform:uppercase}
@@ -145,7 +145,7 @@
   input,select,textarea{border-radius:14px}
   .seg button{border-radius:999px}
   .ico{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex:0 0 auto}
-  .nav{position:fixed;bottom:0;left:0;right:0;height:calc(78px + env(safe-area-inset-bottom));background:var(--surface-nav);border-top:1px solid var(--line);display:flex;padding:10px 8px env(safe-area-inset-bottom);z-index:50}
+  .nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface-nav);border-top:1px solid var(--line);display:flex;align-items:center;padding:9px 8px calc(9px + env(safe-area-inset-bottom));z-index:50}
   .nav a{flex:1;color:var(--dim);text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;font-weight:400;letter-spacing:.3px;transition:color .15s}
   .nav a .ni{line-height:0;display:flex}
   .nav a.on{color:var(--accent)}
