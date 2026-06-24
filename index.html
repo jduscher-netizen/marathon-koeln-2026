@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#faf6f1">
+<meta name="theme-color" content="#0a0b0d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>SUB4 — Marathon Köln 2026</title>
@@ -14,75 +14,63 @@
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#ece4d8;          /* warmes Cremeweiß (SOLAR) */
-    --bg2:#e3d8c7;
-    --card:rgba(255,255,255,.62);   /* Milchglas-Weiß */
-    --card-solid:#ffffff;
-    --card2:#f4efe7;       /* cremiges Inner-Surface */
-    --line:rgba(40,30,20,.09);
-    --line2:rgba(40,30,20,.15);
-    --txt:#211c17;         /* Tinte */
-    --mut:#938b80;
-    --mut2:#b0a698;
-    --accent:#f2620a;      /* SUB4 Orange */
-    --accent-d:#d8550a;
-    --accent-glow:rgba(242,98,10,.3);
-    --accent2:#ff8a2b;
-    --orange:#ff8a2b;
-    --gold:#e0a53b;
-    --good:#1f9d63;        /* sattes Grün, lesbar auf hell */
-    --warn:#d98a1f;
+    /* ===== THE LINE — Dark Identity ===== */
+    --bg:#0a0b0d;                 /* App-Hintergrund (near-black) */
+    --surface:#14171b;            /* Cards, Sheets */
+    --surface-2:#0f1216;          /* Inset-Felder, Metric-Tiles */
+    --surface-nav:#101317;        /* Bottom-Nav / Bars */
+    --line:rgba(255,255,255,.06); /* Card-Border, Hairlines */
+    --line-strong:rgba(255,255,255,.10);
+    --txt:#f2f3f4;                /* Primärtext & große Ziffern */
+    --text-2:#cfd2d6;             /* Sekundärtext */
+    --mut:#7e848c;                /* Labels, Mono-Eyebrows, Meta */
+    --dim:#565c64;                /* inaktive Nav, leere Zeilen */
+    --node-future:#2a2e34;        /* zukünftige Timeline-Nodes (Fill) */
+    --node-future-bd:#3a3f46;     /* … Border */
+    --accent:#4ee0c7;             /* DIE LINIE, aktiv, positiv, CTA */
+    --accent-d:#39c8b0;
+    --accent-glow:rgba(78,224,199,.7);
+    --accent-soft:rgba(78,224,199,.08);
+    --accent-soft-bd:rgba(78,224,199,.25);
+    --warn:#e0a53b;               /* Compliance <100%, Vorsicht */
+    --good:#1f9d63;
     --bad:#e0584f;
-    --blue:#2f6bff;
+    --font:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
     --r:24px;
-    --glassblur:blur(20px) saturate(1.35);
-    --shadow:0 26px 60px -28px rgba(120,80,40,.34);
-    --shadow-sm:0 16px 40px -26px rgba(120,80,40,.3);
+    /* Aliases für noch nicht umgebaute Screens (Schritt 2–7 ersetzen sie) */
+    --bg2:#0f1216; --card:#14171b; --card-solid:#14171b; --card2:#0f1216;
+    --line2:rgba(255,255,255,.10); --mut2:#565c64;
+    --accent2:#4ee0c7; --orange:#e0a53b; --gold:#e0a53b; --blue:#4ee0c7;
+    --glassblur:none; --shadow:none; --shadow-sm:none;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html{background:var(--bg)}
-  html,body{color:var(--txt);font-family:'Onest',-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;touch-action:manipulation;-webkit-text-size-adjust:100%;-webkit-user-select:none;user-select:none;-webkit-overflow-scrolling:touch}
-  /* Pro-Seite ein eigener, durchscheinender Blob-Hintergrund (fix beim Scrollen) */
-  body{background:
-     radial-gradient(48% 34% at 84% 12%, rgba(255,138,43,.5), transparent 60%),
-     radial-gradient(42% 30% at 10% 40%, rgba(255,184,96,.4), transparent 60%),
-     radial-gradient(46% 32% at 92% 78%, rgba(255,150,90,.34), transparent 62%),
-     linear-gradient(158deg,#f1eae0,#e8ded0 60%,#e1d5c4);
-     background-attachment:fixed;min-height:100vh}
-  body[data-route="woche"]{background:
-     radial-gradient(46% 32% at 88% 14%, rgba(255,170,80,.42), transparent 60%),
-     radial-gradient(44% 30% at 8% 60%, rgba(150,180,160,.34), transparent 60%),
-     radial-gradient(40% 28% at 95% 90%, rgba(255,138,43,.3), transparent 62%),
-     linear-gradient(158deg,#eee7dc,#e6ddcf 60%,#ded2c1);background-attachment:fixed}
-  body[data-route="track"]{background:
-     radial-gradient(50% 34% at 12% 12%, rgba(255,150,60,.46), transparent 60%),
-     radial-gradient(42% 30% at 90% 50%, rgba(224,165,59,.4), transparent 60%),
-     radial-gradient(40% 28% at 16% 92%, rgba(255,180,96,.3), transparent 62%),
-     linear-gradient(158deg,#f1eae0,#e9e0d2 60%,#e2d7c6);background-attachment:fixed}
-  body[data-route="stats"]{background:
-     radial-gradient(48% 32% at 86% 10%, rgba(255,120,80,.42), transparent 60%),
-     radial-gradient(44% 30% at 6% 46%, rgba(255,160,110,.36), transparent 60%),
-     radial-gradient(44% 30% at 94% 86%, rgba(231,120,110,.3), transparent 62%),
-     linear-gradient(158deg,#f1e8de,#ebddd0 60%,#e3d6c6);background-attachment:fixed}
-  body[data-route="mehr"]{background:
-     radial-gradient(46% 32% at 90% 12%, rgba(224,165,59,.4), transparent 60%),
-     radial-gradient(42% 30% at 8% 44%, rgba(214,200,170,.5), transparent 60%),
-     radial-gradient(40% 28% at 92% 84%, rgba(255,160,90,.3), transparent 62%),
-     linear-gradient(158deg,#efe8de,#e7ddce 60%,#e0d4c3);background-attachment:fixed}
+  html,body{color:var(--txt);font-family:var(--font);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;touch-action:manipulation;-webkit-text-size-adjust:100%;-webkit-user-select:none;user-select:none;-webkit-overflow-scrolling:touch}
+  /* THE LINE: flacher, near-black Hintergrund auf jeder Seite */
+  body{background:var(--bg);min-height:100vh}
   input,textarea{-webkit-user-select:text;user-select:text}
-  body{padding-bottom:calc(74px + env(safe-area-inset-bottom))}
-  .wrap{max-width:560px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top)) 16px 8px}
+  body{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+  .wrap{max-width:440px;margin:0 auto;padding:calc(8px + env(safe-area-inset-top)) 22px 22px}
+  /* ===== THE LINE — Primitives (für alle Screens) ===== */
+  .eyebrow{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:1.5px;color:var(--mut);text-transform:uppercase}
+  .mono{font-family:var(--mono)}
+  .ln-line{display:inline-block;width:30px;height:2px;background:var(--accent);box-shadow:0 0 8px var(--accent-glow)}
+  .ln-title{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px}
+  .ln-title b{font-size:22px;font-weight:700;letter-spacing:-.5px;color:var(--txt)}
+  .ln-title .ln-line{width:26px;box-shadow:0 0 8px rgba(78,224,199,.6)}
+  .ln-card{background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:18px 20px 20px}
   h1{font-size:1.7rem;font-weight:800;letter-spacing:-.8px;color:var(--txt)}
   h1 .sub{font-size:.78rem;font-weight:500;display:block;margin-top:3px;color:var(--mut);letter-spacing:0}
   h2{font-size:1.15rem;font-weight:700;margin:0 0 10px;letter-spacing:-.3px;color:var(--txt)}
   .sub{color:var(--mut);font-size:.82rem}
-  .card{background:var(--card);backdrop-filter:var(--glassblur);-webkit-backdrop-filter:var(--glassblur);border:1px solid rgba(255,255,255,.6);border-radius:var(--r);padding:20px;margin-bottom:16px;box-shadow:var(--shadow-sm)}
-  .card.solid{background:var(--card-solid);backdrop-filter:none;-webkit-backdrop-filter:none}
-  .hero{background:rgba(255,255,255,.72);backdrop-filter:var(--glassblur);-webkit-backdrop-filter:var(--glassblur);border:1px solid rgba(255,255,255,.7);box-shadow:var(--shadow);color:var(--txt);position:relative;overflow:hidden;padding:26px 22px;border-radius:30px}
-  .hero::before{content:"";position:absolute;top:-70px;right:-70px;width:240px;height:240px;background:radial-gradient(circle,rgba(255,138,43,.45),transparent 62%);pointer-events:none}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:16px}
+  .card.solid{background:var(--surface)}
+  .hero{background:var(--surface);border:1px solid var(--line);color:var(--txt);position:relative;overflow:hidden;padding:26px 22px;border-radius:24px}
+  .hero::before{content:none}
   .hero > *{position:relative;z-index:1}
   .hero .ph{color:var(--accent);font-weight:700;font-size:.72rem;text-transform:uppercase;letter-spacing:1.6px}
   .hero .sub{color:var(--mut)}
@@ -129,7 +117,7 @@
   .cd span{font-size:.6rem;color:var(--mut);text-transform:uppercase;letter-spacing:.7px;font-weight:700}
   .day{background:var(--card-solid);border:1px solid var(--line);border-radius:18px;padding:15px 16px;margin-bottom:10px;transition:.18s ease;box-shadow:var(--shadow-sm)}
   .day:active{transform:scale(.99)}
-  .day.today{border-color:rgba(242,98,10,.45);box-shadow:0 0 0 1px rgba(242,98,10,.28),0 16px 34px -18px rgba(242,98,10,.4)}
+  .day.today{border-color:var(--accent-soft-bd);box-shadow:0 0 24px -10px rgba(78,224,199,.4)}
   .day .dn{font-weight:700;font-size:.95rem;color:var(--txt)}
   .day .dd{color:var(--mut);font-size:.74rem}
   .day .ds{margin-top:8px;font-size:.86rem;color:#5d554c}
@@ -137,7 +125,7 @@
   .acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
   button,.btn{font:inherit;font-family:inherit;cursor:pointer;border:none;border-radius:999px;padding:11px 18px;font-size:.85rem;font-weight:600;background:var(--card2);color:var(--txt);border:1px solid var(--line)}
   button:active{transform:scale(.97)}
-  .btn-p{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 12px 26px -12px var(--accent-glow)}
+  .btn-p{background:var(--accent);color:#0a0b0d;border-color:var(--accent);box-shadow:none;font-weight:700}
   .btn-p:hover{background:var(--accent-d);border-color:var(--accent-d)}
   .btn-sm{padding:7px 12px;font-size:.78rem}
   .btn-gh{background:transparent;border-color:transparent;color:var(--mut)}
@@ -149,26 +137,25 @@
   label{display:block;font-size:.74rem;color:var(--mut);margin:14px 0 6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
   input,select,textarea{width:100%;background:var(--card2);border:1px solid var(--line);color:var(--txt);border-radius:13px;padding:12px 14px;font:inherit;font-family:inherit;font-size:.95rem}
   textarea{resize:vertical;min-height:70px}
-  input::placeholder,textarea::placeholder{color:#a89e92}
-  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(242,98,10,.16)}
+  input::placeholder,textarea::placeholder{color:#565c64}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(78,224,199,.16)}
   .seg{display:flex;gap:6px;flex-wrap:wrap}
   .seg button{flex:1;min-width:auto;background:var(--card2);border-color:transparent}
-  .seg button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .seg button.on{background:var(--accent);color:#0a0b0d;border-color:var(--accent)}
   input,select,textarea{border-radius:14px}
   .seg button{border-radius:999px}
   .ico{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex:0 0 auto}
-  .nav{position:fixed;bottom:0;left:0;right:0;background:rgba(245,240,232,.72);backdrop-filter:blur(28px) saturate(1.4);-webkit-backdrop-filter:blur(28px) saturate(1.4);border-top:1px solid rgba(255,255,255,.6);display:flex;padding:10px 6px calc(10px + env(safe-area-inset-bottom));z-index:50}
-  .nav a{flex:1;text-align:center;color:var(--mut2);font-size:.6rem;font-weight:600;text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:5px;letter-spacing:.3px;transition:color .18s}
-  .nav a .ni{font-size:1.35rem;line-height:1;opacity:.85}
+  .nav{position:fixed;bottom:0;left:0;right:0;height:calc(78px + env(safe-area-inset-bottom));background:var(--surface-nav);border-top:1px solid var(--line);display:flex;padding:10px 8px env(safe-area-inset-bottom);z-index:50}
+  .nav a{flex:1;color:var(--dim);text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;font-weight:400;letter-spacing:.3px;transition:color .15s}
+  .nav a .ni{line-height:0;display:flex}
   .nav a.on{color:var(--accent)}
-  .nav a.on .ni{opacity:1}
-  .modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:flex-end;justify-content:center;z-index:100;overscroll-behavior:contain;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
-  .sheet{position:relative;background:var(--card-solid);border-radius:30px 30px 0 0;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;padding:20px 18px calc(28px + env(safe-area-inset-bottom));border:1px solid rgba(255,255,255,.6);border-bottom:none;touch-action:pan-y;will-change:transform;box-shadow:0 -18px 60px rgba(120,80,40,.32)}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:100;overscroll-behavior:contain}
+  .sheet{position:relative;background:var(--surface);border-radius:28px 28px 0 0;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;padding:10px 22px calc(26px + env(safe-area-inset-bottom));border-top:1px solid var(--line-strong);touch-action:pan-y;will-change:transform;box-shadow:0 -24px 60px -20px rgba(0,0,0,.7)}
   .sheet-close{position:absolute;top:10px;right:12px;width:36px;height:36px;border-radius:50%;background:var(--card2);color:var(--mut);border:none;font-size:1.4rem;font-weight:300;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;z-index:5;cursor:pointer}
   .sheet-close:active{background:var(--line);color:var(--txt)}
   body.locked{position:fixed;width:100%;overflow:hidden}
   .sheet h2{font-size:1.15rem}
-  .grab{width:40px;height:5px;background:rgba(40,30,20,.18);border-radius:3px;margin:-6px auto 16px}
+  .grab{width:38px;height:4px;background:rgba(255,255,255,.18);border-radius:99px;margin:6px auto 18px}
   .bar{display:flex;align-items:flex-end;gap:5px;height:130px;margin-top:8px}
   .bar .b{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;min-width:0}
   .bar .b small{font-size:.58rem;color:var(--mut);white-space:nowrap;overflow:hidden;font-weight:600}
@@ -248,39 +235,36 @@
   @keyframes spin{to{transform:rotate(360deg)}}
   #syncBadge.spin span{display:inline-block;animation:spin 1s linear infinite}
   /* ===== Coach-Chat Vollbild ===== */
-  .cv{position:fixed;inset:0;z-index:120;background:
-     radial-gradient(46% 30% at 86% 8%, rgba(255,138,43,.42), transparent 60%),
-     radial-gradient(44% 28% at 8% 40%, rgba(255,184,96,.3), transparent 60%),
-     linear-gradient(158deg,#f1eae0,#e8ded0 60%,#e1d5c4);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1)}
+  .cv{position:fixed;inset:0;z-index:120;background:var(--bg);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1)}
   .cv.show{transform:translateY(0)}
-  .cv-head{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;border-bottom:1px solid rgba(255,255,255,.5);background:rgba(245,240,232,.78);backdrop-filter:blur(14px)}
-  .cv-back{width:36px;height:36px;border-radius:50%;background:var(--card2);border:none;color:var(--txt);display:flex;align-items:center;justify-content:center;font-size:1.3rem;cursor:pointer;flex:0 0 auto;padding:0}
-  .cv-av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#ff8a4a);display:flex;align-items:center;justify-content:center;color:#fff;flex:0 0 auto}
+  .cv-head{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;border-bottom:1px solid var(--line);background:var(--surface-nav)}
+  .cv-back{width:36px;height:36px;border-radius:50%;background:var(--surface-2);border:none;color:var(--txt);display:flex;align-items:center;justify-content:center;font-size:1.3rem;cursor:pointer;flex:0 0 auto;padding:0}
+  .cv-av{width:38px;height:38px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#0a0b0d;flex:0 0 auto}
   .cv-ti{flex:1;min-width:0}
-  .cv-ti b{font-size:1rem;display:block;line-height:1.1}
-  .cv-ti span{font-size:.7rem;color:var(--good);display:flex;align-items:center;gap:5px}
-  .cv-ti span i{width:7px;height:7px;border-radius:50%;background:var(--good);display:inline-block;box-shadow:0 0 6px var(--good)}
+  .cv-ti b{font-size:1rem;display:block;line-height:1.1;color:var(--txt)}
+  .cv-ti span{font-family:var(--mono);font-size:.66rem;letter-spacing:.5px;color:var(--accent);display:flex;align-items:center;gap:5px}
+  .cv-ti span i{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;box-shadow:0 0 6px var(--accent)}
   .cv-msgs{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:16px 14px 8px;display:flex;flex-direction:column;gap:3px}
-  .cv-input{flex:0 0 auto;display:flex;align-items:flex-end;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid rgba(255,255,255,.5);background:rgba(245,240,232,.82);backdrop-filter:blur(14px)}
-  .cv-foot{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:7px 12px calc(7px + env(safe-area-inset-bottom));border-top:1px solid rgba(255,255,255,.5);background:rgba(245,240,232,.82);backdrop-filter:blur(14px)}
+  .cv-input{flex:0 0 auto;display:flex;align-items:flex-end;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--surface-nav)}
+  .cv-foot{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:7px 12px calc(7px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--surface-nav)}
   .cv-foot button{padding:10px 16px}
-  .cv-input textarea{flex:1;min-height:44px;max-height:130px;border-radius:22px;padding:11px 16px;resize:none;background:var(--card2);border:1px solid var(--line)}
-  .cv-send{width:44px;height:44px;border-radius:50%;background:var(--accent);border:none;color:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto;cursor:pointer;box-shadow:0 2px 12px var(--accent-glow);transition:.15s}
+  .cv-input textarea{flex:1;min-height:44px;max-height:130px;border-radius:22px;padding:11px 16px;resize:none;background:var(--surface-2);border:1px solid var(--line)}
+  .cv-send{width:44px;height:44px;border-radius:50%;background:var(--accent);border:none;color:#0a0b0d;display:flex;align-items:center;justify-content:center;flex:0 0 auto;cursor:pointer;box-shadow:0 0 12px rgba(78,224,199,.4);transition:.15s}
   .cv-send:disabled{opacity:.4;box-shadow:none}
   .bub{max-width:84%;padding:11px 15px;font-size:.92rem;line-height:1.5;animation:bubIn .26s cubic-bezier(.2,.7,.3,1)}
-  .bub.u{align-self:flex-end;background:var(--accent);color:#fff;border-radius:20px 20px 6px 20px}
-  .bub.a{align-self:flex-start;background:var(--card2);color:var(--txt);border-radius:20px 20px 20px 6px}
-  .bub.a.err{background:rgba(224,88,79,.12);color:#b23a32}
+  .bub.u{align-self:flex-end;background:var(--accent);color:#0a0b0d;border-radius:20px 20px 6px 20px}
+  .bub.a{align-self:flex-start;background:var(--surface);color:var(--text-2);border-radius:20px 20px 20px 6px}
+  .bub.a.err{background:rgba(224,88,79,.14);color:#f0a09a}
   .bub-time{font-size:.6rem;color:var(--mut);margin:1px 6px 8px;align-self:flex-end}
   .bub-time.a{align-self:flex-start}
   @keyframes bubIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-  .typing{align-self:flex-start;background:var(--card2);border-radius:20px 20px 20px 6px;padding:14px 16px;display:flex;gap:5px;animation:bubIn .26s}
+  .typing{align-self:flex-start;background:var(--surface);border-radius:20px 20px 20px 6px;padding:14px 16px;display:flex;gap:5px;animation:bubIn .26s}
   .typing i{width:8px;height:8px;border-radius:50%;background:var(--mut);animation:typedot 1.2s infinite}
   .typing i:nth-child(2){animation-delay:.18s}
   .typing i:nth-child(3){animation-delay:.36s}
   @keyframes typedot{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}
   .cv-sugg{display:flex;flex-direction:column;gap:8px;padding:8px 2px}
-  .cv-sugg button{text-align:left;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:.86rem;color:var(--txt)}
+  .cv-sugg button{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:.86rem;color:var(--text-2)}
   .cv-empty{text-align:center;color:var(--mut);padding:24px 10px 14px}
   /* ===== Gym / Krafttraining ===== */
   .gstart{display:flex;gap:8px;margin-bottom:4px}
@@ -1708,20 +1692,38 @@ function openFormDetail(){
 }
 function openRecoveryDetail(){
   const d=latestWellness(); if(!d){ go('stats'); return; }
-  const score=recoveryScore(d), col=recoveryColor(score), hv=hrvTrend();
-  const adv = score>=67?"Gut erholt — grünes Licht für Qualität oder Long Run." : score>=34?"Solide erholt — Einheit nach Gefühl steuern." : "Beansprucht — heute eher locker, harte Einheit ggf. verschieben.";
-  sheet(`<h2 style="color:${col}">Recovery: ${recoveryLabel(score)}</h2>
-    <div class="sub" style="margin:-4px 0 12px">Erholungs-Score ${score}/100 aus Schlaf, HRV und Body Battery · Stand ${d.date}</div>
-    <div style="display:flex;justify-content:center;margin:8px 0 16px">${scoreRing(score,col)}</div>
-    <div class="grid2">
-      <div class="stat"><div class="v">${fmtH(d.sleepSeconds)}</div><div class="l">Schlaf${d.sleepScore?" · "+d.sleepScore:""}</div></div>
-      <div class="stat"><div class="v">${d.hrvLastNight||"–"}<span class="tiny"> ms</span></div><div class="l">HRV${hv?` · ${hv.diff>=0?"+":""}${Math.round(hv.diff)} vs Ø`:""}</div></div>
-      <div class="stat"><div class="v">${d.restingHr||"–"}<span class="tiny"> bpm</span></div><div class="l">Ruhepuls</div></div>
-      <div class="stat"><div class="v">${d.bodyBatteryLast!=null?d.bodyBatteryLast:"–"}</div><div class="l">Body Battery</div></div>
+  const score=recoveryScore(d), hv=hrvTrend();
+  const sleepScore=d.sleepScore!=null?d.sleepScore:null;
+  const lab = score>=67?"Gut erholt" : score>=34?"Solide erholt" : "Beansprucht";
+  const sub = score>=67?"grünes Licht für Qualität" : score>=34?"Einheit nach Gefühl" : "heute eher locker";
+  const adv = score>=67?"Körper erholt, HRV im grünen Bereich — idealer Tag für die geplante Tempo-Einheit. Wenn die Pace leicht fällt, ruhig die Schwelle suchen."
+            : score>=34?"Solide erholt — Einheit nach Gefühl steuern, Intensität dosieren."
+            : "Beansprucht — heute klar auf Erholung setzen, harte Reize ggf. verschieben.";
+  const sleepPct = sleepScore!=null?sleepScore : (d.sleepSeconds?Math.min(100,Math.round(d.sleepSeconds/3600/8*100)):0);
+  const battery = d.bodyBatteryLast!=null?d.bodyBatteryLast:0;
+  const hrvDiff = hv?Math.round(hv.diff):null;
+  const hrvPct = hv?Math.max(8,Math.min(100,65+hv.diff*3)):60;
+  const bar=(label,val,pct,acc)=>`<div><div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:#7e848c;margin-bottom:5px;"><span>${label}</span><span style="color:${acc?"#4ee0c7":"#f2f3f4"};">${val}</span></div><div style="height:5px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;"><div style="width:${pct}%;height:100%;background:${acc?"#4ee0c7":"#7e848c"};border-radius:99px;"></div></div></div>`;
+  const rtile=(v,l,acc)=>`<div style="flex:1;text-align:center;background:#0f1216;border-radius:12px;padding:12px 6px;"><div style="font-size:16px;font-weight:700;color:${acc?"#4ee0c7":"#f2f3f4"};">${v}</div><div style="font-family:var(--mono);font-size:8px;color:#7e848c;margin-top:3px;">${l}</div></div>`;
+  sheet(`
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;">Recovery · Garmin · Stand ${d.date}</div>
+    <div style="display:flex;align-items:flex-end;gap:12px;margin-top:10px;margin-bottom:18px;">
+      <span style="font-size:56px;font-weight:700;color:#4ee0c7;letter-spacing:-2px;line-height:.85;">${score}</span>
+      <div style="padding-bottom:6px;"><div style="font-size:17px;font-weight:600;color:#f2f3f4;">${lab}</div><div style="font-family:var(--mono);font-size:11px;color:#7e848c;">${sub}</div></div>
     </div>
-    <p style="margin-top:14px;line-height:1.5">${adv}</p>
-    <div class="acts" style="margin-top:16px"><button class="btn-p" style="flex:1" onclick="closeModal()">Verstanden</button>
-      <button class="btn-gh" onclick="closeModal();go('stats')">Mehr in Analyse</button></div>`);
+    <div style="display:flex;flex-direction:column;gap:11px;margin-bottom:18px;">
+      ${bar("SCHLAF-SCORE", sleepScore!=null?sleepScore+" / 100":fmtH(d.sleepSeconds), sleepPct, true)}
+      ${bar("HRV vs. 7-TAGE-Ø", hrvDiff!=null?(hrvDiff>=0?"+":"")+hrvDiff+" ms":(d.hrvLastNight?d.hrvLastNight+" ms":"—"), hrvPct, true)}
+      ${bar("BODY BATTERY", battery+" / 100", battery, false)}
+    </div>
+    <div style="background:#0f1216;border-radius:14px;padding:14px 16px;font-size:13px;color:#cfd2d6;line-height:1.5;margin-bottom:18px;">${adv}</div>
+    <div style="display:flex;gap:8px;margin-bottom:22px;">
+      ${rtile(fmtH(d.sleepSeconds),"SCHLAF",false)}
+      ${rtile(d.hrvLastNight||"–","HRV ms",true)}
+      ${rtile(d.restingHr||"–","RHR bpm",false)}
+      ${rtile(d.bodyBatteryLast!=null?d.bodyBatteryLast:"–","BATTERY",false)}
+    </div>
+    <div onclick="closeModal()" style="cursor:pointer;text-align:center;background:#0f1216;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:15px;font-size:15px;font-weight:700;color:#f2f3f4;">Schließen</div>`);
 }
 
 /* ============ COACH-CHAT (Claude API via Worker) ============ */
@@ -2029,58 +2031,120 @@ function tipLogicExplanation(kind){
 
 function viewHeute(){
   const td=today(), loc=locate(td);
+  if(loc.pre){ return `<div class="wrap"><div class="card center"><div style="font-size:30px;font-weight:700;letter-spacing:-1.5px;color:var(--txt)">Noch ${Math.ceil((PLAN_START-td)/MS)} Tage</div><div class="eyebrow" style="margin-top:8px">bis Trainingsstart 11.05.2026</div></div></div>`; }
+  if(loc.post){ return `<div class="wrap"><div class="card center"><div style="font-size:26px;font-weight:700;letter-spacing:-1px;color:var(--txt)">Plan beendet</div><div class="eyebrow" style="margin-top:8px">Marathon Köln war am 04.10.2026</div></div></div>`; }
+
+  const W=WEEKS[loc.week-1];
   const dRace=Math.ceil((RACE_DATE-td)/MS);
-  let body="";
-  if(loc.pre){ body=`<div class="card center"><div class="big">Noch ${Math.ceil((PLAN_START-td)/MS)} Tage</div><div class="sub">bis Trainingsstart 11.05.2026</div></div>`; }
-  else if(loc.post){ body=`<div class="card center"><div class="big">Plan beendet</div><div class="sub">Marathon Köln war am 04.10.2026 — gut gemacht.</div></div>`; }
-  else {
-    const W=WEEKS[loc.week-1];
-    const todayRuns=RUNS.filter(R=>effDay(loc.week,R.slot)===loc.dayIdx&&!runIsRest(loc.week,R.slot));
-    const upcoming=RUNS.filter(R=>effDay(loc.week,R.slot)>loc.dayIdx&&!runIsRest(loc.week,R.slot)).sort((a,b)=>effDay(loc.week,a.slot)-effDay(loc.week,b.slot));
-    const done=runDoneKm(W.w), pct=Math.min(100, W.km?done/W.km*100:0);
-    const r=46, circ=2*Math.PI*r, off=circ*(1-pct/100);
-    body=`
-    <div class="card hero">
-      <div class="ph">WOCHE ${W.w} / 21 · ${W.ph.toUpperCase()}</div>
-      <div class="hero-top">
-        <div class="ring-wrap hero-ring" title="Wochenfortschritt">
-          <svg viewBox="0 0 110 110">
-            <defs><linearGradient id="hring" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#ffc879"/><stop offset="1" stop-color="#f2620a"/></linearGradient></defs>
-            <circle cx="55" cy="55" r="${r}" fill="none" stroke="rgba(40,30,20,.1)" stroke-width="9"/>
-            <circle cx="55" cy="55" r="${r}" fill="none" stroke="url(#hring)" stroke-width="9" stroke-linecap="round"
-              stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/>
-          </svg>
-          <div class="rv"><b>${Math.round(pct)}%</b><span>Woche</span></div>
-        </div>
-        <div class="hero-meta">
-          <div class="big">${DOWL[loc.dayIdx]}</div>
-          <div class="sub">${fmtD(td)}</div>
-          <div class="pill run" style="margin-top:9px">${dRace} Tage bis Köln</div>
-        </div>
-      </div>
-      <div class="cd">
-        <div><b>${W.km}</b><span>km Plan</span></div>
-        <div><b>${done.toFixed(0)}</b><span>km gelaufen</span></div>
-        <div><b>${W.lr}</b><span>km Long Run</span></div></div>
+  const done=runDoneKm(W.w);
+  const fillPct=Math.round(loc.week/21*100);
+  const phase=W.ph;
+  const raceStr=`${String(RACE_DATE.getDate()).padStart(2,"0")}.${String(RACE_DATE.getMonth()+1).padStart(2,"0")}.${RACE_DATE.getFullYear()}`;
+
+  // ----- Prognose (Threshold) -----
+  const pred=marathonEstimate(predictionSeries(runLogs()));
+  const GOAL=14400; // 4:00:00
+  let predStr="—", deltaStr="", dotX=50, under=true; const hasPred=!!pred;
+  if(pred){ predStr=hms(Math.round(pred)); const delta=Math.round(pred)-GOAL; under=delta<=0;
+    const mm=Math.floor(Math.abs(delta)/60), ss=Math.abs(delta)%60;
+    deltaStr=(under?"−":"+")+mm+":"+String(ss).padStart(2,"0");
+    dotX=Math.max(8,Math.min(92, 50 + (delta/900)*40)); }
+  const dCol=under?"#4ee0c7":"#e0a53b";
+
+  const rec=recoveryScore(latestWellness());
+  const todayRun=RUNS.find(R=>effDay(loc.week,R.slot)===loc.dayIdx && !runIsRest(loc.week,R.slot));
+  const KL={quality:"QUALITÄT",easy:"GA1",recovery:"RECOVERY",long:"LONG RUN"};
+
+  // ----- THE BUILD LINE: Stations (accent sobald erreicht) -----
+  const STN=[{n:"BASE",x:4},{n:"BUILD",x:46},{n:"PEAK",x:72},{n:"TAPER",x:88}];
+  const stations=STN.map(s=>{ const on=s.x<=fillPct;
+    return `<div style="position:absolute;top:${on?"25px":"26px"};left:${s.x}%;width:${on?"8px":"6px"};height:${on?"8px":"6px"};border-radius:99px;background:${on?"#4ee0c7":"#3a3f46"};transform:translate(-50%,0);"></div>
+    <div style="position:absolute;top:0;left:${s.x}%;transform:translateX(-50%);font-family:var(--mono);font-size:8px;color:${on?"#7e848c":"#565c64"};white-space:nowrap;">${s.n}</div>`;
+  }).join("");
+
+  const brand=`<div style="display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-weight:700;font-size:20px;letter-spacing:.5px;color:#f2f3f4;">SUB4</span>
+      <span style="width:30px;height:2px;background:#4ee0c7;box-shadow:0 0 8px rgba(78,224,199,.7);"></span>
     </div>
-    ${stravaPendingBlock()}
-    ${briefingCard()}
-    <h2>Heute</h2>
-    ${todayRuns.length? todayRuns.map(R=>runCard(loc.week,R.slot,true)).join("")
-      : `<div class="card center sub">Kein fixer Lauf heute — freie Einheiten unten nach Lust eintragen.</div>`}
-    ${actPanel(loc.week)}
-    ${upcoming.length?`<h2 style="margin-top:4px">Nächste Läufe</h2>`+upcoming.map(R=>{
-      const id=runId(loc.week,R.slot),c=runContent(loc.week,R.slot),L=DB.logs[id];
-      return `<div class="day dim" onclick="openRun(${loc.week},'${R.slot}')">
-        <div class="between"><div><span class="dn">${DOWL[effDay(loc.week,R.slot)]}</span>
-          <span class="dd"> · ${fmtD(dateOf(loc.week,effDay(loc.week,R.slot)))}</span></div>
-          ${L?`<span class="pill done">✓</span>`:`<span class="pill run">Lauf</span>`}</div>
-        <div class="ds">${c.title} — <span class="muted">${c.det}</span></div></div>`;
-    }).join(""):""}
-    ${redFlagsBlock(true)}`;
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;">KÖLN MARATHON ’26</div>
+  </div>`;
+
+  const hero=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:20px 20px 22px;">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;">
+      <div>
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:#7e848c;text-transform:uppercase;">Noch</div>
+        <div style="display:flex;align-items:flex-end;gap:8px;"><span style="font-weight:700;font-size:64px;line-height:.85;letter-spacing:-2px;color:#f2f3f4;">${dRace}</span><span style="font-weight:600;font-size:15px;color:#4ee0c7;padding-bottom:8px;">Tage</span></div>
+      </div>
+      <div style="text-align:right;font-family:var(--mono);font-size:10px;color:#7e848c;line-height:1.5;">${raceStr}<br><span style="color:#f2f3f4;">42,195 km</span></div>
+    </div>
+    <div style="position:relative;height:58px;margin-top:18px;">
+      <div style="position:absolute;top:28px;left:0;right:0;height:2px;background:rgba(255,255,255,.1);"></div>
+      <div style="position:absolute;top:28px;left:0;width:${fillPct}%;height:2px;background:#4ee0c7;box-shadow:0 0 8px rgba(78,224,199,.6);"></div>
+      ${stations}
+      <div style="position:absolute;top:21px;right:0;width:2px;height:16px;background:#f2f3f4;"></div>
+      <div style="position:absolute;top:42px;right:0;font-family:var(--mono);font-size:8px;color:#f2f3f4;">KÖLN</div>
+      <div style="position:absolute;top:22px;left:${fillPct}%;width:14px;height:14px;border-radius:99px;background:#4ee0c7;box-shadow:0 0 0 5px rgba(78,224,199,.18),0 0 14px rgba(78,224,199,.7);transform:translateX(-50%);"></div>
+      <div style="position:absolute;top:44px;left:${fillPct}%;transform:translateX(-50%);font-family:var(--mono);font-size:8px;color:#4ee0c7;white-space:nowrap;">W${String(loc.week).padStart(2,"0")} · ${phase.toUpperCase()}</div>
+    </div>
+  </div>`;
+
+  const thresh=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:18px 20px 20px;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;">Prognose · ${hasPred?(under?"unter der Linie":"über der Linie"):"noch offen"}</span>
+      ${hasPred?`<span style="font-family:var(--mono);font-size:10px;color:${dCol};">${deltaStr}</span>`:""}
+    </div>
+    <div style="position:relative;height:34px;margin:14px 0 6px;">
+      <div style="position:absolute;top:6px;left:0;right:0;height:1px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 5px,transparent 5px 10px);"></div>
+      <div style="position:absolute;top:-7px;right:0;font-family:var(--mono);font-size:9px;color:#7e848c;">SUB 4:00:00</div>
+      ${hasPred?`<div style="position:absolute;top:18px;left:${dotX}%;width:11px;height:11px;border-radius:99px;background:#4ee0c7;box-shadow:0 0 10px rgba(78,224,199,.7);transform:translateX(-50%);"></div>
+      <div style="position:absolute;top:6px;left:${dotX}%;width:1px;height:12px;background:rgba(78,224,199,.5);transform:translateX(-50%);"></div>`:""}
+    </div>
+    <div style="font-size:38px;font-weight:700;letter-spacing:-1.5px;color:#f2f3f4;line-height:1;">${predStr}</div>
+  </div>`;
+
+  let today_;
+  if(todayRun){ const c=runContent(loc.week,todayRun.slot);
+    today_=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:17px 20px;display:flex;gap:15px;align-items:center;">
+      <div style="width:3px;align-self:stretch;border-radius:99px;background:#4ee0c7;box-shadow:0 0 8px rgba(78,224,199,.5);"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;">Heute · ${DOWL[loc.dayIdx]} · ${KL[todayRun.kind]||""}</div>
+        <div style="font-size:17px;font-weight:600;color:#f2f3f4;margin-top:5px;">${c.title}</div>
+        <div style="font-family:var(--mono);font-size:12px;color:#7e848c;margin-top:2px;">${c.det}</div>
+      </div>
+      <div onclick="openLog(${loc.week},'${todayRun.slot}')" style="cursor:pointer;font-size:13px;font-weight:600;color:#0a0b0d;background:#4ee0c7;padding:10px 16px;border-radius:10px;flex:none;">Start</div>
+    </div>`;
+  } else {
+    today_=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:17px 20px;display:flex;gap:15px;align-items:center;">
+      <div style="width:3px;align-self:stretch;border-radius:99px;background:#565c64;"></div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;">Heute · ${DOWL[loc.dayIdx]} · Frei</div>
+        <div style="font-size:17px;font-weight:600;color:#f2f3f4;margin-top:5px;">Kein fixer Lauf</div>
+        <div style="font-family:var(--mono);font-size:12px;color:#7e848c;margin-top:2px;">Freie Einheit nach Lust</div>
+      </div>
+    </div>`;
   }
-  return `<div class="wrap">${body}</div>`;
+
+  const tile=(v,l,acc,click)=>`<div ${click?`onclick="${click}" `:""}style="flex:1;background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:13px 12px;${click?"cursor:pointer;":""}"><div style="font-size:21px;font-weight:700;color:${acc?"#4ee0c7":"#f2f3f4"};letter-spacing:-.5px;">${v}</div><div style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#7e848c;margin-top:2px;">${l}</div></div>`;
+  const tilesRow=`<div style="display:flex;gap:9px;">
+    ${tile(W.km,"KM PLAN",false)}
+    ${tile(Math.round(done),"GELAUFEN",false)}
+    ${tile(W.lr,"LONG RUN",false)}
+    ${tile(rec!=null?rec:"–","RECOVERY",rec!=null,"openRecoveryDetail()")}
+  </div>`;
+
+  // ----- Coach (Daily Read + Einstieg in den Chat) -----
+  const c2=todayRun?runContent(loc.week,todayRun.slot):null;
+  const read=homeSummary(!!todayRun, c2, todayRun?todayRun.kind:null, currentForm(), rec);
+  const coach=`<div onclick="openCoachChat()" style="background:#14171b;border:1px solid rgba(78,224,199,.25);border-radius:20px;padding:16px 18px;cursor:pointer;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+      <span style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;"><span style="width:7px;height:7px;border-radius:99px;background:#4ee0c7;box-shadow:0 0 8px #4ee0c7;"></span>Coach · Heute</span>
+      <span style="font-family:var(--mono);font-size:11px;color:#7e848c;">fragen ›</span>
+    </div>
+    <div style="font-size:14px;color:#cfd2d6;line-height:1.55;">${read}</div>
+  </div>`;
+
+  return `<div class="wrap" style="display:flex;flex-direction:column;gap:15px;">${brand}${hero}${thresh}${today_}${coach}${tilesRow}</div>`;
 }
 
 /* ============ VIEW: WOCHE ============ */
@@ -2104,54 +2168,87 @@ function weekDaysHtml(w, todayIdx){
 }
 function viewWoche(){
   const loc=locate(today()), curW=loc.week||1;
-  // Phase-Farbe als linker Akzent-Balken
-  const phaseCol = ph => {
-    if(/Regen/.test(ph)) return "#9aa1ad";
-    if(/Base I[^I]/.test(ph)||/Base I$/.test(ph)) return "#4f9be1";
-    if(/Base II/.test(ph)) return "#39b67a";
-    if(/Build/.test(ph)) return "#e0a83b";
-    if(/Peak/.test(ph)) return "#e1564f";
-    if(/Taper/.test(ph)) return "#a855f7";
-    if(/Wettkampf/.test(ph)) return "#fbbf24";
-    return "#9aa1ad";
+  const DOWS=["Mo","Di","Mi","Do","Fr","Sa","So"];
+
+  // Tagesliste der aktuellen Woche (Mo–So) im LINE-Stil
+  const dayList=(w)=>{ let out="";
+    for(let d=0; d<7; d++){
+      const dt=dateOf(w,d);
+      const rs=RUNS.filter(R=>effDay(w,R.slot)===d && !runIsRest(w,R.slot));
+      const isToday=(w===curW && d===loc.dayIdx);
+      const dayLabel=`${DOWS[d]} ${dt.getDate()}.`;
+      let txt, col="#cfd2d6", weight="400";
+      if(rs.length){ const R=rs[0], c=runContent(w,R.slot), L=DB.logs[runId(w,R.slot)];
+        const short=c.title.replace(/^Lauf · /,"");
+        const detShort=(c.det||"").split(/[:(]/)[0].trim();
+        txt=`${short}${detShort&&detShort!=="–"?" · "+detShort:""}${L?' <span style="color:#4ee0c7">✓</span>':""}`;
+        if(R.kind==="long") weight="600";
+      } else { txt="— frei —"; col="#565c64"; }
+      if(isToday){
+        out+=`<div onclick="${rs.length?`openRun(${w},'${rs[0].slot}')`:""}" style="display:flex;align-items:center;gap:10px;background:rgba(78,224,199,.08);border-radius:9px;padding:8px 10px;margin:0 -4px;${rs.length?"cursor:pointer;":""}">
+          <span style="font-family:var(--mono);font-size:10px;color:#4ee0c7;width:44px;">${dayLabel}</span>
+          <span style="font-size:12px;color:#f2f3f4;font-weight:600;">${rs.length?txt:"— frei —"}</span>
+          <span style="margin-left:auto;font-family:var(--mono);font-size:8px;color:#4ee0c7;border:1px solid rgba(78,224,199,.4);padding:2px 6px;border-radius:5px;">HEUTE</span></div>`;
+      } else {
+        out+=`<div onclick="${rs.length?`openRun(${w},'${rs[0].slot}')`:""}" style="display:flex;align-items:center;gap:10px;${rs.length?"cursor:pointer;":""}">
+          <span style="font-family:var(--mono);font-size:10px;color:${rs.length?"#7e848c":"#565c64"};width:48px;">${dayLabel}</span>
+          <span style="font-size:12px;color:${col};font-weight:${weight};">${txt}</span></div>`;
+      }
+    }
+    return `<div style="margin-top:14px;display:flex;flex-direction:column;gap:7px;">${out}</div>`;
   };
+
   let rows="";
   for(let w=1; w<=21; w++){
     const W=WEEKS[w-1];
     const done=runDoneKm(w);
-    const pct=Math.min(100, W.km?done/W.km*100:0);
-    const isCur=w===curW;
-    const isPast=w<curW;
-    const isFuture=w>curW;
-    const col=phaseCol(W.ph);
-    // Zähle erledigte/geplante Läufe in dieser Woche
-    let pl=0, dn=0;
-    RUNS.forEach(R=>{ if(runIsRest(w,R.slot)) return; pl++; if(DB.logs[runId(w,R.slot)]) dn++; });
-    rows += `<details class="wk ${isCur?'cur':''} ${isPast?'past':''} ${isFuture?'future':''}" ${isCur?'open':''} id="wk${w}">
-      <summary class="wk-sum" style="border-left:4px solid ${col}">
-        <div class="wk-num">W${w}</div>
-        <div class="wk-info">
-          <div class="wk-title">${W.ph}${isCur?'<span class="pill run" style="margin-left:8px;font-size:.65rem;padding:1px 8px">aktuelle</span>':''}</div>
-          <div class="wk-meta">${W.dr} · ${dn}/${pl} Läufe · LR ${W.lr} km</div>
-          <div class="wk-bar"><div class="wk-bar-fill" style="width:${pct.toFixed(0)}%;background:${col}"></div></div>
-        </div>
-        <div class="wk-stats">
-          <div class="wk-km"><b>${done.toFixed(0)}</b><span class="muted">/${W.km}</span></div>
-          <div class="wk-pct">${Math.round(pct)}%</div>
-        </div>
-      </summary>
-      <div class="wk-body">
-        ${weekDaysHtml(w, isCur ? loc.dayIdx : -1)}
-        ${actPanel(w)}
-      </div>
-    </details>`;
+    const pct=Math.round(Math.min(100, W.km?done/W.km*100:0));
+    let pl=0, dn=0; RUNS.forEach(R=>{ if(runIsRest(w,R.slot)) return; pl++; if(DB.logs[runId(w,R.slot)]) dn++; });
+    const isCur=w===curW, isPast=w<curW;
+    const node = isCur
+      ? `<div id="wkCurNode" style="position:absolute;left:-25px;top:20px;width:13px;height:13px;border-radius:99px;background:#4ee0c7;box-shadow:0 0 0 4px rgba(78,224,199,.16),0 0 12px rgba(78,224,199,.6);transform:translateX(-50%);"></div>`
+      : isPast
+      ? `<div style="position:absolute;left:-25px;top:18px;width:8px;height:8px;border-radius:99px;background:#565c64;transform:translateX(-50%);"></div>`
+      : `<div style="position:absolute;left:-25px;top:18px;width:8px;height:8px;border-radius:99px;background:#2a2e34;border:1px solid #3a3f46;transform:translateX(-50%);"></div>`;
+
+    if(isCur){
+      rows += `<div id="wkCur" style="position:relative;margin-bottom:12px;">${node}
+        <div style="background:#14171b;border:1px solid rgba(78,224,199,.35);border-radius:18px;padding:16px 16px 14px;box-shadow:0 0 24px -10px rgba(78,224,199,.4);">
+          <div style="display:flex;align-items:center;"><span style="font-family:var(--mono);font-size:11px;color:#4ee0c7;">W${String(w).padStart(2,"0")}</span> <span style="font-size:15px;font-weight:700;color:#f2f3f4;margin-left:5px;">${W.ph}</span> <span style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#0a0b0d;background:#4ee0c7;padding:2px 7px;border-radius:5px;margin-left:6px;">AKTUELL</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+            <span style="font-family:var(--mono);font-size:9px;color:#7e848c;">${W.dr} · ${Math.round(done)}/${W.km} km · LR ${W.lr}</span>
+            <span style="font-family:var(--mono);font-size:11px;color:#4ee0c7;">${pct}%</span>
+          </div>
+          <div style="height:4px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:7px;"><div style="width:${pct}%;height:100%;background:#4ee0c7;border-radius:99px;"></div></div>
+          ${dayList(w)}
+        </div></div>`;
+    } else {
+      const pctCol = isPast ? (pct>=100?"#4ee0c7":"#e0a53b") : "#565c64";
+      rows += `<div style="position:relative;margin-bottom:12px;">${node}
+        <div style="background:#101317;border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:13px 15px;${isPast?"opacity:.6;":""}">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div><span style="font-family:var(--mono);font-size:11px;color:#7e848c;">W${String(w).padStart(2,"0")}</span> <span style="font-size:13px;font-weight:600;color:#cfd2d6;margin-left:4px;white-space:nowrap;">${W.ph}</span></div>
+            <span style="font-family:var(--mono);font-size:11px;color:${pctCol};">${isPast?pct+"%":"—"}</span>
+          </div>
+          <div style="font-family:var(--mono);font-size:9px;color:#565c64;margin-top:4px;">${W.dr} · ${isPast?dn+"/"+pl+" Läufe · ":W.km+" km · "}LR ${W.lr} km</div>
+        </div></div>`;
+    }
   }
-  // nach Render zur aktuellen Woche scrollen (einmalig pro Aufruf)
-  setTimeout(()=>{ const el=document.getElementById("wk"+curW); if(el && !viewWoche._scrolled){ el.scrollIntoView({block:"start"}); viewWoche._scrolled=true; } }, 30);
+
+  setTimeout(()=>{
+    const tl=document.getElementById("wkTimeline"), fill=document.getElementById("wkSpineFill"), node=document.getElementById("wkCurNode");
+    if(tl&&fill&&node){ const r1=tl.getBoundingClientRect(), r2=node.getBoundingClientRect(); fill.style.height=Math.max(0,(r2.top+r2.height/2)-(r1.top+6))+"px"; }
+    const el=document.getElementById("wkCur"); if(el && !viewWoche._scrolled){ el.scrollIntoView({block:"center"}); viewWoche._scrolled=true; }
+  },40);
+
   return `<div class="wrap">
-    <h1>Wochenübersicht <span class="sub">21 Wochen · Köln 04.10.2026</span></h1>
-    <div class="tiny muted" style="margin:4px 0 14px">Tippe eine Woche zum Aus-/Einklappen — aktuelle ist offen.</div>
-    ${rows}
+    <div class="ln-title"><b>Wochen</b><span class="ln-line"></span></div>
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:18px;">21 Wochen · Köln 04.10</div>
+    <div id="wkTimeline" style="position:relative;padding-left:26px;">
+      <div style="position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:rgba(255,255,255,.08);"></div>
+      <div id="wkSpineFill" style="position:absolute;left:5px;top:6px;width:2px;height:0;background:#4ee0c7;box-shadow:0 0 8px rgba(78,224,199,.4);"></div>
+      ${rows}
+    </div>
   </div>`;
 }
 
@@ -2179,26 +2276,46 @@ function viewTrack(){
     ...(DB.rides||[]).map(r=>({k:"ride",date:r.date,o:r})),
   ].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
 
+  const primary = open[0] || {w:cur, slot:(RUNS.find(R=>effDay(cur,R.slot)===loc.dayIdx)||RUNS[0]).slot};
+  const eyebrow=(t)=>`<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:11px;">${t}</div>`;
+  const openRow=(it)=>{ const pm=(it.c.det||"").match(/\((\d:\d\d)\)/); const pc=pm?pm[1]:null;
+    return `<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;">
+      <div style="width:10px;height:10px;border-radius:99px;border:2px solid #4ee0c7;flex:none;"></div>
+      <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:#f2f3f4;">${it.c.title.replace(/^Lauf · /,"")}</div><div style="font-family:var(--mono);font-size:10px;color:#7e848c;margin-top:2px;">${fmtD(it.dt)} · W${it.w}${pc?` · @ ${pc}`:""}</div></div>
+      <div onclick="openLog(${it.w},'${it.slot}')" style="cursor:pointer;font-size:12px;font-weight:600;color:#4ee0c7;border:1px solid rgba(78,224,199,.4);padding:7px 13px;border-radius:99px;flex:none;">Eintragen</div>
+    </div>`; };
+
   return `<div class="wrap">
-    <h1 style="margin-bottom:4px">Tracken</h1>
-    <p class="sub" style="margin-bottom:16px">Offene Läufe eintragen und Krafttraining live mitschreiben. Vergangene Läufe stehen in der <b>Woche</b>.</p>
+    <div class="ln-title"><b>Tracken</b><span class="ln-line"></span></div>
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:18px;">Offene Einheiten eintragen</div>
 
-    ${open.length?`<h2>Offener Lauf${open.length>1?` (${open.length})`:""}</h2>${open.slice(0,8).map(oc).join("")}`
-      :`<div class="flag ok"><span class="fi">✓</span><div>Alle Läufe bis heute erfasst. Stark.</div></div>`}
-
-    <h2 style="margin-top:22px">Krafttraining starten</h2>
-    <p class="sub" style="margin:-6px 0 10px">Tipp den Tag an und trag die Sätze live ein. Gewichte sind aus der letzten Einheit vorbelegt.</p>
-    <div class="gstart">
-      ${GYM_DAYS.map(d=>`<button onclick="startGym('${d}')"><span>${ic("dumbbell",20)}</span>${gymTpl(d).short}</button>`).join("")}
+    <div onclick="openLog(${primary.w},'${primary.slot}')" style="cursor:pointer;background:#4ee0c7;border-radius:18px;padding:16px 18px;display:flex;align-items:center;gap:14px;margin-bottom:18px;">
+      <div style="font-family:var(--mono);font-size:26px;color:#0a0b0d;line-height:.8;">+</div>
+      <div style="flex:1;"><div style="font-size:15px;font-weight:700;color:#0a0b0d;">Lauf manuell eintragen</div><div style="font-size:11px;color:rgba(10,11,13,.7);">Distanz, Zeit & Pace erfassen</div></div>
     </div>
-    <details style="margin:10px 0 4px"><summary class="sub" style="cursor:pointer;font-size:.82rem">Übungs-Vorlagen anpassen</summary>
-      <div style="margin-top:8px">${GYM_DAYS.map(d=>`<button class="btn-sm" style="width:100%;margin-bottom:6px;text-align:left" onclick="openGymTpl('${d}')">${gymTpl(d).short} · ${gymTpl(d).ex.length} Übungen bearbeiten</button>`).join("")}</div>
-    </details>
 
-    <h2 style="margin-top:22px">Aktivitäten</h2>
-    <button class="btn-sm btn-p" style="width:100%;margin-bottom:10px" onclick="openRide(${cur},'rad')">+ Rad-Fahrt eintragen</button>
+    ${eyebrow(`Offene Läufe${open.length?" · "+open.length:""}`)}
+    ${open.length? open.slice(0,8).map(openRow).join("")
+      : `<div style="background:#14171b;border:1px solid rgba(78,224,199,.25);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:8px;"><span style="color:#4ee0c7;">✓</span><div style="font-size:13px;color:#cfd2d6;">Alle Läufe bis heute erfasst. Stark.</div></div>`}
+
+    <div style="height:18px"></div>
+    ${eyebrow("Kraft & Mobilität")}
+    <div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:15px 16px;display:flex;align-items:center;gap:14px;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4ee0c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7v10M18 7v10M4 9v6M20 9v6M6 12h12"/></svg>
+      <div style="flex:1;"><div style="font-size:14px;font-weight:600;color:#f2f3f4;">Krafttraining live mitschreiben</div><div style="font-family:var(--mono);font-size:10px;color:#7e848c;margin-top:2px;">Sätze & Gewichte in Echtzeit</div></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      ${GYM_DAYS.map(d=>`<button onclick="startGym('${d}')" style="flex:1;background:transparent;border:1px solid rgba(78,224,199,.4);color:#4ee0c7;border-radius:99px;padding:9px 6px;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.5px;cursor:pointer;">${gymTpl(d).short}</button>`).join("")}
+    </div>
+
+    <div style="height:22px"></div>
+    ${eyebrow("Aktivitäten")}
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <button onclick="openRide(${cur},'rad')" style="flex:1;background:transparent;border:1px solid rgba(78,224,199,.4);color:#4ee0c7;border-radius:99px;padding:9px 6px;font-family:var(--mono);font-size:11px;font-weight:600;cursor:pointer;">+ Rad-Fahrt</button>
+      <button onclick="openGymTpl('push')" style="flex:1;background:transparent;border:1px solid rgba(255,255,255,.1);color:#7e848c;border-radius:99px;padding:9px 6px;font-family:var(--mono);font-size:11px;font-weight:600;cursor:pointer;">Vorlagen</button>
+    </div>
     ${acts.length? acts.slice(0,25).map(actRow).join("")
-      : `<div class="sub card center">Krafttraining und über Strava importierte Aktivitäten (Padel, Rad …) landen hier — mit HF &amp; Kalorien.</div>`}
+      : `<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:14px 16px;font-size:13px;color:#7e848c;text-align:center;">Krafttraining und importierte Aktivitäten (Padel, Rad …) landen hier.</div>`}
   </div>`;
 }
 function actRow(a){
@@ -2401,17 +2518,84 @@ function gymTplReset(day){ if(!confirm("Vorlage auf Standard-Übungen zurückset
 /* ============ VIEW: STATS ============ */
 function viewStats(){
   const runs=runLogs();
-  return `<div class="wrap"><h1 style="margin-bottom:16px">Analyse <span class="sub">Plan vs. Realität · Köln 04.10.2026</span></h1>
-    ${cardPrognose(runs)}
-    ${cardRecovery()}
-    ${cardCalories()}
-    ${cardForm()}
-    ${cardZonesTotal()}
-    ${cardVolume()}
-    ${cardLongRun()}
-    ${cardHR(runs)}
-    ${cardStrength()}
-    ${cardActivities()}${cardRad()}${cardWeight()}${redFlagsBlock(false)}</div>`;
+  const curW=locate(today()).week||1;
+  const GOAL=14400;
+  const xOf=(est)=> est? Math.max(8,Math.min(92, 50+((Math.round(est)-GOAL)/900)*40)) : null;
+
+  // 1) Marathon-Prognose mit 3-Punkte-Trend
+  const series=predictionSeries(runs);
+  const estNow=marathonEstimate(series);
+  const est3=marathonEstimate(series, new Date(+today()-21*MS));
+  const est6=marathonEstimate(series, new Date(+today()-42*MS));
+  const dotsArr=[{e:est6,c:"#3a3f46",s:9},{e:est3,c:"#565c64",s:9},{e:estNow,c:"#4ee0c7",s:11,glow:true}].filter(d=>d.e);
+  let trendStr="";
+  if(estNow&&est3){ const dd=Math.round(estNow)-Math.round(est3); const mm=Math.floor(Math.abs(dd)/60),ss=Math.abs(dd)%60; trendStr=(dd<=0?"↓ −":"↑ +")+mm+":"+String(ss).padStart(2,"0")+" / 3 Wo"; }
+  const predStr=estNow?hms(Math.round(estNow)):"—";
+  let deltaStr="", under=true;
+  if(estNow){ const dd=Math.round(estNow)-GOAL; under=dd<=0; const mm=Math.floor(Math.abs(dd)/60),ss=Math.abs(dd)%60; deltaStr=(under?"−":"+")+mm+":"+String(ss).padStart(2,"0")+(under?" ✓":""); }
+  const prog=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:18px 20px 20px;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;">
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;">Marathon-Prognose</span>
+      ${trendStr?`<span style="font-family:var(--mono);font-size:10px;color:#4ee0c7;">${trendStr}</span>`:""}
+    </div>
+    <div style="position:relative;height:30px;margin:16px 0 4px;">
+      <div style="position:absolute;top:6px;left:0;right:0;height:1px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 5px,transparent 5px 10px);"></div>
+      <div style="position:absolute;top:-7px;right:0;font-family:var(--mono);font-size:9px;color:#7e848c;">SUB 4:00:00</div>
+      ${dotsArr.map(d=>`<div style="position:absolute;top:${d.glow?"15px":"16px"};left:${xOf(d.e)}%;width:${d.s}px;height:${d.s}px;border-radius:99px;background:${d.c};${d.glow?"box-shadow:0 0 10px rgba(78,224,199,.7);":""}transform:translateX(-50%);"></div>`).join("")}
+    </div>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:6px;">
+      <div style="font-size:34px;font-weight:700;letter-spacing:-1.5px;color:#f2f3f4;line-height:1;">${predStr}</div>
+      ${deltaStr?`<div style="font-family:var(--mono);font-size:12px;color:${under?"#4ee0c7":"#e0a53b"};padding-bottom:3px;">${deltaStr}</div>`:""}
+    </div>
+  </div>`;
+
+  // 2) Recovery · Garmin (tippbar)
+  const d=latestWellness(); const score=d?recoveryScore(d):null; const hv=hrvTrend();
+  const rtile=(v,l,acc)=>`<div style="flex:1;text-align:center;background:#0f1216;border-radius:12px;padding:11px 6px;"><div style="font-size:16px;font-weight:700;color:${acc?"#4ee0c7":"#f2f3f4"};">${v}</div><div style="font-family:var(--mono);font-size:8px;color:#7e848c;margin-top:3px;">${l}</div></div>`;
+  const recCard = d ? `<div onclick="openRecoveryDetail()" style="cursor:pointer;background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:18px 20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;">Recovery · Garmin</span>
+      <span style="display:flex;align-items:center;gap:8px;"><span style="font-size:26px;font-weight:700;color:#4ee0c7;letter-spacing:-1px;">${score}</span><span style="font-family:var(--mono);font-size:9px;color:#7e848c;line-height:1.1;">${score>=67?"grünes<br>Licht":score>=34?"gelbes<br>Licht":"rotes<br>Licht"}</span></span>
+    </div>
+    <div style="display:flex;gap:8px;">
+      ${rtile(fmtH(d.sleepSeconds),"SCHLAF",false)}
+      ${rtile(d.hrvLastNight||"–","HRV ms",true)}
+      ${rtile(d.restingHr||"–","RHR",false)}
+      ${rtile(d.bodyBatteryLast!=null?d.bodyBatteryLast:"–","BATTERY",false)}
+    </div>
+  </div>` : `<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:18px 20px;"><div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:6px;">Recovery · Garmin</div><div style="font-size:13px;color:#7e848c;">Noch keine Garmin-Daten — verbinde Garmin unter „Mehr".</div></div>`;
+
+  // 3) Pflichtläufe (Vorwoche) + 4) Form · TSB
+  const pw=Math.max(1,curW-1); let pl=0,dn=0; RUNS.forEach(R=>{ if(runIsRest(pw,R.slot))return; pl++; if(DB.logs[runId(pw,R.slot)])dn++; });
+  const cpct=pl?Math.round(dn/pl*100):0; const cCol=cpct>=100?"#4ee0c7":"#e0a53b";
+  const f=currentForm(); const tsb=Math.round(f.tsb); const fl=formLabel(f.tsb);
+  const tsbX=Math.max(8,Math.min(92,50+f.tsb*1.6));
+  const half=`<div style="display:flex;gap:13px;">
+    <div style="flex:1;background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:16px 17px;">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:#7e848c;text-transform:uppercase;">Pflichtläufe</div>
+      <div style="font-size:28px;font-weight:700;color:#f2f3f4;letter-spacing:-1px;margin-top:6px;">${dn}<span style="font-size:16px;color:#7e848c;">/${pl}</span></div>
+      <div style="height:4px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:8px;"><div style="width:${cpct}%;height:100%;background:${cCol};border-radius:99px;"></div></div>
+      <div style="font-family:var(--mono);font-size:9px;color:#7e848c;margin-top:6px;">Vorwoche · ${cpct}%</div>
+    </div>
+    <div style="flex:1;background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:16px 17px;">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:#7e848c;text-transform:uppercase;">Form · TSB</div>
+      <div style="font-size:28px;font-weight:700;color:#4ee0c7;letter-spacing:-1px;margin-top:6px;">${tsb>=0?"+":""}${tsb}</div>
+      <div style="height:4px;border-radius:99px;background:rgba(255,255,255,.08);margin-top:8px;position:relative;"><div style="position:absolute;left:${tsbX}%;top:-3px;width:3px;height:10px;background:#4ee0c7;"></div></div>
+      <div style="font-family:var(--mono);font-size:9px;color:#4ee0c7;margin-top:6px;">${fl.label}</div>
+    </div>
+  </div>`;
+
+  const extras=cardCalories()+cardZonesTotal()+cardVolume()+cardLongRun()+cardHR(runs)+cardStrength()+cardActivities()+cardRad()+cardWeight()+redFlagsBlock(false);
+
+  return `<div class="wrap" style="display:flex;flex-direction:column;gap:13px;">
+    <div>
+      <div class="ln-title"><b>Analyse</b><span class="ln-line"></span></div>
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;">Plan vs. Realität</div>
+    </div>
+    ${prog}${recCard}${half}
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-top:10px;">Weitere Analyse</div>
+    ${extras}
+  </div>`;
 }
 // Marathon-Äquivalent pro Lauf via Riegel — ABER nur aus renn-repräsentativen
 // Einheiten: harte Quality-Efforts (bester 5k) und lange Läufe. Easy-/Recovery-
@@ -2961,20 +3145,37 @@ function cardCloud(){
 }
 
 function viewMehr(){
-  const acts=DB.activities.map((a,i)=>`<div class="act">
-    <div class="an"><b>${a.name}</b> <span class="pill ${a.type==='ride'?'bike':'opt'}">${a.type==='ride'?'mit Werten':'Zähler'}</span>
-      ${a.optional?` <span class="pill opt">optional</span>`:""}
-      <div class="as">${a.type==='ride'?'Fahrten mit Distanz/Zeit/HF':'Soll '+(a.target||0)+'×/Woche'}</div></div>
-    <div style="display:flex;gap:6px">
-      <button class="btn-sm" onclick="moveAct(${i},-1)" ${i===0?'disabled style=opacity:.3':''}>↑</button>
-      <button class="btn-sm" onclick="moveAct(${i},1)" ${i===DB.activities.length-1?'disabled style=opacity:.3':''}>↓</button>
-      <button class="btn-sm" onclick="openActEdit(${i})">${ic("edit",13)}</button>
-      <button class="btn-sm btn-gh" onclick="delAct(${i})">✕</button></div></div>`).join("");
-  return `<div class="wrap"><h1 style="margin-bottom:16px">Mehr</h1>
-    <div class="card"><div class="between" style="margin-bottom:6px"><h2 style="margin:0">Freie Einheiten verwalten</h2></div>
-      ${acts}<button class="btn-sm btn-p" style="width:100%;margin-top:12px" onclick="openActEdit(-1)">+ Einheit hinzufügen</button></div>
-
-    <h2 style="margin:18px 0 10px">Wissen &amp; Referenz</h2>
+  const garminOn=!!(DB.garmin && DB.garmin.gistId);
+  const stravaOn=stravaConnected();
+  const goal=`<div style="background:#14171b;border:1px solid rgba(78,224,199,.25);border-radius:20px;padding:18px 20px;">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;">Mein Ziel</div>
+    <div style="font-size:30px;font-weight:700;letter-spacing:-1px;color:#f2f3f4;margin-top:8px;">Sub 4:00</div>
+    <div style="font-family:var(--mono);font-size:11px;color:#7e848c;margin-top:4px;">Marathon Köln · 04.10.2026 · 42,195 km</div>
+  </div>`;
+  const connRow=(label,on,last)=>`<div onclick="openSettings()" style="display:flex;align-items:center;gap:13px;padding:14px 16px;${last?"":"border-bottom:1px solid rgba(255,255,255,.05);"}cursor:pointer;">
+    <div style="font-size:14px;font-weight:600;color:#f2f3f4;flex:1;">${label}</div>
+    ${on?`<span style="font-family:var(--mono);font-size:10px;color:#4ee0c7;display:flex;align-items:center;gap:5px;"><span style="width:6px;height:6px;border-radius:99px;background:#4ee0c7;box-shadow:0 0 6px #4ee0c7;"></span>verbunden</span>`:`<span style="font-family:var(--mono);font-size:11px;color:#7e848c;">verbinden ›</span>`}
+  </div>`;
+  const conn=`<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:11px;">Verbindungen</div>
+    <div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:16px;overflow:hidden;margin-bottom:18px;">
+      ${connRow("Garmin · Schlaf & HRV", garminOn, false)}
+      ${connRow("Strava · Aktivitäten", stravaOn, true)}
+    </div>`;
+  const fu=DB.activities.map((a,i)=>{ const freq=a.optional?"optional":(a.target||0)+"×/Woche"; const last=i===DB.activities.length-1;
+    return `<div onclick="openActEdit(${i})" style="display:flex;align-items:center;padding:13px 16px;${last?"":"border-bottom:1px solid rgba(255,255,255,.05);"}cursor:pointer;"><span style="font-size:14px;color:#f2f3f4;flex:1;">${a.name}</span><span style="font-family:var(--mono);font-size:10px;color:#7e848c;">${freq} ›</span></div>`;
+  }).join("");
+  const freeUnits=`<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:11px;">Freie Einheiten</div>
+    <div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:16px;overflow:hidden;">${fu}</div>
+    <div onclick="openActEdit(-1)" style="text-align:center;margin-top:12px;font-family:var(--mono);font-size:11px;color:#4ee0c7;cursor:pointer;">+ Einheit hinzufügen</div>`;
+  return `<div class="wrap">
+    <div class="ln-title"><b>Mehr</b><span class="ln-line"></span></div>
+    <div style="height:16px"></div>
+    ${goal}
+    <div style="height:18px"></div>
+    ${conn}
+    ${freeUnits}
+    <div style="height:24px"></div>
+    <h2 style="margin:0 0 10px">Wissen &amp; Referenz</h2>
 
     <details><summary>HF-Zonen (kalibriert)</summary><div class="dc">
       <p class="muted">Aus Strava-Historie: Max-HF 195 · Schwelle (LT2) ~168–170 · aerobe Schwelle (LT1) ~148–152 · Karvonen-Basis (Ruhepuls 50).</p>
@@ -3086,7 +3287,7 @@ function viewMehr(){
     </div></details>
 
     <h2 style="margin:20px 0 10px">Einstellungen</h2>
-    <details class="card" style="padding:0"><summary style="padding:15px 16px;font-size:.95rem">Verbindungen &amp; Sync</summary>
+    <details class="card" id="mehrSettings" style="padding:0"><summary style="padding:15px 16px;font-size:.95rem">Verbindungen &amp; Sync</summary>
       <div style="padding:0 12px 10px">
         ${cardCloud()}
         ${cardStrava()}
@@ -3133,6 +3334,7 @@ function unlockBody(){
   window.scrollTo(0, _scrollY);
 }
 function closeModal(){ document.getElementById("modalRoot").innerHTML=""; unlockBody(); }
+function openSettings(){ go('mehr'); setTimeout(()=>{ const d=document.getElementById('mehrSettings'); if(d){ d.open=true; d.scrollIntoView({block:'start',behavior:'smooth'}); } },60); }
 function sheet(h){
   lockBody();
   document.getElementById("modalRoot").innerHTML=`<div class="modal" onclick="if(event.target===this)closeModal()"><div class="sheet"><button class="sheet-close" onclick="closeModal()" aria-label="Schließen">×</button><div class="grab"></div>${h}</div></div>`;
@@ -3157,6 +3359,50 @@ function attachSheetGestures(){
 }
 window._seg={};
 function selSeg(g,b,v){ b.parentNode.querySelectorAll("button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); window._seg[g]=v; }
+
+/* ===== Sheet A · Lauf eintragen (LINE Log) ===== */
+function parseTimeStr(s){ s=(s||"").trim(); if(!s) return 0; const p=s.split(":").map(x=>parseInt(x,10)||0); if(p.length===3) return p[0]*3600+p[1]*60+p[2]; if(p.length===2) return p[0]*60+p[1]; return p[0]; }
+function lgPace(){ const d=parseFloat((document.getElementById("lg_dist").value||"").replace(",","."))||0; const sec=parseTimeStr(document.getElementById("lg_time").value); const el=document.getElementById("lg_pace"); if(el) el.textContent=(d>0&&sec>0)?pace(sec/d)+" ":"— "; }
+function openLog(w,slot){
+  const id=runId(w,slot), c=runContent(w,slot), L=DB.logs[id]||{};
+  const dt=dateOf(w,effDay(w,slot)); const rpe=L.rpe||6;
+  window._seg=window._seg||{}; window._seg.lg_feel=rpe;
+  const distVal=L.dist!=null?String(L.dist).replace(".",","):"";
+  const timeVal=L.sec?hms(L.sec):"";
+  const paceInit=(L.dist&&L.sec)?pace(L.sec/L.dist)+" ":"— ";
+  const sollShort=(c.det||"").split(/[:(]/)[0].trim();
+  const segBtn=(v,label)=>`<button onclick="selSeg('lg_feel',this,${v})" class="${rpe===v?"on":""}" style="flex:1;text-align:center;border-radius:11px;padding:10px;font-size:13px;font-weight:600;">${label}</button>`;
+  sheet(`
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;">Lauf eintragen</div>
+    <div style="font-size:21px;font-weight:700;color:#f2f3f4;margin-top:6px;letter-spacing:-.3px;">${c.title.replace(/^Lauf · /,"")}</div>
+    <div style="font-family:var(--mono);font-size:11px;color:#7e848c;margin-top:3px;margin-bottom:20px;">${fmtD(dt)}${sollShort&&sollShort!=="–"?" · Soll "+sollShort:""}</div>
+    <div style="display:flex;gap:10px;margin-bottom:11px;">
+      <div style="flex:1;background:#0f1216;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:12px 14px;">
+        <div style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#7e848c;text-transform:uppercase;">Distanz</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-top:4px;"><input id="lg_dist" inputmode="decimal" value="${distVal}" placeholder="0,0" oninput="lgPace()" style="font-size:24px;font-weight:700;color:#f2f3f4;background:transparent;border:none;outline:none;width:100%;padding:0;"><span style="font-size:12px;color:#7e848c;">km</span></div>
+      </div>
+      <div style="flex:1;background:#0f1216;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:12px 14px;">
+        <div style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#7e848c;text-transform:uppercase;">Zeit</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-top:4px;"><input id="lg_time" inputmode="numeric" value="${timeVal}" placeholder="mm:ss" oninput="lgPace()" style="font-size:24px;font-weight:700;color:#f2f3f4;background:transparent;border:none;outline:none;width:100%;padding:0;"><span style="font-size:12px;color:#7e848c;">min</span></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(78,224,199,.08);border:1px solid rgba(78,224,199,.25);border-radius:14px;padding:12px 16px;margin-bottom:20px;">
+      <span style="font-family:var(--mono);font-size:10px;color:#7e848c;text-transform:uppercase;letter-spacing:1px;">Schnitt-Pace</span>
+      <span style="font-size:17px;font-weight:700;color:#4ee0c7;"><span id="lg_pace">${paceInit}</span><span style="font-size:11px;color:#7e848c;">/km</span></span>
+    </div>
+    <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:#7e848c;text-transform:uppercase;margin-bottom:9px;">Empfinden</div>
+    <div class="seg" id="lg_feel" style="display:flex;gap:8px;margin-bottom:22px;">${segBtn(4,"Locker")}${segBtn(6,"Moderat")}${segBtn(8,"Hart")}</div>
+    <div onclick="saveLog(${w},'${slot}')" style="cursor:pointer;text-align:center;background:#4ee0c7;border-radius:14px;padding:15px;font-size:15px;font-weight:700;color:#0a0b0d;">Lauf speichern</div>
+    <div onclick="closeModal();openRun(${w},'${slot}')" style="cursor:pointer;text-align:center;margin-top:12px;font-family:var(--mono);font-size:11px;letter-spacing:.5px;color:#7e848c;">Mehr Details — HF · Notiz · GPX ›</div>`);
+}
+function saveLog(w,slot){
+  const id=runId(w,slot), L=DB.logs[id]||{};
+  const dist=parseFloat((document.getElementById("lg_dist").value||"").replace(",","."))||0;
+  const sec=parseTimeStr(document.getElementById("lg_time").value);
+  if(!dist||!sec){ toast("Distanz & Zeit nötig"); return; }
+  L.dist=dist; L.sec=sec; L.rpe=window._seg.lg_feel??L.rpe??6;
+  DB.logs[id]=L; delete DB.skips[id]; save(); closeModal(); render(); toast("Gespeichert ✓");
+}
 
 /* run logging */
 /* ============ PER-RUN ANALYSE (Strava-Style) ============ */
