@@ -783,17 +783,21 @@ function stravaPendingBlock(){
   const p = (DB.strava.pending||[]);
   if(!p.length) return "";
   const fmt = d => { const x=new Date(d); return DOW[(x.getDay()+6)%7]+" "+String(x.getDate()).padStart(2,"0")+"."+String(x.getMonth()+1).padStart(2,"0")+". "+String(x.getHours()).padStart(2,"0")+":"+String(x.getMinutes()).padStart(2,"0"); };
-  return `<div class="card" style="border-color:var(--accent)">
-    <div class="between" style="margin-bottom:8px"><h2 style="margin:0">Neue Strava-Aktivitäten</h2>
-      <span class="pill run">${p.length}</span></div>
-    ${p.map(a=>{ const k=stravaKind(a.type); const dist=(a.distance||0)/1000;
-      const head = k==="other" ? actLabel(a.type) : dist.toFixed(1)+" km";
-      return `<div class="between" style="padding:9px 0;border-bottom:1px solid var(--line);gap:8px">
-      <div style="flex:1;min-width:0"><b style="display:inline-flex;align-items:center;gap:6px">${ic(actIcon(a.type),14)} ${head}</b>
-      <div class="tiny muted">${fmt(a.start_date)} · ${hms(a.moving_time||a.elapsed_time)}${a.average_heartrate?" · "+Math.round(a.average_heartrate)+" bpm":""}${a.total_elevation_gain?" · "+Math.round(a.total_elevation_gain)+" hm":""}${k==="other"&&a.name?" · "+a.name:""}</div></div>
-      <button class="btn-sm btn-p" onclick="stravaImport(${a.id})">Übernehmen</button>
-      <button class="btn-sm btn-gh" style="padding:6px 10px" onclick="stravaDismiss(${a.id})" title="Vorschlag entfernen">✕</button></div>`;}).join("")}
-    ${p.length>1?`<div class="acts" style="margin-top:10px"><button class="btn-sm" style="flex:1" onclick="stravaImportAll()">Alle übernehmen</button><button class="btn-sm btn-gh" onclick="stravaDismissAll()">Alle entfernen</button></div>`:""}
+  const rows = p.map((a,i)=>{ const k=stravaKind(a.type); const dist=(a.distance||0)/1000;
+    const head = k==="other" ? actLabel(a.type) : dist.toFixed(1)+" km";
+    const last = i===p.length-1;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;${last?"":"border-bottom:1px solid rgba(255,255,255,.06);"}">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:600;color:#f2f3f4;display:flex;align-items:center;gap:7px;">${ic(actIcon(a.type),14)} ${head}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:#7e848c;margin-top:3px;">${fmt(a.start_date)} · ${hms(a.moving_time||a.elapsed_time)}${a.average_heartrate?" · "+Math.round(a.average_heartrate)+" bpm":""}${a.total_elevation_gain?" · "+Math.round(a.total_elevation_gain)+" hm":""}${k==="other"&&a.name?" · "+a.name:""}</div>
+      </div>
+      <div onclick="stravaImport(${a.id})" style="cursor:pointer;font-size:12px;font-weight:600;color:#0a0b0d;background:#4ee0c7;padding:7px 13px;border-radius:99px;flex:none;">Übernehmen</div>
+      <div onclick="stravaDismiss(${a.id})" title="Vorschlag entfernen" style="cursor:pointer;color:#565c64;padding:4px 4px;flex:none;font-size:15px;line-height:1;">✕</div>
+    </div>`;}).join("");
+  return `<div style="background:#14171b;border:1px solid rgba(78,224,199,.25);border-radius:20px;padding:16px 18px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;"><span style="width:7px;height:7px;border-radius:99px;background:#4ee0c7;box-shadow:0 0 8px #4ee0c7;"></span>Neue Strava-Aktivitäten · ${p.length}</div>
+    ${rows}
+    ${p.length>1?`<div style="display:flex;gap:8px;margin-top:12px;"><div onclick="stravaImportAll()" style="cursor:pointer;flex:1;text-align:center;font-family:var(--mono);font-size:11px;font-weight:600;color:#4ee0c7;border:1px solid rgba(78,224,199,.4);border-radius:99px;padding:8px;">Alle übernehmen</div><div onclick="stravaDismissAll()" style="cursor:pointer;text-align:center;font-family:var(--mono);font-size:11px;color:#7e848c;border:1px solid rgba(255,255,255,.1);border-radius:99px;padding:8px 14px;">Alle entfernen</div></div>`:""}
   </div>`;
 }
 function cardRestore(){
@@ -2144,7 +2148,7 @@ function viewHeute(){
     <div style="font-size:14px;color:#cfd2d6;line-height:1.55;">${read}</div>
   </div>`;
 
-  return `<div class="wrap" style="display:flex;flex-direction:column;gap:15px;">${brand}${hero}${thresh}${today_}${coach}${tilesRow}</div>`;
+  return `<div class="wrap" style="display:flex;flex-direction:column;gap:15px;">${brand}${hero}${thresh}${today_}${stravaPendingBlock()}${coach}${tilesRow}</div>`;
 }
 
 /* ============ VIEW: WOCHE ============ */
