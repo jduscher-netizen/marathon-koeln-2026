@@ -3397,6 +3397,7 @@ function openLog(w,slot){
     <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:#7e848c;text-transform:uppercase;margin-bottom:9px;">Empfinden</div>
     <div class="seg" id="lg_feel" style="display:flex;gap:8px;margin-bottom:22px;">${segBtn(4,"Locker")}${segBtn(6,"Moderat")}${segBtn(8,"Hart")}</div>
     <div onclick="saveLog(${w},'${slot}')" style="cursor:pointer;text-align:center;background:#4ee0c7;border-radius:14px;padding:15px;font-size:15px;font-weight:700;color:#0a0b0d;">Lauf speichern</div>
+    ${L.dist?`<div onclick="closeModal();openRunAnalysis(${w},'${slot}')" style="cursor:pointer;text-align:center;margin-top:14px;font-size:13px;font-weight:600;color:#4ee0c7;">Analyse ansehen ›</div>`:""}
     <div onclick="closeModal();openRun(${w},'${slot}')" style="cursor:pointer;text-align:center;margin-top:12px;font-family:var(--mono);font-size:11px;letter-spacing:.5px;color:#7e848c;">Mehr Details — HF · Notiz · GPX ›</div>`);
 }
 function saveLog(w,slot){
@@ -3628,6 +3629,7 @@ function openRun(w,slot){
     <label><input type="checkbox" id="f_pain" ${L.pain?"checked":""} style="width:auto;display:inline;margin-right:8px;vertical-align:-2px">Schmerz / Auffälligkeit</label>
     <label>Notiz</label><textarea id="f_note" placeholder="Wetter, Strecke, Beine, Verpflegung…">${L.note||""}</textarea>
     <div class="acts" style="margin-top:18px"><button class="btn-p" style="flex:1" onclick="saveRun(${w},'${slot}')">Speichern</button>
+      ${DB.logs[id]?`<button class="btn-gh" onclick="closeModal();openRunAnalysis(${w},'${slot}')">Analyse</button>`:""}
       ${DB.logs[id]?`<button class="btn-gh" onclick="delRun(${w},'${slot}')">Löschen</button>`:""}</div>`);
 }
 function saveRun(w,slot){
