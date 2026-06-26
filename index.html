@@ -234,6 +234,8 @@
   #syncBadge.show{display:flex}
   @keyframes spin{to{transform:rotate(360deg)}}
   #syncBadge.spin span{display:inline-block;animation:spin 1s linear infinite}
+  .sbtn{cursor:pointer;width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#7e848c;border:1px solid rgba(255,255,255,.08);background:#14171b;flex:none}
+  .sbtn.spin svg{animation:spin .9s linear infinite}
   /* ===== Coach-Chat Vollbild ===== */
   .cv{position:fixed;inset:0;z-index:120;background:var(--bg);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1)}
   .cv.show{transform:translateY(0)}
@@ -1539,6 +1541,30 @@ function actPanel(w){
       DB.rides.filter(r=>r.w===w).map(r=>`<a class="lnk" onclick="openRideEdit('${r.id}')">${r.dist}km/${hms(r.sec)}</a>`).join(" · ")+`</div>`:""}
     </div>`;
 }
+// LINE-Variante: Wochenübersicht der freien (Nicht-Lauf-)Einheiten — antippbar
+function actPanelLine(w){
+  const items = DB.activities.map((a,i)=>{ const c=actCount(w,a.id); const tgt=a.target||0;
+    const done=a.type!=="ride"&&tgt>0&&c>=tgt; return {a,c,tgt,done,i}; })
+    .sort((x,y)=>(x.done?1:0)-(y.done?1:0)||x.i-y.i);
+  const stepBtn=(sym,onc,acc)=>`<div onclick="${onc}" style="cursor:pointer;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;line-height:1;background:${acc?"#4ee0c7":"#0f1216"};color:${acc?"#0a0b0d":"#cfd2d6"};border:1px solid ${acc?"#4ee0c7":"rgba(255,255,255,.08)"};flex:none;">${sym}</div>`;
+  const rows = items.map(({a,c,tgt,done},idx)=>{
+    const last = idx===items.length-1;
+    const sub = a.type==="ride" ? `${c} Fahrt(en) diese Woche` : (tgt>0?`${c}/${tgt} diese Woche${c>tgt?" · drüber!":""}`:`${c}× erledigt`);
+    const ctrl = a.type==="ride"
+      ? `<div onclick="openRide(${w},'${a.id}')" style="cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:600;color:#4ee0c7;border:1px solid rgba(78,224,199,.4);border-radius:99px;padding:7px 12px;flex:none;">+ Fahrt</div>`
+      : `<div style="display:flex;align-items:center;gap:9px;flex:none;">${stepBtn("−",`actInc(${w},'${a.id}',-1)`,false)}<span style="font-family:var(--mono);font-size:15px;font-weight:600;color:${done?"#4ee0c7":"#f2f3f4"};min-width:16px;text-align:center;">${c}</span>${stepBtn("+",`actInc(${w},'${a.id}',1)`,!done)}</div>`;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;${last?"":"border-bottom:1px solid rgba(255,255,255,.06);"}">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:600;color:${done?"#cfd2d6":"#f2f3f4"};">${a.name}${done?' <span style="color:#4ee0c7">✓</span>':""}${a.optional?' <span style="font-family:var(--mono);font-size:9px;color:#565c64;">optional</span>':""}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:#7e848c;margin-top:2px;">${sub}</div>
+      </div>${ctrl}</div>`;
+  }).join("");
+  return `<div style="margin-top:14px;border-top:1px solid rgba(255,255,255,.06);padding-top:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;">Freie Einheiten</span>
+      <span onclick="go('mehr')" style="cursor:pointer;font-family:var(--mono);font-size:10px;color:#565c64;">verwalten ›</span>
+    </div>${rows}</div>`;
+}
 
 /* ============ VIEW: HEUTE ============ */
 /* ============ COACH-BRIEFING ============ */
@@ -2033,6 +2059,32 @@ function tipLogicExplanation(kind){
   return "";
 }
 
+// Feed der zuletzt absolvierten Einheiten (Läufe + Kraft + Rad + Aktivitäten) — antippbar
+function recentFeed(){
+  const items=[];
+  Object.entries(DB.logs||{}).forEach(([id,L])=>{ if(!L||!L.dist) return; const m=id.match(/^W(\d+)-(\w+)$/); if(!m) return;
+    const w=+m[1], slot=m[2]; const dt=dateOf(w,effDay(w,slot));
+    items.push({date:+dt, kind:"run", label:runContent(w,slot).title.replace(/^Lauf · /,""),
+      meta:`${L.dist} km · ${hms(L.sec)} · ${pace(L.sec/L.dist)}/km`, onc:`openRunAnalysis(${w},'${slot}')`}); });
+  gymSessions().forEach(s=>{ const sets=s.ex.reduce((n,e)=>n+e.sets.filter(x=>x.done||x.kg).length,0);
+    items.push({date:+new Date(s.date), kind:"gym", label:s.label.split("·")[0].trim(),
+      meta:`${s.ex.length} Übungen · ${sets} Sätze${s.hr?" · "+s.hr+" bpm":""}`, onc:`buildGymView('${s.id}')`}); });
+  (DB.rides||[]).forEach(r=>{ items.push({date:+new Date(r.date), kind:"ride", label:`Rad · ${r.dist} km`,
+    meta:`${hms(r.sec)}${r.hr?" · "+r.hr+" bpm":""}`, onc:`openRideEdit('${r.id}')`}); });
+  (DB.workouts||[]).forEach(x=>{ items.push({date:+new Date(x.date), kind:"work", label:x.label||actLabel(x.type),
+    meta:`${hms(x.sec)}${x.hr?" · "+x.hr+" bpm":""}${x.kcal?" · "+x.kcal+" kcal":""}`, onc:""}); });
+  if(!items.length) return "";
+  items.sort((a,b)=>b.date-a.date);
+  const top=items.slice(0,5);
+  const iconFor=k=>k==="run"?"activity":k==="gym"?"dumbbell":k==="ride"?"bike":"target";
+  const rows=top.map((it,i)=>`<div ${it.onc?`onclick="${it.onc}"`:""} style="display:flex;align-items:center;gap:12px;padding:11px 0;${i===top.length-1?"":"border-bottom:1px solid rgba(255,255,255,.06);"}${it.onc?"cursor:pointer;":""}">
+    <span style="color:#7e848c;display:flex;flex:none;">${ic(iconFor(it.kind),16)}</span>
+    <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:#f2f3f4;">${it.label}</div><div style="font-family:var(--mono);font-size:10px;color:#7e848c;margin-top:2px;">${fmtD(new Date(it.date))} · ${it.meta}</div></div>
+    ${it.onc?`<span style="color:#565c64;flex:none;">›</span>`:""}</div>`).join("");
+  return `<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:16px 18px;">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:2px;">Zuletzt absolviert</div>
+    ${rows}</div>`;
+}
 function viewHeute(){
   const td=today(), loc=locate(td);
   if(loc.pre){ return `<div class="wrap"><div class="card center"><div style="font-size:30px;font-weight:700;letter-spacing:-1.5px;color:var(--txt)">Noch ${Math.ceil((PLAN_START-td)/MS)} Tage</div><div class="eyebrow" style="margin-top:8px">bis Trainingsstart 11.05.2026</div></div></div>`; }
@@ -2071,7 +2123,10 @@ function viewHeute(){
       <span style="font-weight:700;font-size:20px;letter-spacing:.5px;color:#f2f3f4;">SUB4</span>
       <span style="width:30px;height:2px;background:#4ee0c7;box-shadow:0 0 8px rgba(78,224,199,.7);"></span>
     </div>
-    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;">KÖLN MARATHON ’26</div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="sbtn" onclick="syncNow(this)" title="Strava & Garmin synchronisieren"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></div>
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;">KÖLN MARATHON ’26</div>
+    </div>
   </div>`;
 
   const hero=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:20px 20px 22px;">
@@ -2108,16 +2163,28 @@ function viewHeute(){
   </div>`;
 
   let today_;
-  if(todayRun){ const c=runContent(loc.week,todayRun.slot);
-    today_=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:17px 20px;display:flex;gap:15px;align-items:center;">
-      <div style="width:3px;align-self:stretch;border-radius:99px;background:#4ee0c7;box-shadow:0 0 8px rgba(78,224,199,.5);"></div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;">Heute · ${DOWL[loc.dayIdx]} · ${KL[todayRun.kind]||""}</div>
-        <div style="font-size:17px;font-weight:600;color:#f2f3f4;margin-top:5px;">${c.title}</div>
-        <div style="font-family:var(--mono);font-size:12px;color:#7e848c;margin-top:2px;">${c.det}</div>
-      </div>
-      <div onclick="openLog(${loc.week},'${todayRun.slot}')" style="cursor:pointer;font-size:13px;font-weight:600;color:#0a0b0d;background:#4ee0c7;padding:10px 16px;border-radius:10px;flex:none;">Start</div>
-    </div>`;
+  if(todayRun){ const c=runContent(loc.week,todayRun.slot); const TL=DB.logs[runId(loc.week,todayRun.slot)];
+    if(TL && TL.dist){
+      today_=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:17px 20px;display:flex;gap:15px;align-items:center;">
+        <div style="width:3px;align-self:stretch;border-radius:99px;background:#4ee0c7;box-shadow:0 0 8px rgba(78,224,199,.5);"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;">Heute · ${DOWL[loc.dayIdx]} · ${KL[todayRun.kind]||""} · ✓ erledigt</div>
+          <div style="font-size:17px;font-weight:600;color:#f2f3f4;margin-top:5px;">${c.title}</div>
+          <div style="font-family:var(--mono);font-size:12px;color:#7e848c;margin-top:2px;">${TL.dist} km · ${hms(TL.sec)} · ${pace(TL.sec/TL.dist)}/km${TL.hr?" · "+TL.hr+" bpm":""}</div>
+        </div>
+        <div onclick="openRunAnalysis(${loc.week},'${todayRun.slot}')" style="cursor:pointer;font-size:13px;font-weight:600;color:#4ee0c7;border:1px solid rgba(78,224,199,.4);padding:9px 14px;border-radius:99px;flex:none;">Analyse</div>
+      </div>`;
+    } else {
+      today_=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:17px 20px;display:flex;gap:15px;align-items:center;">
+        <div style="width:3px;align-self:stretch;border-radius:99px;background:#4ee0c7;box-shadow:0 0 8px rgba(78,224,199,.5);"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;">Heute · ${DOWL[loc.dayIdx]} · ${KL[todayRun.kind]||""}</div>
+          <div style="font-size:17px;font-weight:600;color:#f2f3f4;margin-top:5px;">${c.title}</div>
+          <div style="font-family:var(--mono);font-size:12px;color:#7e848c;margin-top:2px;">${c.det}</div>
+        </div>
+        <div onclick="openLog(${loc.week},'${todayRun.slot}')" style="cursor:pointer;font-size:13px;font-weight:600;color:#0a0b0d;background:#4ee0c7;padding:10px 16px;border-radius:10px;flex:none;">Start</div>
+      </div>`;
+    }
   } else {
     today_=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:17px 20px;display:flex;gap:15px;align-items:center;">
       <div style="width:3px;align-self:stretch;border-radius:99px;background:#565c64;"></div>
@@ -2148,7 +2215,7 @@ function viewHeute(){
     <div style="font-size:14px;color:#cfd2d6;line-height:1.55;">${read}</div>
   </div>`;
 
-  return `<div class="wrap" style="display:flex;flex-direction:column;gap:15px;">${brand}${hero}${thresh}${today_}${stravaPendingBlock()}${coach}${tilesRow}</div>`;
+  return `<div class="wrap" style="display:flex;flex-direction:column;gap:15px;">${brand}${hero}${thresh}${today_}${stravaPendingBlock()}${coach}${tilesRow}${recentFeed()}</div>`;
 }
 
 /* ============ VIEW: WOCHE ============ */
@@ -2225,6 +2292,7 @@ function viewWoche(){
           </div>
           <div style="height:4px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:7px;"><div style="width:${pct}%;height:100%;background:#4ee0c7;border-radius:99px;"></div></div>
           ${dayList(w)}
+          ${actPanelLine(w)}
         </div></div>`;
     } else {
       const pctCol = isPast ? (pct>=100?"#4ee0c7":"#e0a53b") : "#565c64";
@@ -3339,6 +3407,16 @@ function unlockBody(){
 }
 function closeModal(){ document.getElementById("modalRoot").innerHTML=""; unlockBody(); }
 function openSettings(){ go('mehr'); setTimeout(()=>{ const d=document.getElementById('mehrSettings'); if(d){ d.open=true; d.scrollIntoView({block:'start',behavior:'smooth'}); } },60); }
+function syncNow(btn){
+  const tasks=[];
+  try{ if(stravaConnected()) tasks.push(stravaFetchActivities()); }catch(e){}
+  try{ if(garminCfg().gistId && CLOUD.token) tasks.push(fetchWellness()); }catch(e){}
+  try{ if(CLOUD.token && CLOUD.gistId) tasks.push(cloudPull()); }catch(e){}
+  if(!tasks.length){ toast("Verbinde Strava/Garmin zuerst unter „Mehr“."); return; }
+  if(btn) btn.classList.add("spin");
+  toast("Synchronisiere …");
+  Promise.allSettled(tasks).then(()=>{ render(); toast("Sync aktualisiert ✓"); });
+}
 function sheet(h){
   lockBody();
   document.getElementById("modalRoot").innerHTML=`<div class="modal" onclick="if(event.target===this)closeModal()"><div class="sheet"><button class="sheet-close" onclick="closeModal()" aria-label="Schließen">×</button><div class="grab"></div>${h}</div></div>`;
