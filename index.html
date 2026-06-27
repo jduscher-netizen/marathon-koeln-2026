@@ -3490,41 +3490,82 @@ function saveLog(w,slot){
 /* run logging */
 /* ============ PER-RUN ANALYSE (Strava-Style) ============ */
 function runVerdict(w,slot,L){
-  const c=runContent(w,slot), R=RUNS.find(r=>r.slot===slot);
-  const det=L.details;
+  const c=runContent(w,slot), R=RUNS.find(r=>r.slot===slot), kind=R.kind;
+  const det=L.details, id=runId(w,slot);
+  const pace=L.sec/L.dist;
+  const KW={quality:"Tempo",easy:"GA1",recovery:"Recovery",long:"Long-Run"}, kw=KW[kind]||"Lauf";
+  const hist=runLogs().filter(r=>r.id!==id && r.dist>0 && r.sec>0);
+  const sameKind=hist.filter(r=>r.kind===kind);
   const lines=[];
-  if(det?.hr1 && det?.hr2){
-    const drift=driftFor(L);
+
+  // ---- GPX/Stream-basiert (wenn vorhanden) ----
+  if(det?.hr1 && det?.hr2){ const drift=driftFor(L);
     if(drift!=null){
-      if(drift<3) lines.push("Sehr stabil aerob — kaum Decoupling.");
-      else if(drift<6) lines.push("Aerob solide — leichtes Decoupling im Rahmen.");
-      else lines.push(`Decoupling +${drift.toFixed(1)}% — aerobe Substanz noch ausbaufähig.`);
+      if(drift<3) lines.push("Sehr stabil aerob — kaum Decoupling über die Distanz.");
+      else if(drift<6) lines.push(`Leichtes Decoupling (+${drift.toFixed(1)}%) — aerob solide im Rahmen.`);
+      else lines.push(`Decoupling +${drift.toFixed(1)}% — die HF kroch hoch, aerobe Substanz noch ausbaufähig.`);
     }
   }
-  if(det?.pace1 && det?.pace2){
-    const diff=det.pace2-det.pace1;
-    if(Math.abs(diff)<8) lines.push("Pace gleichmäßig durchgezogen.");
-    else if(diff>0) lines.push(`Zweite Hälfte ${diff}s/km langsamer — Pacing zum Start prüfen.`);
-    else lines.push(`Zweite Hälfte ${-diff}s/km schneller — sauberer negativer Split.`);
+  if(det?.pace1 && det?.pace2){ const diff=det.pace2-det.pace1;
+    if(Math.abs(diff)<8) lines.push("Gleichmäßig gepaced — erste und zweite Hälfte fast identisch.");
+    else if(diff>0) lines.push(`Zweite Hälfte ${diff}s/km langsamer — der Start war einen Tick zu schnell.`);
+    else lines.push(`Negativer Split: zweite Hälfte ${-diff}s/km schneller — sauber verteilt.`);
   }
-  if(det?.zones){
-    const z=det.zones, tot=Object.values(z).reduce((a,b)=>a+b,0);
-    if(tot>0){
-      const easyP=(z.z1+z.z2)/tot*100, hardP=(z.z4+z.z5)/tot*100, grayP=z.z3/tot*100;
-      if(R.kind==="easy"||R.kind==="long"){
-        if(easyP<70) lines.push(`Nur ${easyP.toFixed(0)}% in Z1+Z2 — zu hart für locker/Long Run.`);
-        if(grayP>25) lines.push(`Z3-Grauzone ${grayP.toFixed(0)}% — bewusster Z2 anstreben.`);
+  if(det?.zones){ const z=det.zones, tot=Object.values(z).reduce((a,b)=>a+(b||0),0);
+    if(tot>0){ const easyP=(z.z1+z.z2)/tot*100, hardP=(z.z4+z.z5)/tot*100, grayP=z.z3/tot*100;
+      if(kind==="easy"||kind==="long"||kind==="recovery"){
+        if(easyP<70) lines.push(`Nur ${easyP.toFixed(0)}% in Z1+Z2 — für locker/Long Run zu intensiv.`);
+        else lines.push(`${easyP.toFixed(0)}% sauber in Z1+Z2 — genau die richtige Intensität.`);
+        if(grayP>25) lines.push(`${grayP.toFixed(0)}% in der Z3-Grauzone — bewusster im echten Z2 bleiben.`);
       }
-      if(R.kind==="quality" && hardP<20) lines.push(`Nur ${hardP.toFixed(0)}% in Z4+Z5 — Quality-Reiz war eher mild.`);
+      if(kind==="quality") lines.push(hardP<20?`Nur ${hardP.toFixed(0)}% in Z4+Z5 — der Quality-Reiz war eher mild.`:`${hardP.toFixed(0)}% in Z4+Z5 — knackiger Schwellen-/VO2-Reiz gesetzt.`);
     }
   }
-  if(L.rpe!=null){
-    if(L.rpe<=4 && R.kind==="quality") lines.push("RPE niedrig für Quality — kannst bei nächstem Mal mehr riskieren.");
-    if(L.rpe>=8 && R.kind!=="quality") lines.push("RPE hoch für lockere Einheit — auf Müdigkeit achten.");
+
+  // ---- Daten-getrieben, auch ohne GPX ----
+  if(sameKind.length>=2){
+    const recent=sameKind.slice(-5), avg=recent.reduce((a,r)=>a+r.sec/r.dist,0)/recent.length, d=Math.round(pace-avg);
+    if(d<=-4) lines.push(`${-d}s/km schneller als dein ${kw}-Schnitt der letzten ${recent.length} Läufe.`);
+    else if(d>=4) lines.push(`${d}s/km langsamer als zuletzt — ${kind==="recovery"||kind==="easy"?"für locker okay":"war das bewusst ruhig?"}.`);
+    else lines.push(`Tempo genau auf deinem aktuellen ${kw}-Niveau.`);
+    const bestPace=Math.min(...sameKind.map(r=>r.sec/r.dist));
+    if(pace<bestPace && L.dist>=3) lines.push(`Schnellster ${kw}-Lauf deiner erfassten Historie.`);
+  } else {
+    lines.push(`Erster erfasster ${kw}-Lauf — ab jetzt vergleicht der Coach jeden weiteren damit.`);
   }
-  if(L.pain) lines.push("Schmerz markiert — Trend beobachten, bei Wiederholung pausieren.");
-  if(!lines.length) lines.push("Lauf erledigt — für detaillierteres Verdict GPX/TCX importieren.");
-  return lines;
+  if(kind==="long"){ const maxPrev=Math.max(0,...hist.filter(r=>r.kind==="long").map(r=>r.dist));
+    if(maxPrev && L.dist>maxPrev) lines.push(`Neue längste Distanz: ${L.dist} km (bisher ${maxPrev}).`);
+  }
+
+  const tp=parsePaceFromText(c.det);
+  if(tp){ const d=Math.round(pace-tp);
+    if(Math.abs(d)<=8) lines.push(`Pace im Plan-Soll (${paceFmt(tp)}/km ±8s).`);
+    else if(d<0 && (kind==="easy"||kind==="long"||kind==="recovery")) lines.push(`${-d}s/km schneller als Soll — in der lockeren Zone bewusst rausnehmen.`);
+    else if(d<0) lines.push(`${-d}s/km schneller als das Soll-Tempo durchgezogen.`);
+    else lines.push(`${d}s/km über Soll — okay, solange die HF im Zielbereich blieb.`);
+  }
+
+  if(L.hr){ const withHr=sameKind.filter(r=>r.hr && r.dist>0);
+    if(withHr.length>=2){ const eff=r=>(1000/(r.sec/r.dist))/r.hr, effNow=(1000/pace)/L.hr, effAvg=withHr.reduce((a,r)=>a+eff(r),0)/withHr.length;
+      if(effNow>=effAvg*1.03) lines.push(`Bei Ø ${L.hr} bpm effizienter als zuletzt — gleiche HF, mehr Tempo.`);
+      else if(effNow<=effAvg*0.96) lines.push(`Bei Ø ${L.hr} bpm teurer erkauft — Müdigkeit, Hitze oder harter Untergrund?`);
+    }
+  }
+
+  const km=(c.det||"").match(/(\d+(?:[.,]\d+)?)\s*km/), planKm=km?parseFloat(km[1].replace(",",".")):null;
+  if(planKm && Math.abs(L.dist-planKm)>1.5) lines.push(`${L.dist} km gelaufen, ${planKm} km geplant${L.dist>planKm?" — Bonus-Kilometer.":"."}`);
+  if(L.elev && L.elev>=120) lines.push(`${L.elev} hm Anstieg — hügeliges Profil, das drückt die Pace.`);
+  if(L.cadence && L.cadence>=170) lines.push(`Schrittfrequenz Ø ${L.cadence}/min — schön hoch, gut für die Laufökonomie.`);
+
+  if(L.rpe!=null){
+    if(L.rpe<=4 && kind==="quality") lines.push("RPE niedrig für Quality — beim nächsten Mal ruhig mehr riskieren.");
+    if(L.rpe>=8 && kind!=="quality") lines.push("RPE hoch für eine lockere Einheit — auf Erholung achten.");
+    if(L.rpe>=9 && kind==="quality") lines.push("Voll ausgepowert — danach bewusst regenerieren.");
+  }
+  if(L.pain) lines.push("Schmerz markiert — Trend beobachten, bei Wiederholung lieber pausieren.");
+
+  if(!lines.length) lines.push("Lauf erledigt — für Splits, Decoupling und Zonen die Aktivität aus Strava übernehmen oder GPX/TCX importieren.");
+  return [...new Set(lines)].slice(0,6);
 }
 // Kurze Insight-Sätze (Strava "Athlete Intelligence"-Stil)
 function paceInsight(L, det, kind){
