@@ -4091,11 +4091,23 @@ function bulkImport(ev){
 function resetData(){ if(confirm("Wirklich ALLE Daten löschen? Vorher exportieren!")){ localStorage.removeItem(LS); DB=load(); save(); render(); toast("Zurückgesetzt"); } }
 
 /* ============ RENDER ============ */
+let _renderDay=null;
 function render(){
   const v={heute:viewHeute,woche:viewWoche,track:viewTrack,stats:viewStats,mehr:viewMehr}[route]||viewHeute;
   document.body.dataset.route=route;   // pro Seite eigener durchscheinender Hintergrund
   document.getElementById("app").innerHTML=v(); renderNav(); updateBadge();
+  _renderDay=dkey(today());
 }
+// Wenn die App nach Mitternacht wieder in den Vordergrund kommt: auf den neuen Tag aktualisieren
+function refreshIfNewDay(){
+  if(_renderDay && _renderDay!==dkey(today())){
+    const busy=(document.getElementById("coachRoot")||{}).innerHTML || (document.getElementById("gymRoot")||{}).innerHTML;
+    if(!busy){ wocheOpen=undefined; viewWoche._scrolled=false; render(); }
+  }
+}
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) refreshIfNewDay(); });
+window.addEventListener("focus", refreshIfNewDay);
+window.addEventListener("pageshow", refreshIfNewDay);
 render();
 // auto-pull on app start if configured
 if(CLOUD.token && CLOUD.gistId){ cloudPull(); }
