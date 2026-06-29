@@ -2237,8 +2237,11 @@ function weekDaysHtml(w, todayIdx){
   }
   return days;
 }
+let wocheOpen;
+function wocheToggle(w){ wocheOpen=(wocheOpen===w?null:w); render(); if(wocheOpen===w){ setTimeout(()=>{ const el=document.getElementById("wk"+w); if(el) el.scrollIntoView({block:"start",behavior:"smooth"}); },60); } }
 function viewWoche(){
   const loc=locate(today()), curW=loc.week||1;
+  if(wocheOpen===undefined) wocheOpen=curW;
   const DOWS=["Mo","Di","Mi","Do","Fr","Sa","So"];
 
   // Tagesliste der aktuellen Woche (Mo–So) im LINE-Stil
@@ -2275,34 +2278,42 @@ function viewWoche(){
     const done=runDoneKm(w);
     const pct=Math.round(Math.min(100, W.km?done/W.km*100:0));
     let pl=0, dn=0; RUNS.forEach(R=>{ if(runIsRest(w,R.slot)) return; pl++; if(DB.logs[runId(w,R.slot)]) dn++; });
-    const isCur=w===curW, isPast=w<curW;
+    const isCur=w===curW, isPast=w<curW, open=(w===wocheOpen);
     const node = isCur
       ? `<div id="wkCurNode" style="position:absolute;left:-25px;top:20px;width:13px;height:13px;border-radius:99px;background:#4ee0c7;box-shadow:0 0 0 4px rgba(78,224,199,.16),0 0 12px rgba(78,224,199,.6);transform:translateX(-50%);"></div>`
       : isPast
       ? `<div style="position:absolute;left:-25px;top:18px;width:8px;height:8px;border-radius:99px;background:#565c64;transform:translateX(-50%);"></div>`
       : `<div style="position:absolute;left:-25px;top:18px;width:8px;height:8px;border-radius:99px;background:#2a2e34;border:1px solid #3a3f46;transform:translateX(-50%);"></div>`;
+    const chev=`<span style="color:#565c64;font-size:12px;line-height:1;flex:none;">${open?"▾":"▸"}</span>`;
+    const barCol=isCur?"#4ee0c7":(pct>=100?"#4ee0c7":"#e0a53b");
+    const content = open
+      ? `${(isCur||isPast)?`<div style="height:4px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:10px;"><div style="width:${pct}%;height:100%;background:${barCol};border-radius:99px;"></div></div>`:""}${dayList(w)}${actPanelLine(w)}`
+      : "";
 
     if(isCur){
-      rows += `<div id="wkCur" style="position:relative;margin-bottom:12px;">${node}
+      rows += `<div id="wk${w}" style="position:relative;margin-bottom:12px;">${node}
         <div style="background:#14171b;border:1px solid rgba(78,224,199,.35);border-radius:18px;padding:16px 16px 14px;box-shadow:0 0 24px -10px rgba(78,224,199,.4);">
-          <div style="display:flex;align-items:center;"><span style="font-family:var(--mono);font-size:11px;color:#4ee0c7;">W${String(w).padStart(2,"0")}</span> <span style="font-size:15px;font-weight:700;color:#f2f3f4;margin-left:5px;">${W.ph}</span> <span style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#0a0b0d;background:#4ee0c7;padding:2px 7px;border-radius:5px;margin-left:6px;">AKTUELL</span></div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-            <span style="font-family:var(--mono);font-size:9px;color:#7e848c;">${W.dr} · ${Math.round(done)}/${W.km} km · LR ${W.lr}</span>
-            <span style="font-family:var(--mono);font-size:11px;color:#4ee0c7;">${pct}%</span>
+          <div onclick="wocheToggle(${w})" style="cursor:pointer;">
+            <div style="display:flex;align-items:center;gap:6px;"><span style="font-family:var(--mono);font-size:11px;color:#4ee0c7;">W${String(w).padStart(2,"0")}</span><span style="font-size:15px;font-weight:700;color:#f2f3f4;">${W.ph}</span><span style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#0a0b0d;background:#4ee0c7;padding:2px 7px;border-radius:5px;">AKTUELL</span><span style="margin-left:auto;color:#565c64;font-size:12px;line-height:1;">${open?"▾":"▸"}</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+              <span style="font-family:var(--mono);font-size:9px;color:#7e848c;">${W.dr} · ${Math.round(done)}/${W.km} km · LR ${W.lr}</span>
+              <span style="font-family:var(--mono);font-size:11px;color:#4ee0c7;">${pct}%</span>
+            </div>
           </div>
-          <div style="height:4px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:7px;"><div style="width:${pct}%;height:100%;background:#4ee0c7;border-radius:99px;"></div></div>
-          ${dayList(w)}
-          ${actPanelLine(w)}
+          ${content}
         </div></div>`;
     } else {
       const pctCol = isPast ? (pct>=100?"#4ee0c7":"#e0a53b") : "#565c64";
-      rows += `<div style="position:relative;margin-bottom:12px;">${node}
-        <div style="background:#101317;border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:13px 15px;${isPast?"opacity:.6;":""}">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div><span style="font-family:var(--mono);font-size:11px;color:#7e848c;">W${String(w).padStart(2,"0")}</span> <span style="font-size:13px;font-weight:600;color:#cfd2d6;margin-left:4px;white-space:nowrap;">${W.ph}</span></div>
-            <span style="font-family:var(--mono);font-size:11px;color:${pctCol};">${isPast?pct+"%":"—"}</span>
+      rows += `<div id="wk${w}" style="position:relative;margin-bottom:12px;">${node}
+        <div style="background:#101317;border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:13px 15px;${isPast&&!open?"opacity:.6;":""}">
+          <div onclick="wocheToggle(${w})" style="cursor:pointer;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="display:flex;align-items:center;gap:5px;min-width:0;"><span style="font-family:var(--mono);font-size:11px;color:#7e848c;">W${String(w).padStart(2,"0")}</span><span style="font-size:13px;font-weight:600;color:#cfd2d6;white-space:nowrap;">${W.ph}</span></div>
+              <div style="display:flex;align-items:center;gap:9px;flex:none;"><span style="font-family:var(--mono);font-size:11px;color:${pctCol};">${isPast?pct+"%":"—"}</span>${chev}</div>
+            </div>
+            <div style="font-family:var(--mono);font-size:9px;color:#565c64;margin-top:4px;">${W.dr} · ${isPast?dn+"/"+pl+" Läufe · ":W.km+" km · "}LR ${W.lr} km</div>
           </div>
-          <div style="font-family:var(--mono);font-size:9px;color:#565c64;margin-top:4px;">${W.dr} · ${isPast?dn+"/"+pl+" Läufe · ":W.km+" km · "}LR ${W.lr} km</div>
+          ${content}
         </div></div>`;
     }
   }
@@ -2310,7 +2321,7 @@ function viewWoche(){
   setTimeout(()=>{
     const tl=document.getElementById("wkTimeline"), fill=document.getElementById("wkSpineFill"), node=document.getElementById("wkCurNode");
     if(tl&&fill&&node){ const r1=tl.getBoundingClientRect(), r2=node.getBoundingClientRect(); fill.style.height=Math.max(0,(r2.top+r2.height/2)-(r1.top+6))+"px"; }
-    const el=document.getElementById("wkCur"); if(el && !viewWoche._scrolled){ el.scrollIntoView({block:"center"}); viewWoche._scrolled=true; }
+    const el=document.getElementById("wk"+curW); if(el && !viewWoche._scrolled){ el.scrollIntoView({block:"center"}); viewWoche._scrolled=true; }
   },40);
 
   return `<div class="wrap">
