@@ -311,8 +311,21 @@
 "use strict";
 
 /* ============ PLAN DATA ============ */
-const PLAN_START = new Date(2026,4,11); // Mo 11.05.2026 (W1 day0)
-const RACE_DATE  = new Date(2026,9,4);  // 04.10.2026
+const DEFAULT_START = new Date(2026,4,11); // Mo 11.05.2026 (W1 day0)
+const DEFAULT_RACE  = new Date(2026,9,4);  // 04.10.2026
+const DEFAULT_GOAL  = 14400;               // Sub 4:00:00 in Sekunden
+const PLAN_OFFSET   = Math.round((DEFAULT_RACE-DEFAULT_START)/86400000); // Tage Start→Race (Plan-Länge)
+// Überschreibbare Eckdaten (vom Plan-Editor-Chat änderbar) — Fallback = Defaults
+function planStart(){ const c=DB&&DB.cfg; return c&&c.planStart? new Date(c.planStart) : DEFAULT_START; }
+function raceDate(){  const c=DB&&DB.cfg; return c&&c.raceDate?  new Date(c.raceDate)  : DEFAULT_RACE; }
+function goalSec(){   const c=DB&&DB.cfg; return (c&&c.goalSec)||DEFAULT_GOAL; }
+function raceCity(){  const c=DB&&DB.cfg; return (c&&c.raceCity)||"Köln"; }
+function raceLabel(){ return "Marathon "+raceCity(); }
+function raceDateStr(){ const d=raceDate(); return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(); }
+function dmShort(d){ return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."; }
+function weekRange(w){ return dmShort(dateOf(w,0))+"–"+dmShort(dateOf(w,6)); }
+function goalStr(){ return hms(goalSec()); }                 // "4:00:00"
+function goalShort(){ return goalStr().replace(/:\d\d$/,""); } // "4:00"
 const GOAL_SEC   = 4*3600;
 const MP_SEC     = 5*60+40;
 
@@ -1000,10 +1013,10 @@ const MS=86400000;
 function today(){ const n=new Date(); return new Date(n.getFullYear(),n.getMonth(),n.getDate()); }
 function dkey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function addDays(d,n){ return new Date(d.getTime()+n*MS); }
-function dateOf(weekNum,dayIdx){ return addDays(PLAN_START,(weekNum-1)*7+dayIdx); }
+function dateOf(weekNum,dayIdx){ return addDays(planStart(),(weekNum-1)*7+dayIdx); }
 function fmtD(d){ return DOW[(d.getDay()+6)%7]+" "+String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."; }
 function locate(d){
-  const diff=Math.floor((d-PLAN_START)/MS);
+  const diff=Math.floor((d-planStart())/MS);
   if(diff<0) return {pre:true};
   const w=Math.floor(diff/7)+1, day=diff%7;
   if(w>21) return {post:true};
@@ -1059,7 +1072,7 @@ function dailyTrimpMap(){
   return map;
 }
 function loadSeries(){
-  const tm=dailyTrimpMap(), start=PLAN_START, td=today();
+  const tm=dailyTrimpMap(), start=planStart(), td=today();
   const days=Math.max(1, Math.floor((td-start)/MS)+1);
   let atl=0, ctl=0;
   const dA=Math.exp(-1/7), dC=Math.exp(-1/42);
@@ -1772,7 +1785,7 @@ function buildCoachContext(){
     let pn=0,dn=0; RUNS.forEach(R=>{ if(runIsRest(loc.week,R.slot))return; const dt=dateOf(loc.week,effDay(loc.week,R.slot)); if(dt>today())return; pn++; if(DB.logs[runId(loc.week,R.slot)])dn++; });
     if(pn) L.push(`Diese Woche bisher ${dn}/${pn} fällige Läufe erledigt.`);
   } else if(loc.pre){ L.push(`Trainingsstart ist erst am 11.05.2026.`); }
-  else if(loc.post){ L.push(`Der Marathon (04.10.2026) ist bereits vorbei.`); }
+  else if(loc.post){ L.push(`Der Marathon (${raceDateStr()}) ist bereits vorbei.`); }
   const f=currentForm();
   L.push(`Form/TSB: ${f.tsb>=0?"+":""}${Math.round(f.tsb)} (${formLabel(f.tsb).label}) — Fitness CTL ${Math.round(f.ctl)}, Müdigkeit ATL ${Math.round(f.atl)}.`);
   const zr=recentZoneRatio();
@@ -1917,8 +1930,12 @@ function buildPlanEditContext(){
   L.push("ROLLE: Du bist der Trainingsplan-Editor der Lauf-App SUB4 (Marathon Köln, Ziel Sub 4:00). Der Nutzer beschreibt auf Deutsch, was er am Plan ändern möchte. Antworte kurz, freundlich und konkret auf Deutsch.");
   L.push("AUSGABE: Wenn — und nur wenn — eine konkrete Änderung gewünscht ist, hänge ans ENDE deiner Antwort GENAU EINEN Code-Block an:");
   L.push("```json\n{\"changes\":[{\"week\":9,\"slot\":\"di\",\"title\":\"Lauf · Qualität\",\"det\":\"10 km: 3 km Z1 + 5×1000m Z5 (4:40) Tr 90s + 2 km Z1\",\"day\":1}]}\n```");
-  L.push("FELDER: week=1–21, slot=di(Qualität)|do(GA1)|fr(Recovery)|so(Long Run), det=Beschreibung der Einheit (km + Inhalt + Zielpace in /km), title optional, day optional (0=Mo … 6=So, nur zum Verschieben). Für einen Ruhetag det=\"–\".");
-  L.push("REGELN: Ändere ausschließlich die ausdrücklich gewünschten Läufe. Bei Unklarheit frage nach (dann KEIN json-Block). Nenne im Text kurz, was du änderst.");
+  L.push("FELDER (changes): week=1–21, slot=di(Qualität)|do(GA1)|fr(Recovery)|so(Long Run), det=Beschreibung der Einheit (km + Inhalt + Zielpace in /km), title optional, day optional (0=Mo … 6=So, nur zum Verschieben). Für einen Ruhetag det=\"–\".");
+  L.push("ECKDATEN ändern: Für Renndatum, Renn-Ort oder Zielzeit gib im selben json zusätzlich ein \"config\"-Objekt an, z. B. {\"config\":{\"raceDate\":\"2026-11-15\",\"raceCity\":\"Berlin\",\"goalTime\":\"3:45:00\"}}. raceDate=YYYY-MM-DD, goalTime=H:MM:SS, raceCity=Stadt.");
+  L.push("RENNDATUM-LOGIK: Standardmäßig wandert der gesamte 21-Wochen-Plan mit (frischer Aufbau, der am neuen Datum endet). Wenn der Nutzer schon mitten im Plan ist und seine bisherige Position/Fortschritt behalten will, gib zusätzlich \"planStart\" unverändert mit (aktueller Wert siehe unten). Bereits eingetragene/absolvierte Läufe bleiben in jedem Fall erhalten (sie hängen an Woche+Slot).");
+  L.push("REGELN: Ändere ausschließlich das ausdrücklich Gewünschte. Bei Unklarheit frage nach (dann KEIN json-Block). Nenne im Text kurz, was du änderst.");
+  const _ps=planStart(); const psISO=`${_ps.getFullYear()}-${String(_ps.getMonth()+1).padStart(2,"0")}-${String(_ps.getDate()).padStart(2,"0")}`;
+  L.push(`\nAKTUELLE ECKDATEN: ${raceLabel()} am ${raceDateStr()} · Zielzeit ${goalStr()} · Trainingsstart ${psISO} (aktuelle Woche ${locate(today()).week||"–"}).`);
   L.push("\nAKTUELLER PLAN (W = Woche · Phase · Di | Do | Fr | So · Umfang/LongRun):");
   for(let w=1; w<=21; w++){ const W=WEEKS[w-1]; const g=s=>runContent(w,s).det;
     L.push(`W${w} ${W.ph}: Di=${g("di")} | Do=${g("do")} | Fr=${g("fr")} | So=${g("so")} · ${W.km}km LR${W.lr}`); }
@@ -1932,9 +1949,9 @@ function applyPlanChangesFromText(text){
   let obj=null;
   let m=text.match(/```json\s*([\s\S]*?)```/i) || text.match(/```\s*([\s\S]*?)```/);
   if(m){ try{ obj=JSON.parse(m[1].trim()); }catch(e){} }
-  if(!obj){ const m2=text.match(/\{[\s\S]*?"changes"[\s\S]*\}/); if(m2){ try{ obj=JSON.parse(m2[0]); }catch(e){} } }
-  if(!obj || !Array.isArray(obj.changes)) return applied;
-  obj.changes.forEach(ch=>{
+  if(!obj){ const m2=text.match(/\{[\s\S]*?"(changes|config)"[\s\S]*\}/); if(m2){ try{ obj=JSON.parse(m2[0]); }catch(e){} } }
+  if(!obj) return applied;
+  if(Array.isArray(obj.changes)) obj.changes.forEach(ch=>{
     const w=+ch.week, slot=String(ch.slot||"").toLowerCase();
     if(!(w>=1&&w<=21) || !["di","do","fr","so"].includes(slot)) return;
     const id=runId(w,slot), cur=runContent(w,slot);
@@ -1944,7 +1961,22 @@ function applyPlanChangesFromText(text){
     if(ch.day!=null && ch.day>=0 && ch.day<=6) DB.moves[id]=+ch.day;
     applied.push(`W${w} ${slot.toUpperCase()}: ${det}`);
   });
-  if(applied.length) save();
+  // Eckdaten (Renndatum/Ort/Zielzeit) — verschiebt nur Kalender, Logs hängen an Woche+Slot
+  if(obj.config && typeof obj.config==="object"){
+    if(!DB.cfg) DB.cfg={};
+    const cf=obj.config;
+    if(cf.raceCity){ DB.cfg.raceCity=String(cf.raceCity).trim(); applied.push("Ort: "+DB.cfg.raceCity); }
+    const gt = cf.goalTime!=null?parseTimeStr(cf.goalTime):(cf.goalSec!=null?+cf.goalSec:0);
+    if(gt>0){ DB.cfg.goalSec=gt; applied.push("Zielzeit: "+hms(gt)); }
+    if(cf.raceDate){ const rd=new Date(cf.raceDate);
+      if(!isNaN(+rd)){ DB.cfg.raceDate=cf.raceDate;
+        if(cf.planStart){ DB.cfg.planStart=cf.planStart; }
+        else { const ps=new Date(+rd-PLAN_OFFSET*86400000); DB.cfg.planStart=`${ps.getFullYear()}-${String(ps.getMonth()+1).padStart(2,"0")}-${String(ps.getDate()).padStart(2,"0")}`; }
+        applied.push("Renndatum: "+raceDateStr());
+      }
+    } else if(cf.planStart){ DB.cfg.planStart=cf.planStart; applied.push("Trainingsstart angepasst"); }
+  }
+  if(applied.length){ save(); viewWoche._scrolled=false; }
   return applied;
 }
 async function planEditSend(){
@@ -1970,6 +2002,7 @@ async function planEditSend(){
     else{
       const raw=data.text||"(keine Antwort)";
       const applied=applyPlanChangesFromText(raw);
+      if(applied.length) render();   // Eckdaten/Plan im Hintergrund aktualisieren
       let shown=raw.replace(/```[\s\S]*?```/g,"").trim();
       if(applied.length) shown=(shown?shown+"\n\n":"")+"✓ Übernommen:\n• "+applied.join("\n• ");
       else if(!shown) shown="(keine Antwort)";
@@ -2193,19 +2226,19 @@ function recentFeed(){
 }
 function viewHeute(){
   const td=today(), loc=locate(td);
-  if(loc.pre){ return `<div class="wrap"><div class="card center"><div style="font-size:30px;font-weight:700;letter-spacing:-1.5px;color:var(--txt)">Noch ${Math.ceil((PLAN_START-td)/MS)} Tage</div><div class="eyebrow" style="margin-top:8px">bis Trainingsstart 11.05.2026</div></div></div>`; }
-  if(loc.post){ return `<div class="wrap"><div class="card center"><div style="font-size:26px;font-weight:700;letter-spacing:-1px;color:var(--txt)">Plan beendet</div><div class="eyebrow" style="margin-top:8px">Marathon Köln war am 04.10.2026</div></div></div>`; }
+  if(loc.pre){ return `<div class="wrap"><div class="card center"><div style="font-size:30px;font-weight:700;letter-spacing:-1.5px;color:var(--txt)">Noch ${Math.ceil((planStart()-td)/MS)} Tage</div><div class="eyebrow" style="margin-top:8px">bis Trainingsstart ${dmShort(planStart())}${planStart().getFullYear()}</div></div></div>`; }
+  if(loc.post){ return `<div class="wrap"><div class="card center"><div style="font-size:26px;font-weight:700;letter-spacing:-1px;color:var(--txt)">Plan beendet</div><div class="eyebrow" style="margin-top:8px">${raceLabel()} war am ${raceDateStr()}</div></div></div>`; }
 
   const W=WEEKS[loc.week-1];
-  const dRace=Math.ceil((RACE_DATE-td)/MS);
+  const dRace=Math.ceil((raceDate()-td)/MS);
   const done=runDoneKm(W.w);
   const fillPct=Math.round(loc.week/21*100);
   const phase=W.ph;
-  const raceStr=`${String(RACE_DATE.getDate()).padStart(2,"0")}.${String(RACE_DATE.getMonth()+1).padStart(2,"0")}.${RACE_DATE.getFullYear()}`;
+  const raceStr=raceDateStr();
 
   // ----- Prognose (Threshold) -----
   const pred=marathonEstimate(predictionSeries(runLogs()));
-  const GOAL=14400; // 4:00:00
+  const GOAL=goalSec();
   let predStr="—", deltaStr="", dotX=50, under=true; const hasPred=!!pred;
   if(pred){ predStr=hms(Math.round(pred)); const delta=Math.round(pred)-GOAL; under=delta<=0;
     const mm=Math.floor(Math.abs(delta)/60), ss=Math.abs(delta)%60;
@@ -2231,7 +2264,7 @@ function viewHeute(){
     </div>
     <div style="display:flex;align-items:center;gap:12px;">
       <div class="sbtn" onclick="syncNow(this)" title="Strava & Garmin synchronisieren"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></div>
-      <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;">KÖLN MARATHON ’26</div>
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;">${raceCity().toUpperCase()} MARATHON ’${String(raceDate().getFullYear()).slice(-2)}</div>
     </div>
   </div>`;
 
@@ -2248,7 +2281,7 @@ function viewHeute(){
       <div style="position:absolute;top:28px;left:0;width:${fillPct}%;height:2px;background:#4ee0c7;box-shadow:0 0 8px rgba(78,224,199,.6);"></div>
       ${stations}
       <div style="position:absolute;top:21px;right:0;width:2px;height:16px;background:#f2f3f4;"></div>
-      <div style="position:absolute;top:42px;right:0;font-family:var(--mono);font-size:8px;color:#f2f3f4;">KÖLN</div>
+      <div style="position:absolute;top:42px;right:0;font-family:var(--mono);font-size:8px;color:#f2f3f4;">${raceCity().toUpperCase()}</div>
       <div style="position:absolute;top:22px;left:${fillPct}%;width:14px;height:14px;border-radius:99px;background:#4ee0c7;box-shadow:0 0 0 5px rgba(78,224,199,.18),0 0 14px rgba(78,224,199,.7);transform:translateX(-50%);"></div>
       <div style="position:absolute;top:44px;left:${fillPct}%;transform:translateX(-50%);font-family:var(--mono);font-size:8px;color:#4ee0c7;white-space:nowrap;">W${String(loc.week).padStart(2,"0")} · ${phase.toUpperCase()}</div>
     </div>
@@ -2261,7 +2294,7 @@ function viewHeute(){
     </div>
     <div style="position:relative;height:34px;margin:14px 0 6px;">
       <div style="position:absolute;top:6px;left:0;right:0;height:1px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 5px,transparent 5px 10px);"></div>
-      <div style="position:absolute;top:-7px;right:0;font-family:var(--mono);font-size:9px;color:#7e848c;">SUB 4:00:00</div>
+      <div style="position:absolute;top:-7px;right:0;font-family:var(--mono);font-size:9px;color:#7e848c;">SUB ${goalStr()}</div>
       ${hasPred?`<div style="position:absolute;top:18px;left:${dotX}%;width:11px;height:11px;border-radius:99px;background:#4ee0c7;box-shadow:0 0 10px rgba(78,224,199,.7);transform:translateX(-50%);"></div>
       <div style="position:absolute;top:6px;left:${dotX}%;width:1px;height:12px;background:rgba(78,224,199,.5);transform:translateX(-50%);"></div>`:""}
     </div>
@@ -2402,7 +2435,7 @@ function viewWoche(){
           <div onclick="wocheToggle(${w})" style="cursor:pointer;">
             <div style="display:flex;align-items:center;gap:6px;"><span style="font-family:var(--mono);font-size:11px;color:#4ee0c7;">W${String(w).padStart(2,"0")}</span><span style="font-size:15px;font-weight:700;color:#f2f3f4;">${W.ph}</span><span style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#0a0b0d;background:#4ee0c7;padding:2px 7px;border-radius:5px;">AKTUELL</span><span style="margin-left:auto;color:#565c64;font-size:12px;line-height:1;">${open?"▾":"▸"}</span></div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-              <span style="font-family:var(--mono);font-size:9px;color:#7e848c;">${W.dr} · ${Math.round(done)}/${W.km} km · LR ${W.lr}</span>
+              <span style="font-family:var(--mono);font-size:9px;color:#7e848c;">${weekRange(w)} · ${Math.round(done)}/${W.km} km · LR ${W.lr}</span>
               <span style="font-family:var(--mono);font-size:11px;color:#4ee0c7;">${pct}%</span>
             </div>
           </div>
@@ -2417,7 +2450,7 @@ function viewWoche(){
               <div style="display:flex;align-items:center;gap:5px;min-width:0;"><span style="font-family:var(--mono);font-size:11px;color:#7e848c;">W${String(w).padStart(2,"0")}</span><span style="font-size:13px;font-weight:600;color:#cfd2d6;white-space:nowrap;">${W.ph}</span></div>
               <div style="display:flex;align-items:center;gap:9px;flex:none;"><span style="font-family:var(--mono);font-size:11px;color:${pctCol};">${isPast?pct+"%":"—"}</span>${chev}</div>
             </div>
-            <div style="font-family:var(--mono);font-size:9px;color:#565c64;margin-top:4px;">${W.dr} · ${isPast?dn+"/"+pl+" Läufe · ":W.km+" km · "}LR ${W.lr} km</div>
+            <div style="font-family:var(--mono);font-size:9px;color:#565c64;margin-top:4px;">${weekRange(w)} · ${isPast?dn+"/"+pl+" Läufe · ":W.km+" km · "}LR ${W.lr} km</div>
           </div>
           ${content}
         </div></div>`;
@@ -2432,7 +2465,7 @@ function viewWoche(){
 
   return `<div class="wrap">
     <div class="ln-title"><b>Wochen</b><span class="ln-line"></span></div>
-    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:18px;">21 Wochen · Köln 04.10</div>
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:18px;">21 Wochen · ${raceCity()} ${String(raceDate().getDate()).padStart(2,"0")}.${String(raceDate().getMonth()+1).padStart(2,"0")}</div>
     <div id="wkTimeline" style="position:relative;padding-left:26px;">
       <div style="position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:rgba(255,255,255,.08);"></div>
       <div id="wkSpineFill" style="position:absolute;left:5px;top:6px;width:2px;height:0;background:#4ee0c7;box-shadow:0 0 8px rgba(78,224,199,.4);"></div>
@@ -2708,7 +2741,7 @@ function gymTplReset(day){ if(!confirm("Vorlage auf Standard-Übungen zurückset
 function viewStats(){
   const runs=runLogs();
   const curW=locate(today()).week||1;
-  const GOAL=14400;
+  const GOAL=goalSec();
   const xOf=(est)=> est? Math.max(8,Math.min(92, 50+((Math.round(est)-GOAL)/900)*40)) : null;
 
   // 1) Marathon-Prognose mit 3-Punkte-Trend
@@ -2729,7 +2762,7 @@ function viewStats(){
     </div>
     <div style="position:relative;height:30px;margin:16px 0 4px;">
       <div style="position:absolute;top:6px;left:0;right:0;height:1px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 5px,transparent 5px 10px);"></div>
-      <div style="position:absolute;top:-7px;right:0;font-family:var(--mono);font-size:9px;color:#7e848c;">SUB 4:00:00</div>
+      <div style="position:absolute;top:-7px;right:0;font-family:var(--mono);font-size:9px;color:#7e848c;">SUB ${goalStr()}</div>
       ${dotsArr.map(d=>`<div style="position:absolute;top:${d.glow?"15px":"16px"};left:${xOf(d.e)}%;width:${d.s}px;height:${d.s}px;border-radius:99px;background:${d.c};${d.glow?"box-shadow:0 0 10px rgba(78,224,199,.7);":""}transform:translateX(-50%);"></div>`).join("")}
     </div>
     <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:6px;">
@@ -2866,7 +2899,7 @@ function cardPrognose(runs){
       <div style="flex:1">
         <div class="tiny muted">Zeit</div>
         <b style="font-size:1.7rem;letter-spacing:-.5px">${hms(Math.round(pred))}</b>
-        <div class="tiny" style="color:${onTrack?'var(--good)':'var(--warn)'};font-weight:700;margin-top:2px">${onTrack?hms(Math.round(-diff))+" unter Sub-4:00 ✓":hms(Math.round(diff))+" über Sub-4:00"}</div>
+        <div class="tiny" style="color:${onTrack?'var(--good)':'var(--warn)'};font-weight:700;margin-top:2px">${onTrack?hms(Math.round(-diff))+" unter Ziel ✓":hms(Math.round(diff))+" über Ziel"}</div>
       </div>
       <div style="flex:0 0 auto"><div class="tiny muted" style="text-align:right;margin-bottom:3px">Trend 3 Wo</div>${deltaHtml}</div>
     </div>
@@ -3338,8 +3371,8 @@ function viewMehr(){
   const stravaOn=stravaConnected();
   const goal=`<div style="background:#14171b;border:1px solid rgba(78,224,199,.25);border-radius:20px;padding:18px 20px;">
     <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;">Mein Ziel</div>
-    <div style="font-size:30px;font-weight:700;letter-spacing:-1px;color:#f2f3f4;margin-top:8px;">Sub 4:00</div>
-    <div style="font-family:var(--mono);font-size:11px;color:#7e848c;margin-top:4px;">Marathon Köln · 04.10.2026 · 42,195 km</div>
+    <div style="font-size:30px;font-weight:700;letter-spacing:-1px;color:#f2f3f4;margin-top:8px;">Sub ${goalShort()}</div>
+    <div style="font-family:var(--mono);font-size:11px;color:#7e848c;margin-top:4px;">${raceLabel()} · ${raceDateStr()} · 42,195 km</div>
   </div>`;
   const connRow=(label,on,last)=>`<div onclick="openSettings()" style="display:flex;align-items:center;gap:13px;padding:14px 16px;${last?"":"border-bottom:1px solid rgba(255,255,255,.05);"}cursor:pointer;">
     <div style="font-size:14px;font-weight:600;color:#f2f3f4;flex:1;">${label}</div>
@@ -3511,7 +3544,7 @@ function viewMehr(){
         <button class="btn-sm btn-gh" style="width:100%" onclick="resetPlan()">Alle Plan-Anpassungen zurücksetzen</button>
       </div>
     </details>
-    <div class="center tiny muted" style="margin:10px 0 20px">SUB4 · Marathon Köln · 04.10.2026</div></div>`;
+    <div class="center tiny muted" style="margin:10px 0 20px">SUB4 · ${raceLabel()} · ${raceDateStr()}</div></div>`;
 }
 
 /* ============ MODALS ============ */
