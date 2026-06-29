@@ -1878,6 +1878,112 @@ function buildCoachView(){
   requestAnimationFrame(()=>{ const w=document.getElementById("cvWin"); if(w) w.classList.add("show"); coachScrollBottom(false); });
 }
 function closeCoach(){ const w=document.getElementById("cvWin"); if(w){ w.classList.remove("show"); } unlockBody(); setTimeout(()=>{ const r=document.getElementById("coachRoot"); if(r) r.innerHTML=""; }, 280); }
+
+/* ============ PLAN-EDITOR (Chatbot, ändert den Plan) ============ */
+function planChatClear(){ DB.planChat=[]; save(); openPlanEditor(); }
+function planEditEmptyHtml(){
+  const sugg=["Verschieb den Long Run in Woche 8 auf Samstag","Mach den Dienstag in Woche 10 leichter","Ersetze Freitag-Recovery in Woche 9 durch einen Ruhetag","Erhöhe den Long Run in Woche 12 auf 30 km"];
+  return `<div class="cv-empty">
+    <div class="cv-av" style="width:54px;height:54px;margin:0 auto 12px">${ic("edit",26)}</div>
+    <b style="color:var(--txt);font-size:1.05rem">Plan anpassen</b>
+    <div style="margin-top:4px;font-size:.85rem">Schreib in eigenen Worten, was sich ändern soll — ich passe den Plan an. Absolvierte Einheiten bleiben unangetastet.</div>
+    <div class="cv-sugg" style="margin-top:18px">${sugg.map(q=>`<button onclick="planEditAsk(this.dataset.q)" data-q="${q.replace(/"/g,'&quot;')}">${q}</button>`).join("")}</div></div>`;
+}
+function openPlanEditor(){
+  const url=coachWorkerUrl(); if(!url){ openCoachSetup(); return; }
+  if(!DB.planChat) DB.planChat=[];
+  lockBody();
+  const h=DB.planChat;
+  document.getElementById("coachRoot").innerHTML=`<div class="cv" id="cvWin">
+    <div class="cv-head">
+      <button class="cv-back" onclick="closeCoach()" aria-label="Zurück">‹</button>
+      <div class="cv-av">${ic("edit",19)}</div>
+      <div class="cv-ti"><b>Trainingsplan bearbeiten</b><span><i></i>schreib, was sich ändern soll</span></div>
+      ${h.length?`<button class="cv-back" style="font-size:.7rem;width:auto;padding:0 12px" onclick="planChatClear()">leeren</button>`:""}
+    </div>
+    <div class="cv-msgs" id="cvMsgs">${h.length?h.map(bubbleHtml).join(""):planEditEmptyHtml()}</div>
+    <div class="cv-input">
+      <textarea id="cvInput" placeholder="z. B. Woche 9 Dienstag zu 5×1000m machen" rows="1"
+        oninput="this.style.height='auto';this.style.height=Math.min(130,this.scrollHeight)+'px'"
+        onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();planEditSend();}"></textarea>
+      <button class="cv-send" id="cvSend" onclick="planEditSend()" aria-label="Senden">${SEND_ICON}</button>
+    </div>
+  </div>`;
+  requestAnimationFrame(()=>{ const w=document.getElementById("cvWin"); if(w) w.classList.add("show"); coachScrollBottom(false); });
+}
+function planEditAsk(q){ const el=document.getElementById("cvInput"); if(el) el.value=q; planEditSend(); }
+function buildPlanEditContext(){
+  const L=[];
+  L.push("ROLLE: Du bist der Trainingsplan-Editor der Lauf-App SUB4 (Marathon Köln, Ziel Sub 4:00). Der Nutzer beschreibt auf Deutsch, was er am Plan ändern möchte. Antworte kurz, freundlich und konkret auf Deutsch.");
+  L.push("AUSGABE: Wenn — und nur wenn — eine konkrete Änderung gewünscht ist, hänge ans ENDE deiner Antwort GENAU EINEN Code-Block an:");
+  L.push("```json\n{\"changes\":[{\"week\":9,\"slot\":\"di\",\"title\":\"Lauf · Qualität\",\"det\":\"10 km: 3 km Z1 + 5×1000m Z5 (4:40) Tr 90s + 2 km Z1\",\"day\":1}]}\n```");
+  L.push("FELDER: week=1–21, slot=di(Qualität)|do(GA1)|fr(Recovery)|so(Long Run), det=Beschreibung der Einheit (km + Inhalt + Zielpace in /km), title optional, day optional (0=Mo … 6=So, nur zum Verschieben). Für einen Ruhetag det=\"–\".");
+  L.push("REGELN: Ändere ausschließlich die ausdrücklich gewünschten Läufe. Bei Unklarheit frage nach (dann KEIN json-Block). Nenne im Text kurz, was du änderst.");
+  L.push("\nAKTUELLER PLAN (W = Woche · Phase · Di | Do | Fr | So · Umfang/LongRun):");
+  for(let w=1; w<=21; w++){ const W=WEEKS[w-1]; const g=s=>runContent(w,s).det;
+    L.push(`W${w} ${W.ph}: Di=${g("di")} | Do=${g("do")} | Fr=${g("fr")} | So=${g("so")} · ${W.km}km LR${W.lr}`); }
+  const loc=locate(today()); if(loc.week) L.push(`\nAktuelle Woche: ${loc.week}.`);
+  const done=Object.keys(DB.logs||{}).filter(id=>DB.logs[id]&&DB.logs[id].dist);
+  if(done.length) L.push(`Bereits absolvierte Läufe (Ergebnisse bleiben erhalten): ${done.join(", ")}.`);
+  return L.join("\n");
+}
+function applyPlanChangesFromText(text){
+  const applied=[];
+  let obj=null;
+  let m=text.match(/```json\s*([\s\S]*?)```/i) || text.match(/```\s*([\s\S]*?)```/);
+  if(m){ try{ obj=JSON.parse(m[1].trim()); }catch(e){} }
+  if(!obj){ const m2=text.match(/\{[\s\S]*?"changes"[\s\S]*\}/); if(m2){ try{ obj=JSON.parse(m2[0]); }catch(e){} } }
+  if(!obj || !Array.isArray(obj.changes)) return applied;
+  obj.changes.forEach(ch=>{
+    const w=+ch.week, slot=String(ch.slot||"").toLowerCase();
+    if(!(w>=1&&w<=21) || !["di","do","fr","so"].includes(slot)) return;
+    const id=runId(w,slot), cur=runContent(w,slot);
+    const title=(ch.title!=null&&String(ch.title).trim())?String(ch.title).trim():cur.title;
+    const det=(ch.det!=null&&String(ch.det).trim())?String(ch.det).trim():cur.det;
+    DB.planEdits[id]={title,det};                 // ändert NUR die Vorgabe — DB.logs bleibt unberührt
+    if(ch.day!=null && ch.day>=0 && ch.day<=6) DB.moves[id]=+ch.day;
+    applied.push(`W${w} ${slot.toUpperCase()}: ${det}`);
+  });
+  if(applied.length) save();
+  return applied;
+}
+async function planEditSend(){
+  if(window._coachThinking) return;
+  const el=document.getElementById("cvInput");
+  const text=(el?el.value:"").trim(); if(!text) return;
+  const url=coachWorkerUrl(); if(!url){ openCoachSetup(); return; }
+  if(!DB.planChat) DB.planChat=[];
+  const msgs=document.getElementById("cvMsgs");
+  if(msgs && !DB.planChat.length) msgs.innerHTML="";
+  const um={role:"user",text,time:nowHM()}; DB.planChat.push(um); save(); coachAppend(bubbleHtml(um));
+  if(el){ el.value=""; el.style.height="auto"; }
+  window._coachThinking=true; const sendBtn=document.getElementById("cvSend"); if(sendBtn) sendBtn.disabled=true;
+  coachAppend(`<div class="typing" id="cvTyping"><i></i><i></i><i></i></div>`);
+  try{
+    const apiMessages=DB.planChat.map(m=>({role:m.role==="user"?"user":"assistant",content:m.text}));
+    const r=await fetch(url+"/coach",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ messages:apiMessages, context:buildPlanEditContext() })});
+    const data=await r.json().catch(()=>({}));
+    const t=document.getElementById("cvTyping"); if(t&&t.parentNode) t.parentNode.remove();
+    let am;
+    if(!r.ok||data.error){ am={role:"assistant",text:(data.error||("Fehler "+r.status))+(data.detail?"\n"+data.detail:""),err:true,time:nowHM()}; }
+    else{
+      const raw=data.text||"(keine Antwort)";
+      const applied=applyPlanChangesFromText(raw);
+      let shown=raw.replace(/```[\s\S]*?```/g,"").trim();
+      if(applied.length) shown=(shown?shown+"\n\n":"")+"✓ Übernommen:\n• "+applied.join("\n• ");
+      else if(!shown) shown="(keine Antwort)";
+      am={role:"assistant",text:shown,time:nowHM()};
+    }
+    DB.planChat.push(am); save(); coachAppend(bubbleHtml(am));
+  }catch(e){
+    const t=document.getElementById("cvTyping"); if(t&&t.parentNode) t.parentNode.remove();
+    const am={role:"assistant",text:"Verbindungsfehler: "+e.message,err:true,time:nowHM()};
+    DB.planChat.push(am); save(); coachAppend(bubbleHtml(am));
+  }finally{
+    window._coachThinking=false; const sb=document.getElementById("cvSend"); if(sb) sb.disabled=false;
+  }
+}
 function coachScrollBottom(smooth){ const m=document.getElementById("cvMsgs"); if(m) m.scrollTo({top:m.scrollHeight, behavior:smooth?"smooth":"auto"}); }
 function coachAppend(html){ const m=document.getElementById("cvMsgs"); if(!m) return null; const d=document.createElement("div"); d.style.display="contents"; d.innerHTML=html; m.appendChild(d); coachScrollBottom(true); return d; }
 function coachAsk(q){ const el=document.getElementById("cvInput"); if(el){ el.value=q; coachSend(); } }
@@ -3254,6 +3360,12 @@ function viewMehr(){
     <div class="ln-title"><b>Mehr</b><span class="ln-line"></span></div>
     <div style="height:16px"></div>
     ${goal}
+    <div style="height:14px"></div>
+    <div onclick="openPlanEditor()" style="cursor:pointer;background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:15px 16px;display:flex;align-items:center;gap:13px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ee0c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+      <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:#f2f3f4;">Trainingsplan bearbeiten</div><div style="font-family:var(--mono);font-size:10px;color:#7e848c;margin-top:2px;">Per Chat anpassen — absolvierte Einheiten bleiben</div></div>
+      <span style="color:#565c64;flex:none;">›</span>
+    </div>
     <div style="height:18px"></div>
     ${conn}
     ${freeUnits}
