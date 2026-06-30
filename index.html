@@ -1935,7 +1935,7 @@ function buildPlanEditContext(){
   L.push("```json\n{\"changes\":[{\"week\":9,\"slot\":\"di\",\"title\":\"Lauf · Qualität\",\"det\":\"10 km: 3 km Z1 + 5×1000m Z5 (4:40) Tr 90s + 2 km Z1\",\"day\":1}]}\n```");
   L.push("FELDER (changes): week=1–21, slot=di(Qualität)|do(GA1)|fr(Recovery)|so(Long Run), det=Beschreibung der Einheit (km + Inhalt + Zielpace in /km), title optional, day optional (0=Mo … 6=So, nur zum Verschieben). Für einen Ruhetag det=\"–\".");
   L.push("ECKDATEN ändern: Für Renndatum, Renn-Ort oder Zielzeit gib im selben json zusätzlich ein \"config\"-Objekt an, z. B. {\"config\":{\"raceDate\":\"2026-11-15\",\"raceCity\":\"Berlin\",\"goalTime\":\"3:45:00\"}}. raceDate=YYYY-MM-DD, goalTime=H:MM:SS, raceCity=Stadt.");
-  L.push("RENNDATUM-LOGIK: Standardmäßig wandert der gesamte 21-Wochen-Plan mit (frischer Aufbau, der am neuen Datum endet). Wenn der Nutzer schon mitten im Plan ist und seine bisherige Position/Fortschritt behalten will, gib zusätzlich \"planStart\" unverändert mit (aktueller Wert siehe unten). Bereits eingetragene/absolvierte Läufe bleiben in jedem Fall erhalten (sie hängen an Woche+Slot).");
+  L.push("RENNDATUM-LOGIK: Standardmäßig bleibt der Trainingsstart unverändert — d. h. die Wochen-Nummerierung und alle bereits eingetragenen/absolvierten Läufe bleiben exakt ausgerichtet, nur der Countdown ändert sich. NUR wenn der Nutzer ausdrücklich einen komplett neuen 21-Wochen-Aufbau bis zum neuen Datum will, gib zusätzlich \"reanchor\":true an (dann verschiebt sich der ganze Block; sinnvoll v. a., wenn noch nichts absolviert wurde). Absolvierte Läufe gehen nie verloren (sie hängen an Woche+Slot).");
   L.push("REGELN: Ändere ausschließlich das ausdrücklich Gewünschte. Bei Unklarheit frage nach (dann KEIN json-Block). Nenne im Text kurz, was du änderst.");
   const _ps=planStart(); const psISO=`${_ps.getFullYear()}-${String(_ps.getMonth()+1).padStart(2,"0")}-${String(_ps.getDate()).padStart(2,"0")}`;
   L.push(`\nAKTUELLE ECKDATEN: ${raceLabel()} am ${raceDateStr()} · Zielzeit ${goalStr()} · Trainingsstart ${psISO} (aktuelle Woche ${locate(today()).week||"–"}).`);
@@ -1971,10 +1971,11 @@ function applyPlanChangesFromText(text){
     if(cf.raceCity){ DB.cfg.raceCity=String(cf.raceCity).trim(); applied.push("Ort: "+DB.cfg.raceCity); }
     const gt = cf.goalTime!=null?parseTimeStr(cf.goalTime):(cf.goalSec!=null?+cf.goalSec:0);
     if(gt>0){ DB.cfg.goalSec=gt; applied.push("Zielzeit: "+hms(gt)); }
-    if(cf.raceDate){ const rd=new Date(cf.raceDate);
+    if(cf.raceDate){ const rd=parseLocalDate(cf.raceDate);
       if(!isNaN(+rd)){ DB.cfg.raceDate=cf.raceDate;
         if(cf.planStart){ DB.cfg.planStart=cf.planStart; }
-        else { const ps=new Date(+rd-PLAN_OFFSET*86400000); DB.cfg.planStart=`${ps.getFullYear()}-${String(ps.getMonth()+1).padStart(2,"0")}-${String(ps.getDate()).padStart(2,"0")}`; }
+        else if(cf.reanchor===true){ const ps=new Date(+rd-PLAN_OFFSET*86400000); DB.cfg.planStart=`${ps.getFullYear()}-${String(ps.getMonth()+1).padStart(2,"0")}-${String(ps.getDate()).padStart(2,"0")}`; }
+        // sonst: planStart bleibt → Wochen-Nummerierung & absolvierte Läufe bleiben ausgerichtet
         applied.push("Renndatum: "+raceDateStr());
       }
     } else if(cf.planStart){ DB.cfg.planStart=cf.planStart; applied.push("Trainingsstart angepasst"); }
@@ -3402,6 +3403,7 @@ function viewMehr(){
       <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:#f2f3f4;">Trainingsplan bearbeiten</div><div style="font-family:var(--mono);font-size:10px;color:#7e848c;margin-top:2px;">Per Chat anpassen — absolvierte Einheiten bleiben</div></div>
       <span style="color:#565c64;flex:none;">›</span>
     </div>
+    ${hasRaceOverride()?`<div onclick="resetRaceConfig()" style="cursor:pointer;text-align:center;margin-top:10px;font-family:var(--mono);font-size:10px;letter-spacing:.5px;color:#7e848c;">Eckdaten auf Original (Köln · 04.10.2026) zurücksetzen ›</div>`:""}
     <div style="height:18px"></div>
     ${conn}
     ${freeUnits}
@@ -3566,6 +3568,12 @@ function unlockBody(){
 }
 function closeModal(){ document.getElementById("modalRoot").innerHTML=""; unlockBody(); }
 function openSettings(){ go('mehr'); setTimeout(()=>{ const d=document.getElementById('mehrSettings'); if(d){ d.open=true; d.scrollIntoView({block:'start',behavior:'smooth'}); } },60); }
+function hasRaceOverride(){ const c=DB.cfg; return !!(c && (c.raceDate||c.planStart||c.raceCity||c.goalSec)); }
+function resetRaceConfig(){
+  if(!hasRaceOverride()){ toast("Schon im Original"); return; }
+  if(!confirm("Eckdaten auf den Original-Plan zurücksetzen (Köln · 04.10.2026 · Sub 4:00)? Deine eingetragenen/absolvierten Läufe bleiben erhalten.")) return;
+  DB.cfg={}; save(); render(); toast("Auf Original-Plan zurückgesetzt ✓");
+}
 function syncNow(btn){
   const tasks=[];
   try{ if(stravaConnected()) tasks.push(stravaFetchActivities()); }catch(e){}
