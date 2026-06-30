@@ -316,8 +316,10 @@ const DEFAULT_RACE  = new Date(2026,9,4);  // 04.10.2026
 const DEFAULT_GOAL  = 14400;               // Sub 4:00:00 in Sekunden
 const PLAN_OFFSET   = Math.round((DEFAULT_RACE-DEFAULT_START)/86400000); // Tage Start→Race (Plan-Länge)
 // Überschreibbare Eckdaten (vom Plan-Editor-Chat änderbar) — Fallback = Defaults
-function planStart(){ const c=DB&&DB.cfg; return c&&c.planStart? new Date(c.planStart) : DEFAULT_START; }
-function raceDate(){  const c=DB&&DB.cfg; return c&&c.raceDate?  new Date(c.raceDate)  : DEFAULT_RACE; }
+// WICHTIG: ISO-Strings ("YYYY-MM-DD") als LOKALE Mitternacht parsen (sonst UTC → Off-by-one)
+function parseLocalDate(s){ if(s instanceof Date) return s; const m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m? new Date(+m[1],+m[2]-1,+m[3]) : new Date(s); }
+function planStart(){ const c=DB&&DB.cfg; return c&&c.planStart? parseLocalDate(c.planStart) : DEFAULT_START; }
+function raceDate(){  const c=DB&&DB.cfg; return c&&c.raceDate?  parseLocalDate(c.raceDate)  : DEFAULT_RACE; }
 function goalSec(){   const c=DB&&DB.cfg; return (c&&c.goalSec)||DEFAULT_GOAL; }
 function raceCity(){  const c=DB&&DB.cfg; return (c&&c.raceCity)||"Köln"; }
 function raceLabel(){ return "Marathon "+raceCity(); }
@@ -1013,10 +1015,11 @@ const MS=86400000;
 function today(){ const n=new Date(); return new Date(n.getFullYear(),n.getMonth(),n.getDate()); }
 function dkey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function addDays(d,n){ return new Date(d.getTime()+n*MS); }
-function dateOf(weekNum,dayIdx){ return addDays(planStart(),(weekNum-1)*7+dayIdx); }
+function dateOf(weekNum,dayIdx){ const s=planStart(); return new Date(s.getFullYear(),s.getMonth(),s.getDate()+(weekNum-1)*7+dayIdx); }
 function fmtD(d){ return DOW[(d.getDay()+6)%7]+" "+String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."; }
 function locate(d){
-  const diff=Math.floor((d-planStart())/MS);
+  const ps=planStart();
+  const diff=Math.round((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(ps.getFullYear(),ps.getMonth(),ps.getDate()))/MS);
   if(diff<0) return {pre:true};
   const w=Math.floor(diff/7)+1, day=diff%7;
   if(w>21) return {post:true};
