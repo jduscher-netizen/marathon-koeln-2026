@@ -326,6 +326,17 @@ function monday(d){return addDays(d,-wdIndex(d));}
 function fmtDur(sec){sec=Math.round(sec);const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return h>0?h+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0"):m+":"+String(s).padStart(2,"0");}
 function fmtPace(secPerKm){if(!secPerKm||!isFinite(secPerKm))return "—";const m=Math.floor(secPerKm/60),s=Math.round(secPerKm%60);return m+":"+String(s).padStart(2,"0");}
 function parseTimeToSec(str){if(!str)return null;const p=String(str).trim().split(":").map(Number);if(p.some(isNaN))return null;if(p.length===3)return p[0]*3600+p[1]*60+p[2];if(p.length===2)return p[0]*60+p[1];if(p.length===1)return p[0]*60;return null;}
+// Auto-Format: Nutzer tippt nur Ziffern → H:MM:SS bzw. MM:SS (Doppelpunkte automatisch)
+function autoTime(raw,needsHours){
+  let d=String(raw).replace(/\D/g,"").slice(0,needsHours?6:4);
+  if(!d)return "";
+  if(d.length<=2)return d;
+  const ss=d.slice(-2),rest=d.slice(0,-2);
+  if(rest.length<=2)return rest+":"+ss;
+  return rest.slice(0,-2)+":"+rest.slice(-2)+":"+ss;
+}
+function obTimeInput(el){el.value=autoTime(el.value,OB.data.sport!=="5k"&&OB.data.sport!=="10k");OB.data.targetTimeStr=el.value;}
+function logTimeInput(el){el.value=autoTime(el.value,true);logPace();}
 
 /* =========================================================================
    SPORT CATALOG
@@ -430,7 +441,7 @@ function obStep(step){
       <div class="ob-p">Für ${sp.label}. Format H:MM:SS (z.B. 3:45:00) oder MM:SS.</div>
       <div class="field">
         <label>Zielzeit</label>
-        <input class="inp big" id="ob-target" value="${esc(d.targetTimeStr||"")}" placeholder="${sp.dist>=21?"3:45:00":"22:30"}" inputmode="numeric" oninput="OB.data.targetTimeStr=this.value">
+        <input class="inp big" id="ob-target" value="${esc(d.targetTimeStr||"")}" placeholder="${sp.dist&&sp.dist<=10?"22:30":"3:45:00"}" inputmode="numeric" oninput="obTimeInput(this)">
         ${sp.dist?`<div class="hint" id="ob-pacehint">${targetPaceHint(d.targetTimeStr,sp.dist)}</div>`:""}
       </div>`;
   }
@@ -1091,7 +1102,7 @@ function openLog(dateISO){
     ${target?`<div class="mono" style="font-size:11px;color:var(--mut);margin-bottom:16px">Soll: ${esc(target)}</div>`:`<div style="margin-bottom:16px"></div>`}
     <div class="two">
       <div class="field" style="margin:0"><label>Distanz (km)</label><input class="inp big" id="lg-dist" inputmode="decimal" value="${existing&&existing.dist!=null?esc(existing.dist):(s&&s.dist?s.dist:"")}" oninput="logPace()"></div>
-      <div class="field" style="margin:0"><label>Zeit</label><input class="inp big" id="lg-time" inputmode="numeric" placeholder="37:48" value="${existing&&existing.timeStr?esc(existing.timeStr):""}" oninput="logPace()"></div>
+      <div class="field" style="margin:0"><label>Zeit</label><input class="inp big" id="lg-time" inputmode="numeric" placeholder="37:48" value="${existing&&existing.timeStr?esc(existing.timeStr):""}" oninput="logTimeInput(this)"></div>
     </div>
     <div class="pace-strip"><span class="pl">Schnitt-Pace</span><span class="pv" id="lg-pace">—</span></div>
     <div class="field"><label>Empfinden</label>
