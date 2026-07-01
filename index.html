@@ -318,7 +318,7 @@ const PLAN_OFFSET   = Math.round((DEFAULT_RACE-DEFAULT_START)/86400000); // Tage
 // Überschreibbare Eckdaten (vom Plan-Editor-Chat änderbar) — Fallback = Defaults
 // WICHTIG: ISO-Strings ("YYYY-MM-DD") als LOKALE Mitternacht parsen (sonst UTC → Off-by-one)
 function parseLocalDate(s){ if(s instanceof Date) return s; const m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m? new Date(+m[1],+m[2]-1,+m[3]) : new Date(s); }
-function planStart(){ const c=DB&&DB.cfg; return c&&c.planStart? parseLocalDate(c.planStart) : DEFAULT_START; }
+function planStart(){ return DEFAULT_START; }  // FIX verankert — verhindert Wochen-Verschiebung; nur das Renndatum ist flexibel
 function raceDate(){  const c=DB&&DB.cfg; return c&&c.raceDate?  parseLocalDate(c.raceDate)  : DEFAULT_RACE; }
 function goalSec(){   const c=DB&&DB.cfg; return (c&&c.goalSec)||DEFAULT_GOAL; }
 function raceCity(){  const c=DB&&DB.cfg; return (c&&c.raceCity)||"München"; }
@@ -420,6 +420,9 @@ function migrateDB(d){
   for(const k of Object.keys(base)){
     if(d[k]===undefined || d[k]===null) d[k]=base[k];
   }
+  // Reparatur: früher konnte ein verschobener Trainingsstart gespeichert werden —
+  // der schob "diese Woche" auf bereits absolvierte Wochen. Trainingsstart ist jetzt fix.
+  if(d.cfg && d.cfg.planStart!==undefined) delete d.cfg.planStart;
   d.v=2;
   return d;
 }
@@ -1937,7 +1940,7 @@ function buildPlanEditContext(){
   L.push("```json\n{\"changes\":[{\"week\":9,\"slot\":\"di\",\"title\":\"Lauf · Qualität\",\"det\":\"10 km: 3 km Z1 + 5×1000m Z5 (4:40) Tr 90s + 2 km Z1\",\"day\":1}]}\n```");
   L.push("FELDER (changes): week=1–21, slot=di(Qualität)|do(GA1)|fr(Recovery)|so(Long Run), det=Beschreibung der Einheit (km + Inhalt + Zielpace in /km), title optional, day optional (0=Mo … 6=So, nur zum Verschieben). Für einen Ruhetag det=\"–\".");
   L.push("ECKDATEN ändern: Für Renndatum, Renn-Ort oder Zielzeit gib im selben json zusätzlich ein \"config\"-Objekt an, z. B. {\"config\":{\"raceDate\":\"2026-11-15\",\"raceCity\":\"Berlin\",\"goalTime\":\"3:45:00\"}}. raceDate=YYYY-MM-DD, goalTime=H:MM:SS, raceCity=Stadt.");
-  L.push("RENNDATUM-LOGIK: Standardmäßig bleibt der Trainingsstart unverändert — d. h. die Wochen-Nummerierung und alle bereits eingetragenen/absolvierten Läufe bleiben exakt ausgerichtet, nur der Countdown ändert sich. NUR wenn der Nutzer ausdrücklich einen komplett neuen 21-Wochen-Aufbau bis zum neuen Datum will, gib zusätzlich \"reanchor\":true an (dann verschiebt sich der ganze Block; sinnvoll v. a., wenn noch nichts absolviert wurde). Absolvierte Läufe gehen nie verloren (sie hängen an Woche+Slot).");
+  L.push("RENNDATUM-LOGIK: Der Trainingsstart ist fix — die Wochen-Nummerierung und alle bereits eingetragenen/absolvierten Läufe bleiben immer exakt ausgerichtet, ein Renndatum-Wechsel ändert nur den Countdown (und schiebt die Wochen NICHT). Einzelne Einheiten passt du über \"changes\" an.");
   L.push("REGELN: Ändere ausschließlich das ausdrücklich Gewünschte. Bei Unklarheit frage nach (dann KEIN json-Block). Nenne im Text kurz, was du änderst.");
   const _ps=planStart(); const psISO=`${_ps.getFullYear()}-${String(_ps.getMonth()+1).padStart(2,"0")}-${String(_ps.getDate()).padStart(2,"0")}`;
   L.push(`\nAKTUELLE ECKDATEN: ${raceLabel()} am ${raceDateStr()} · Zielzeit ${goalStr()} · Trainingsstart ${psISO} (aktuelle Woche ${locate(today()).week||"–"}).`);
@@ -1974,13 +1977,9 @@ function applyPlanChangesFromText(text){
     const gt = cf.goalTime!=null?parseTimeStr(cf.goalTime):(cf.goalSec!=null?+cf.goalSec:0);
     if(gt>0){ DB.cfg.goalSec=gt; applied.push("Zielzeit: "+hms(gt)); }
     if(cf.raceDate){ const rd=parseLocalDate(cf.raceDate);
-      if(!isNaN(+rd)){ DB.cfg.raceDate=cf.raceDate;
-        if(cf.planStart){ DB.cfg.planStart=cf.planStart; }
-        else if(cf.reanchor===true){ const ps=new Date(+rd-PLAN_OFFSET*86400000); DB.cfg.planStart=`${ps.getFullYear()}-${String(ps.getMonth()+1).padStart(2,"0")}-${String(ps.getDate()).padStart(2,"0")}`; }
-        // sonst: planStart bleibt → Wochen-Nummerierung & absolvierte Läufe bleiben ausgerichtet
-        applied.push("Renndatum: "+raceDateStr());
-      }
-    } else if(cf.planStart){ DB.cfg.planStart=cf.planStart; applied.push("Trainingsstart angepasst"); }
+      if(!isNaN(+rd)){ DB.cfg.raceDate=cf.raceDate; applied.push("Renndatum: "+raceDateStr()); }
+      // Trainingsstart bleibt fix → Wochen-Nummerierung & absolvierte Läufe bleiben ausgerichtet
+    }
   }
   if(applied.length){ save(); viewWoche._scrolled=false; }
   return applied;
