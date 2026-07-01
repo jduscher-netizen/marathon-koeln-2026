@@ -20,6 +20,11 @@ export default {
         return await handleCoach(req, env);
       }
 
+      // ---- Plan-Generator (KI, strukturierter JSON-Plan) ----
+      if (url.pathname === '/plan' && req.method === 'POST') {
+        return await handlePlan(req, env);
+      }
+
       if (!env.VAPID_PRIVATE) throw new Error('VAPID_PRIVATE-Secret fehlt');
 
       if (url.pathname === '/subscribe' && req.method === 'POST') {
@@ -152,6 +157,86 @@ async function handleCoach(req, env) {
   }
   const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
   return jsonResp({ text: text || '(keine Antwort)', usage: data.usage });
+}
+
+// ---- Plan-Generator: erzeugt einen periodisierten, strukturierten Trainingsplan ----
+const PLAN_SYSTEM = `Du bist ein Weltklasse-Ausdauer- und Multisport-Coach in der App "THE LINE". Deine Aufgabe: aus dem Athleten-Profil einen individuellen, periodisierten Trainingsplan als STRIKTES JSON erzeugen.
+
+# Prinzipien
+- Periodisierung: Base → Build → Peak → Taper. Progressive Umfangssteigerung (~5–10 %/Woche), alle 3–4 Wochen eine Erholungswoche (down:true, ~20 % weniger).
+- Polarisiert (80/20): viel locker (Z2), gezielt hart (Z4/Z5), Grauzone meiden.
+- Der lange Tag (longDay) trägt die Schlüssel-Einheit (Long Run / lange Rad-/Koppel-Einheit).
+- Respektiere die verfügbaren Tage EXAKT: platziere Einheiten NUR an availableDays, genau daysPerWeek Einheiten pro Woche (Rest = Ruhetag, kind:"rest").
+- Sportartspezifisch: Marathon/Halb/10k/5k/Ultra = Laufen. Triathlon/Ironman = Schwimmen/Rad/Laufen mischen, Koppeltraining einbauen. Hyrox = Lauf-Intervalle + funktionelle Kraft/Stationen (compromised running). Individuelles Ziel = sinnvoll ableiten.
+- Berücksichtige constraints (Reisen, Verletzungen, feste Ruhetage) und cross (Zusatztraining) sinnvoll.
+- Zielzeit (targetSec) → kalibriere konkrete Paces in den detail-Texten (min/km). "finish" → sicheres Ankommen, moderat.
+
+# Ausgabeformat — NUR dieses JSON, kein Fließtext, keine Backticks:
+{
+  "summary": "1 Satz, persönlich, was dieser Plan ist (mit Zielzeit/Pace falls vorhanden)",
+  "weeks": [
+    {
+      "phase": "Base|Build|Peak|Taper",
+      "km": <Zahl: Wochenumfang km (Lauf) bzw. Stunden (Tri) als Zahl>,
+      "longKm": <Zahl: längste Einheit km, 0 falls n/a>,
+      "down": <true|false: Erholungswoche>,
+      "sessions": [
+        { "day": <0=Mo..6=So>, "kind": "long|quality|easy|recovery|cross|race|rest",
+          "sport": "run|bike|swim|strength|mobility|brick",
+          "title": "kurzer Titel",
+          "detail": "konkrete Vorgabe inkl. Distanz/Zeit/Pace/Zonen",
+          "zone": "Z1..Z5 oder leer" }
+      ]
+    }
+  ]
+}
+Regeln: Erzeuge GENAU so viele Wochen wie profile.weeks. Die LETZTE Woche enthält am longDay eine Einheit mit kind:"race". Gib pro availableDay genau eine session (auch Ruhetage als kind:"rest"). KEINE Start-Daten — die App verankert die Wochen selbst. Antworte mit reinem JSON.`;
+
+async function handlePlan(req, env) {
+  if (!env.ANTHROPIC_API_KEY) return jsonResp({ error: 'ANTHROPIC_API_KEY-Secret fehlt' }, 500);
+  let body;
+  try { body = await req.json(); } catch (e) { return jsonResp({ error: 'Ungültiger Request' }, 400); }
+  const profile = body.profile;
+  if (!profile) return jsonResp({ error: 'Kein Profil' }, 400);
+
+  const payload = {
+    model: 'claude-sonnet-4-6',
+    max_tokens: 8192,
+    system: [{ type: 'text', text: PLAN_SYSTEM, cache_control: { type: 'ephemeral' } }],
+    messages: [{ role: 'user', content: 'Athleten-Profil (JSON):\n' + JSON.stringify(profile) + '\n\nErzeuge jetzt den Plan als reines JSON.' }]
+  };
+
+  let r;
+  try {
+    r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    return jsonResp({ error: 'Verbindung zu Claude fehlgeschlagen: ' + e.message }, 502);
+  }
+  if (!r.ok) {
+    const t = await r.text().catch(() => '');
+    return jsonResp({ error: 'Claude API ' + r.status, detail: t.slice(0, 300) }, 502);
+  }
+  const data = await r.json();
+  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
+  const plan = extractJSON(text);
+  if (!plan || !Array.isArray(plan.weeks) || !plan.weeks.length) {
+    return jsonResp({ error: 'Plan konnte nicht erzeugt werden', raw: text.slice(0, 400) }, 502);
+  }
+  plan.source = 'ai';
+  return jsonResp(plan);
+}
+
+function extractJSON(text) {
+  if (!text) return null;
+  let t = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  try { return JSON.parse(t); } catch (e) {}
+  const s = t.indexOf('{'), e = t.lastIndexOf('}');
+  if (s >= 0 && e > s) { try { return JSON.parse(t.slice(s, e + 1)); } catch (_) {} }
+  return null;
 }
 
 async function listSubs(env) {
