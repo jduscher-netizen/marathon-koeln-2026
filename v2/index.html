@@ -102,6 +102,15 @@ select.inp{appearance:none;-webkit-appearance:none;background-image:url("data:im
 .stepper .val{font-size:40px;font-weight:700;letter-spacing:-1px;min-width:70px;text-align:center}
 .stepper .val small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:var(--mut);text-transform:uppercase;font-weight:500;margin-top:-2px}
 
+/* segmented time input (Std:Min:Sek) */
+.timeseg{display:flex;align-items:flex-start;justify-content:center;gap:8px;margin:24px 0 4px}
+.timeseg.sm{margin:0}
+.tf{display:flex;flex-direction:column;align-items:center;flex:1;max-width:96px}
+.tf input.tnum{text-align:center;width:100%;padding:15px 6px}
+.tf label{font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--mut);text-transform:uppercase;margin-top:8px}
+.tcolon{font-size:24px;font-weight:700;color:var(--mut);line-height:1;padding-top:16px}
+.timeseg.sm .tcolon{padding-top:14px}
+
 /* generating */
 .gen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:22px}
 .gen-line{width:170px;height:2px;background:var(--line);border-radius:99px;position:relative;overflow:hidden}
@@ -326,17 +335,24 @@ function monday(d){return addDays(d,-wdIndex(d));}
 function fmtDur(sec){sec=Math.round(sec);const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return h>0?h+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0"):m+":"+String(s).padStart(2,"0");}
 function fmtPace(secPerKm){if(!secPerKm||!isFinite(secPerKm))return "—";const m=Math.floor(secPerKm/60),s=Math.round(secPerKm%60);return m+":"+String(s).padStart(2,"0");}
 function parseTimeToSec(str){if(!str)return null;const p=String(str).trim().split(":").map(Number);if(p.some(isNaN))return null;if(p.length===3)return p[0]*3600+p[1]*60+p[2];if(p.length===2)return p[0]*60+p[1];if(p.length===1)return p[0]*60;return null;}
-// Auto-Format: Nutzer tippt nur Ziffern → H:MM:SS bzw. MM:SS (Doppelpunkte automatisch)
-function autoTime(raw,needsHours){
-  let d=String(raw).replace(/\D/g,"").slice(0,needsHours?6:4);
-  if(!d)return "";
-  if(d.length<=2)return d;
-  const ss=d.slice(-2),rest=d.slice(0,-2);
-  if(rest.length<=2)return rest+":"+ss;
-  return rest.slice(0,-2)+":"+rest.slice(-2)+":"+ss;
+// Getrennte Zahlenfelder Std:Min:Sek → kombinierter String (kein Doppelpunkt-Tippen nötig)
+function obTimeParts(){
+  const g=id=>{const e=document.getElementById(id);return e?e.value.replace(/\D/g,""):"";};
+  const needsHours=OB.data.sport!=="5k"&&OB.data.sport!=="10k";
+  const hh=g("t-h"),mm=g("t-m"),ss=g("t-s");
+  OB.data.tH=hh;OB.data.tM=mm;OB.data.tS=ss;
+  let str="";
+  if(needsHours){if(hh||mm||ss)str=(hh||"0")+":"+(mm||"0").padStart(2,"0")+":"+(ss||"0").padStart(2,"0");}
+  else{if(mm||ss)str=(mm||"0")+":"+(ss||"0").padStart(2,"0");}
+  OB.data.targetTimeStr=str;
+  const hint=document.getElementById("ob-pacehint");if(hint)hint.textContent=targetPaceHint(str,SPORTS[OB.data.sport].dist);
+  const nextBtn=document.querySelector(".ob-foot .btn");if(nextBtn)nextBtn.disabled=!obCanNext("target");
 }
-function obTimeInput(el){el.value=autoTime(el.value,OB.data.sport!=="5k"&&OB.data.sport!=="10k");OB.data.targetTimeStr=el.value;}
-function logTimeInput(el){el.value=autoTime(el.value,true);logPace();}
+function readLogTimeStr(){
+  const m=((document.getElementById("lg-m")||{}).value||"").replace(/\D/g,"");
+  const s=((document.getElementById("lg-s")||{}).value||"").replace(/\D/g,"");
+  if(!m&&!s)return "";return (m||"0")+":"+(s||"0").padStart(2,"0");
+}
 
 /* =========================================================================
    SPORT CATALOG
@@ -436,14 +452,17 @@ function obStep(step){
         <div class="ob-h">Alles klar — ankommen.</div>
         <div class="ob-p">Wir bauen deinen Plan auf ein sicheres Finish aus. Tippe auf Weiter.</div>`;
     }
+    const needsHours=d.sport!=="5k"&&d.sport!=="10k";
     return `<div class="ob-step-eyebrow">Schritt 3</div>
       <div class="ob-h">Deine Zielzeit</div>
-      <div class="ob-p">Für ${sp.label}. Format H:MM:SS (z.B. 3:45:00) oder MM:SS.</div>
-      <div class="field">
-        <label>Zielzeit</label>
-        <input class="inp big" id="ob-target" value="${esc(d.targetTimeStr||"")}" placeholder="${sp.dist&&sp.dist<=10?"22:30":"3:45:00"}" inputmode="numeric" oninput="obTimeInput(this)">
-        ${sp.dist?`<div class="hint" id="ob-pacehint">${targetPaceHint(d.targetTimeStr,sp.dist)}</div>`:""}
-      </div>`;
+      <div class="ob-p">Für ${sp.label}. Tippe die Zahlen — die Doppelpunkte setzt die App.</div>
+      <div class="timeseg">
+        ${needsHours?`<div class="tf"><input class="inp big tnum" id="t-h" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="0" value="${esc(d.tH||"")}" oninput="obTimeParts()"><label>Std</label></div><span class="tcolon">:</span>`:""}
+        <div class="tf"><input class="inp big tnum" id="t-m" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="00" value="${esc(d.tM||"")}" oninput="obTimeParts()"><label>Min</label></div>
+        <span class="tcolon">:</span>
+        <div class="tf"><input class="inp big tnum" id="t-s" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="00" value="${esc(d.tS||"")}" oninput="obTimeParts()"><label>Sek</label></div>
+      </div>
+      ${sp.dist?`<div class="hint" id="ob-pacehint" style="text-align:center;margin-top:14px">${targetPaceHint(d.targetTimeStr,sp.dist)}</div>`:""}`;
   }
   if(step==="raceinfo"){
     return `<div class="ob-step-eyebrow">Schritt 4</div>
@@ -1102,7 +1121,12 @@ function openLog(dateISO){
     ${target?`<div class="mono" style="font-size:11px;color:var(--mut);margin-bottom:16px">Soll: ${esc(target)}</div>`:`<div style="margin-bottom:16px"></div>`}
     <div class="two">
       <div class="field" style="margin:0"><label>Distanz (km)</label><input class="inp big" id="lg-dist" inputmode="decimal" value="${existing&&existing.dist!=null?esc(existing.dist):(s&&s.dist?s.dist:"")}" oninput="logPace()"></div>
-      <div class="field" style="margin:0"><label>Zeit</label><input class="inp big" id="lg-time" inputmode="numeric" placeholder="37:48" value="${existing&&existing.timeStr?esc(existing.timeStr):""}" oninput="logTimeInput(this)"></div>
+      <div class="field" style="margin:0"><label>Zeit · Min : Sek</label>
+        <div class="timeseg sm">
+          <input class="inp big tnum" id="lg-m" inputmode="numeric" pattern="[0-9]*" maxlength="3" placeholder="00" value="${existing&&existing.time!=null?esc(String(Math.floor(existing.time/60))):""}" oninput="logPace()">
+          <span class="tcolon">:</span>
+          <input class="inp big tnum" id="lg-s" inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="00" value="${existing&&existing.time!=null?esc(String(existing.time%60).padStart(2,"0")):""}" oninput="logPace()">
+        </div></div>
     </div>
     <div class="pace-strip"><span class="pl">Schnitt-Pace</span><span class="pv" id="lg-pace">—</span></div>
     <div class="field"><label>Empfinden</label>
@@ -1117,7 +1141,7 @@ let _logFeel=null;
 function logFeel(f,btn){_logFeel=f;[...btn.parentNode.children].forEach(b=>b.classList.remove("on"));btn.classList.add("on");}
 function logPace(){
   const dist=parseFloat((document.getElementById("lg-dist").value||"").replace(",","."));
-  const sec=parseTimeToSec(document.getElementById("lg-time").value);
+  const sec=parseTimeToSec(readLogTimeStr());
   const el=document.getElementById("lg-pace");
   if(dist>0&&sec){el.textContent=fmtPace(sec/dist)+" /km";}else el.textContent="—";
 }
@@ -1125,7 +1149,7 @@ function saveLog(){
   const date=parseISO(_logDate);const s=sessionOn(date);
   if(!s){toast("Kein Slot");return;}
   const dist=parseFloat((document.getElementById("lg-dist").value||"").replace(",","."));
-  const timeStr=document.getElementById("lg-time").value.trim();
+  const timeStr=readLogTimeStr();
   const sec=parseTimeToSec(timeStr);
   if(!(dist>0)){toast("Distanz eingeben");return;}
   const feelBtn=document.querySelector("#lg-feel button.on");
