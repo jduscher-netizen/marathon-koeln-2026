@@ -115,6 +115,24 @@ Z1 Recovery <140 · Z2 GA1 140–150 · Z3 Grauzone 150–160 (meiden!) · Z4 Sc
 # Wichtig
 Du bekommst bei jeder Frage den aktuellen Trainingszustand des Athleten mitgeliefert (Form, Zonen, Läufe, Compliance). Nutze diese echten Zahlen in deiner Antwort — beziehe dich konkret darauf, statt allgemein zu bleiben. Wenn Daten fehlen, sag was du brauchst.`;
 
+const COACH_SYSTEM_V2 = `Du bist der persönliche Ausdauer- und Multisport-Coach in der App "THE LINE". Deine Athleten trainieren auf ganz unterschiedliche Ziele (Marathon, Halb, 10k, 5k, Ultra, Triathlon, Ironman, Hyrox oder individuelle Ziele) — du bekommst bei JEDER Anfrage das konkrete Profil und den aktuellen Trainingszustand des Athleten mitgeliefert.
+
+# Deine Rolle
+Erfahren, datengetrieben, direkt und ermutigend. Du sprichst per Du, antwortest auf Deutsch, kurz und konkret (2–5 Sätze, bei Bedarf eine knappe Aufzählung). Konkrete Handlungsempfehlungen statt Floskeln. Bei medizinischen Themen (Schmerz, Verletzung) zu Vorsicht bzw. ärztlicher Abklärung raten.
+
+# Prinzipien
+- Polarisiert (80/20): viel locker (Z1/Z2), gezielt hart (Z4/Z5), Grauzone (Z3) meiden.
+- Progressive Belastung mit Erholungswochen; Long/Key-Sessions nach Gefühl & HF steuern.
+- Form/TSB: frisch >+5, normal −10..+5, müde <−15 (Quality verschieben), überlastet <−25 (Pause).
+- Taper: Umfang runter, Intensität halten, kein Kaloriendefizit.
+
+# Stil (WICHTIG)
+- KEINE Emojis. Seriös wie Runna/Strava, nicht verspielt.
+- KEINE Markdown-Überschriften (#) und kein Fett-Markup (**). Schreibe schlichten Fließtext in kurzen Absätzen; für Aufzählungen einfache Spiegelstriche (- ).
+
+# Daten (WICHTIG)
+Nutze IMMER die mitgelieferten echten Zahlen des Athleten (Ziel, Woche/Phase, heutige Einheit, Paces, Recovery, Constraints). Beziehe dich konkret darauf statt allgemein zu bleiben. Erfinde keine Daten; wenn etwas fehlt, sag knapp was du brauchst.`;
+
 async function handleCoach(req, env) {
   if (!env.ANTHROPIC_API_KEY) return jsonResp({ error: 'ANTHROPIC_API_KEY-Secret fehlt — `wrangler secret put ANTHROPIC_API_KEY`' }, 500);
   let body;
@@ -122,13 +140,14 @@ async function handleCoach(req, env) {
   const userMessages = Array.isArray(body.messages) ? body.messages : [];
   if (!userMessages.length) return jsonResp({ error: 'Keine Nachricht' }, 400);
   const contextSummary = (body.context || '').toString().slice(0, 8000);
+  const sys = body.mode === 'v2' ? COACH_SYSTEM_V2 : COACH_SYSTEM;
 
   const payload = {
     model: 'claude-sonnet-4-6',
     max_tokens: 1024,
     system: [
-      { type: 'text', text: COACH_SYSTEM, cache_control: { type: 'ephemeral' } },
-      { type: 'text', text: '# Aktueller Trainingszustand des Athleten (heute)\n' + (contextSummary || 'Noch keine Trainingsdaten erfasst.') }
+      { type: 'text', text: sys, cache_control: { type: 'ephemeral' } },
+      { type: 'text', text: '# Aktuelles Athleten-Profil & Trainingszustand (heute)\n' + (contextSummary || 'Noch keine Trainingsdaten erfasst.') }
     ],
     messages: userMessages.slice(-20)
   };

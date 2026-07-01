@@ -35,18 +35,36 @@ Ziel: „fühlt sich für jeden an, als wäre die App für ihn gemacht."
 `SPORTS`: marathon, half, 10k, 5k, ultra, triathlon, ironman, hyrox, custom. Der lokale Fallback ist
 lauf-zentriert; Multisport-Feinheiten (Schwimmen/Rad/Koppel, Hyrox-Stationen) liefert der **KI-Pfad**.
 
+## Coach-Chat (KI)
+Vollbild-Overlay `#coachRoot` (`openCoach`/`renderCoach`/`coachSend`). POSTet an Worker `/coach` mit
+`mode:'v2'` + `context` aus `buildCoachContext()` (Profil, Woche/Phase, heutige Einheit, Paces,
+Recovery, Constraints). Der Worker nutzt bei `mode:'v2'` einen **generischen** Coach-Prompt
+(`COACH_SYSTEM_V2`) statt des V1-Köln/Sub-4-Prompts. `fmtCoach()` rendert clientseitig Light-Markdown
+und **entfernt Emojis** (App-Regel). Verlauf in `DB.coach.history`.
+
+## Integrationen (Garmin & Strava)
+- **Garmin-Recovery:** GitHub-Token (`DB.github.token`) + Wellness-Gist-ID (`DB.garmin.gistId`) →
+  `fetchWellness()` liest `garmin-wellness.json`, `recoveryScore()` bildet 0–100. UI: Recovery-Kachel
+  auf Heute (→ `openRecovery`-Sheet), Recovery-Karte auf Analyse. Setup: **Mehr → Garmin**.
+- **Strava:** OAuth (Client-ID/Secret, Redirect zurück zur App, `checkStravaCallback` beim Laden).
+  `stravaFetchActivities()` → `DB.strava.pending`; Pending-Block auf Heute; `stravaImport()` mappt
+  Läufe per Datum auf den geplanten Slot (`sessionOn`→`DB.logs`), sonst in `DB.activities`.
+- **Sync:** `syncNow()` (Garmin + Strava), auch beim App-Start im Hintergrund.
+
 ## Worker
-Neuer Endpoint `POST /plan` in `worker/src/index.js` (`handlePlan`, `PLAN_SYSTEM`, `extractJSON`).
-Nutzt dasselbe `ANTHROPIC_API_KEY`-Secret wie der Coach. Zum Aktivieren: Worker deployen und die
-Worker-URL in der App unter **Mehr → KI-Coach & Plan** eintragen.
+`worker/src/index.js`:
+- `POST /plan` (`handlePlan`, `PLAN_SYSTEM`, `extractJSON`) — strukturierter KI-Plan.
+- `POST /coach` — bei `mode:'v2'` generischer `COACH_SYSTEM_V2`, sonst der bestehende V1-Prompt (V1 unberührt).
+Nutzt dasselbe `ANTHROPIC_API_KEY`-Secret. **Deployed** (`marathon-koeln-push.j-duscher.workers.dev`).
+Worker-URL in der App unter **Mehr → KI-Coach & Plan** eintragen (aktiviert KI-Plan + Coach).
 
 ## Lokal testen
 `.claude/launch.json` (Server `marathon`, jetzt Node via `.claude/serve.js` — sandbox-sicher) →
 `http://localhost:4173/v2/index.html`. Viewport ~402×860.
 
 ## Offen / nächste Schritte
-- Fallback-Generator für echte Multisport-Struktur (Schwimmen/Rad/Koppel, Hyrox) ausbauen.
-- Garmin/Strava-Integration aus V1 übernehmen (aktuell nur UI-Platzhalter unter „Verbindungen").
-- Coach-Chat-Screen (Worker `/coach` existiert bereits) in V2 einhängen.
-- Kraft-/Mobility-Tracking-Sheet, Einzel-Lauf-Analyse.
+- Einzel-Lauf-Analyse (Coach-Verdict pro Lauf), Kraft-/Mobility-Tracking-Sheet.
+- Aktivitäten-Liste (`DB.activities`) auf „Tracken"/„Analyse" sichtbar machen.
+- Cloud-Sync (Gist) für geräteübergreifende Daten wie in V1.
+- GPX/TCX-Import & Stream-Analyse (in V1 vorhanden, in V2 noch nicht portiert).
 - Kommerzielle Schicht (Accounts/Sync/Billing) — bewusst noch nicht enthalten (MVP = local-first).

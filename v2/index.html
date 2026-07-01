@@ -219,6 +219,34 @@ select.inp{appearance:none;-webkit-appearance:none;background-image:url("data:im
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 .empty{text-align:center;color:var(--dim);font-size:13px;padding:34px 20px;font-family:var(--mono);letter-spacing:.5px}
+
+/* coach card on Heute */
+.coachcard{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px 18px;color:var(--txt);margin-bottom:14px}
+.coachcard .ci{width:38px;height:38px;border-radius:12px;background:var(--accent-soft);border:1px solid var(--accent-soft-bd);display:flex;align-items:center;justify-content:center;color:var(--accent);flex:0 0 auto}
+.coachcard .ct{flex:1;min-width:0}
+.coachcard .ct b{display:block;font-size:14px;font-weight:600}
+.coachcard .ct span{display:block;font-size:12px;color:var(--mut);margin-top:2px}
+
+/* ===== Coach chat overlay ===== */
+#coachRoot{position:fixed;inset:0;z-index:70;background:var(--bg);display:none;flex-direction:column;max-width:460px;margin:0 auto}
+#coachRoot.open{display:flex}
+.cv-top{display:flex;align-items:center;justify-content:space-between;padding:calc(12px + env(safe-area-inset-top)) 18px 12px;border-bottom:1px solid var(--line)}
+.cv-back{background:none;border:none;color:var(--text-2);padding:6px;display:flex;align-items:center}
+.cv-title{display:flex;align-items:center;gap:8px}
+.cv-title b{font-size:16px;font-weight:700;letter-spacing:.3px}
+.cv-body{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
+.cempty{text-align:center;padding:50px 24px;color:var(--accent)}
+.cmsg{display:flex}
+.cmsg.user{justify-content:flex-end}
+.cbubble{max-width:82%;padding:11px 15px;border-radius:18px;font-size:14px;line-height:1.5}
+.cmsg.user .cbubble{background:var(--accent);color:#08110f;border-bottom-right-radius:6px}
+.cmsg.assistant .cbubble{background:var(--surface);border:1px solid var(--line);color:var(--text-2);border-bottom-left-radius:6px}
+.typing{letter-spacing:2px;color:var(--mut);animation:blink 1.2s infinite}
+@keyframes blink{0%,100%{opacity:.3}50%{opacity:1}}
+.cv-input{display:flex;gap:10px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+.cv-input input{flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:13px 18px;color:var(--txt);font-size:15px;outline:none}
+.cv-input input:focus{border-color:var(--accent-soft-bd)}
+.cv-input button{width:48px;height:48px;border-radius:99px;background:var(--accent);border:none;color:#08110f;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
 .divider{height:1px;background:var(--line);margin:20px 0}
 .section-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:1.8px;color:var(--mut);text-transform:uppercase;margin:22px 2px 12px}
 </style>
@@ -232,6 +260,7 @@ select.inp{appearance:none;-webkit-appearance:none;background-image:url("data:im
   <nav id="nav"></nav>
 </div>
 
+<div id="coachRoot"></div>
 <div id="sheetRoot"><div class="sh-back" onclick="closeSheet()"></div><div class="sh" id="sheet"></div></div>
 <div id="toast"></div>
 
@@ -271,7 +300,7 @@ function ic(n,s=20){const p=_IC[n]||_IC.zap;return `<svg width="${s}" height="${
 
 /* ---------- Storage ---------- */
 const KEY="theline_v2";
-function freshDB(){return{v:2,onboarded:false,profile:null,plan:null,logs:{},acts:{},coach:{},connections:{},createdAt:isoToday()};}
+function freshDB(){return{v:2,onboarded:false,profile:null,plan:null,logs:{},acts:{},coach:{},github:{},garmin:{},strava:{},wellness:null,activities:[],createdAt:isoToday()};}
 let DB=load();
 function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);return Object.assign(freshDB(),d);}}catch(e){}return freshDB();}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}}
@@ -732,44 +761,73 @@ function sessionsForWeek(profile,w,n,phase,vol,paces){
   }
   return sessions;
 }
+function circDist(a,b){let d=Math.abs(a-b);return Math.min(d,7-d);}
 function assignRoles(profile,phase,days,isRace){
-  const sp=SPORTS[profile.sport];
+  const unit=SPORTS[profile.sport].unit;
   const roles={};
   const longDay=days.includes(profile.longDay)?profile.longDay:days[days.length-1];
   if(isRace){roles[longDay]="race";return roles;}
-  roles[longDay]="long";
+  roles[longDay]="long"; // sport-spezifische Schlüssel-Einheit (siehe buildSession)
   const rest=days.filter(x=>x!==longDay);
-  const nQuality=phase==="Taper"?1:(phase==="Base"?(EXP[profile.experience].quality>=2?1:0):EXP[profile.experience].quality);
-  // pick quality days spread from long day
-  const ordered=rest.slice().sort((a,b)=>Math.abs(circDist(b,longDay))-Math.abs(circDist(a,longDay)));
-  let q=0;
-  for(const dd of ordered){if(q<nQuality){roles[dd]=(phase==="Peak"||phase==="Build")&&q===0?"interval":"tempo";q++;}}
-  for(const dd of rest){if(!roles[dd])roles[dd]=sp.unit==="tri"?crossOrEasy(profile,dd):"easy";}
+  const farToNear=rest.slice().sort((a,b)=>circDist(b,longDay)-circDist(a,longDay)); // weit weg vom langen Tag zuerst
+  if(unit==="run"){
+    const nQ=phase==="Taper"?1:(phase==="Base"?(EXP[profile.experience].quality>=2?1:0):EXP[profile.experience].quality);
+    let q=0;
+    for(const dd of farToNear){if(q<nQ){roles[dd]=(phase==="Peak"||phase==="Build")&&q===0?"interval":"tempo";q++;}}
+    for(const dd of rest){if(!roles[dd])roles[dd]="easy";}
+  } else if(unit==="tri"){
+    // Disziplinen rotieren: Schwimmen (erholsam), Rad-Grundlage, Lauf, + je eine harte Rad-/Lauf-Einheit
+    const seq=phase==="Taper"?["swim","bikeEasy","runEasy","swim","bikeEasy"]
+      :["swim","bikeQuality","runEasy","runQuality","bikeEasy","swim"];
+    const byDay=rest.slice().sort((a,b)=>a-b);
+    byDay.forEach((dd,i)=>{roles[dd]=seq[i%seq.length];});
+    if(!Object.values(roles).includes("swim")&&byDay.length)roles[byDay[0]]="swim";
+  } else if(unit==="hyrox"){
+    let i=0;
+    for(const dd of farToNear){roles[dd]= i===0?"runInterval":(phase==="Taper"?"runEasy":(i%2?"strength":"runEasy"));i++;}
+  } else { // custom
+    const nQ=phase==="Taper"?1:2; let q=0;
+    for(const dd of farToNear){if(q<nQ){roles[dd]=q===0?"interval":"tempo";q++;}else roles[dd]="easy";}
+  }
   return roles;
 }
-function circDist(a,b){let d=Math.abs(a-b);return Math.min(d,7-d);}
-function crossOrEasy(profile,dd){return profile.cross.includes("cycling")?"bike":"easy";}
 
 function buildSession(profile,role,dayIdx,phase,vol,paces,isRace){
-  const sp=SPORTS[profile.sport];
+  const sp=SPORTS[profile.sport],unit=sp.unit,m=profile.sessionMinutes;
   const km=(f)=>Math.max(4,Math.round(vol.km*f));
+  const D=dayIdx;
   switch(role){
     case "race":
-      return {day:dayIdx,kind:"race",title:sp.label+" — Renntag",detail:profile.goalMode==="time"&&profile.targetStr?"Ziel "+profile.targetStr+" · "+fmtPace(paces.goal)+" /km":"Dein Tag. Vertrau dem Plan.",zone:"Z3-4"};
+      return {day:D,kind:"race",sport:sp.icon==="swim"?"brick":"run",title:sp.label+" — Renntag",detail:profile.goalMode==="time"&&profile.targetStr?"Ziel "+profile.targetStr+(sp.dist?" · "+fmtPace(paces.goal)+" /km":""):"Dein Tag. Vertrau dem Plan.",zone:"Z3-4"};
     case "long":
-      return {day:dayIdx,kind:"long",title:"Langer Lauf",detail:vol.longKm+" km locker @ "+fmtPace(paces.long)+" /km",dist:vol.longKm,pace:paces.long,zone:"Z2"};
+      if(unit==="tri")return {day:D,kind:"long",sport:"brick",title:"Lange Koppel-Einheit",detail:Math.round(m*1.6)+" min Rad Z2 + "+Math.round(m*0.35)+" min Lauf direkt danach",zone:"Z2"};
+      if(unit==="hyrox")return {day:D,kind:"long",sport:"run",title:"Hyrox-Simulation",detail:"Compromised Running: "+(phase==="Peak"?8:6)+"×(1 km Lauf + funktionelle Station)",zone:"Z3-4"};
+      if(unit==="custom")return {day:D,kind:"long",sport:"run",title:"Lange Einheit",detail:vol.longKm+" min / km Grundlage Z2",zone:"Z2"};
+      return {day:D,kind:"long",sport:"run",title:"Langer Lauf",detail:vol.longKm+" km locker @ "+fmtPace(paces.long)+" /km",dist:vol.longKm,pace:paces.long,zone:"Z2"};
+    case "swim":
+      return {day:D,kind:"easy",sport:"swim",title:"Schwimmen",detail:Math.round(m*0.7)+" min · Technik + "+(phase==="Base"?"lockere Bahnen":"Intervalle 100/200 m"),zone:"Z2"};
+    case "bikeEasy":
+      return {day:D,kind:"easy",sport:"bike",title:"Rad Grundlage",detail:m+" min Z2 gleichmäßig",zone:"Z2"};
+    case "bikeQuality":
+      return {day:D,kind:"quality",sport:"bike",title:"Rad Intervalle",detail:(phase==="Peak"?"5":"4")+"×5 min Schwelle Z4 · 3 min locker",zone:"Z4"};
+    case "runEasy":
+      return {day:D,kind:"easy",sport:"run",title:"Lauf locker",detail:km(0.18)+" km @ "+fmtPace(paces.easy)+" /km",dist:km(0.18),pace:paces.easy,zone:"Z2"};
+    case "runQuality":
+      return {day:D,kind:"quality",sport:"run",title:"Lauf Tempo",detail:km(0.16)+" km @ "+fmtPace(paces.tempo)+" /km",dist:km(0.16),pace:paces.tempo,zone:"Z3-4"};
+    case "runInterval":
+      return {day:D,kind:"quality",sport:"run",title:"Lauf-Intervalle",detail:(phase==="Peak"?"6":"5")+"×800 m schnell (Race-Pace) · 90 s Trabpause",zone:"Z4-5"};
+    case "strength":
+      return {day:D,kind:"cross",sport:"strength",title:"Funktionelle Kraft",detail:m+" min: Wall Balls, Sled Push/Pull, Farmers Carry, Burpee Broad Jumps",zone:""};
     case "tempo":{
       const d=Math.max(6,Math.round(vol.km*0.22));
-      return {day:dayIdx,kind:"quality",title:"Tempo-Dauerlauf",detail:d+" km · "+fmtPace(paces.tempo)+" /km + Ein/Aus",dist:d,pace:paces.tempo,zone:"Z3-4"};}
+      return {day:D,kind:"quality",sport:"run",title:"Tempo-Dauerlauf",detail:d+" km · "+fmtPace(paces.tempo)+" /km + Ein/Aus",dist:d,pace:paces.tempo,zone:"Z3-4"};}
     case "interval":{
       const reps=phase==="Peak"?6:5;
-      return {day:dayIdx,kind:"quality",title:"Intervalle",detail:reps+"× 1000 m @ "+fmtPace(paces.interval)+" /km · Trabpause",pace:paces.interval,zone:"Z4-5"};}
-    case "bike":
-      return {day:dayIdx,kind:"cross",title:"Radfahren locker",detail:Math.round(profile.sessionMinutes*0.9)+" min Z2",zone:"Z2"};
+      return {day:D,kind:"quality",sport:"run",title:"Intervalle",detail:reps+"× 1000 m @ "+fmtPace(paces.interval)+" /km · Trabpause",pace:paces.interval,zone:"Z4-5"};}
     case "easy":
     default:{
       const d=km(0.2);
-      return {day:dayIdx,kind:"easy",title:"Lockerer Dauerlauf",detail:d+" km @ "+fmtPace(paces.easy)+" /km",dist:d,pace:paces.easy,zone:"Z2"};}
+      return {day:D,kind:"easy",sport:"run",title:"Lockerer Dauerlauf",detail:d+" km @ "+fmtPace(paces.easy)+" /km",dist:d,pace:paces.easy,zone:"Z2"};}
   }
 }
 
@@ -824,8 +882,10 @@ function viewHeute(){
   const done=s&&DB.logs[logKey(s.wi,s.day)];
   const kmDone=weekKmDone(wi);
   const isTri=SPORTS[p.sport].unit==="tri";
-  // stat tiles
-  const stats=[[wk.km,isTri?"STD PLAN":"KM PLAN"],[kmDone,isTri?"STD ABSOLV.":"GELAUFEN"],[wk.longKm||"—","LANGE EINH."],[Math.round((wi+1)/totalW*100),"FORTSCHRITT %"]];
+  const rec=latestWellness();const rs=rec?recoveryScore(rec):null;
+  // stat tiles — 4. Kachel = Recovery (wenn Garmin), sonst Fortschritt
+  const stats=[[wk.km,isTri?"STD PLAN":"KM PLAN",""],[kmDone,isTri?"STD ABS.":"GELAUFEN",""],[wk.longKm||"—","LANGE EINH.",""],
+    rs!=null?[rs,"RECOVERY","openRecovery()"]:[Math.round((wi+1)/totalW*100),"FORTSCHRITT %",""]];
   return `
     ${brandRow()}
     <div class="card hero">
@@ -841,11 +901,23 @@ function viewHeute(){
       </div>
     </div>
     ${todayCard(s,done)}
+    ${stravaPendingBlock()}
+    <button class="coachcard" onclick="openCoach()"><div class="ci">${ic("zap",20)}</div><div class="ct"><b>Dein KI-Coach</b><span>${coachHistory().length?"Unterhaltung fortsetzen":"Frag zu Plan, Form &amp; heutiger Einheit"}</span></div><div style="color:var(--dim)">›</div></button>
     ${plan.summary?`<div class="card mid" style="padding:15px 18px"><div class="eyebrow" style="margin-bottom:7px">${ic("bulb",14)} Dein Plan</div><div style="font-size:13px;color:var(--text-2);line-height:1.5">${esc(plan.summary)}</div></div>`:""}
-    <div class="stats4">${stats.map(([v,l])=>`<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("")}</div>
+    <div class="stats4">${stats.map(([v,l,act])=>`<div class="stat" ${act?`onclick="${act}" style="cursor:pointer"`:""}><b>${v}</b><span>${l}</span></div>`).join("")}</div>
   `;
 }
 function phaseReachIndex(ph){return {Base:0,Build:1,Peak:2,Taper:3}[ph]??0;}
+function cardRecovery(){
+  if(!garminConnected())return "";
+  const d=latestWellness();if(!d)return "";
+  const s=recoveryScore(d),col=recoveryColor(s),lab=recoveryLabel(s);
+  return `<div class="card" onclick="openRecovery()" style="cursor:pointer">
+    <div class="between"><div class="eyebrow">Recovery · Garmin</div><span class="mono" style="font-size:10px;color:var(--mut)">Stand ${esc(d.date||"")}</span></div>
+    <div style="display:flex;align-items:flex-end;gap:12px;margin:10px 0 4px"><div style="font-size:34px;font-weight:700;letter-spacing:-1.5px;color:${col};line-height:.9">${s==null?"–":s}</div><div style="padding-bottom:4px;font-size:13px;font-weight:600;color:${col}">${lab}</div></div>
+    <div class="mono" style="font-size:11px;color:var(--mut)">Schlaf ${fmtH(d.sleepSeconds)} · HRV ${d.hrvLastNight||"–"} · Ruhe-HF ${d.restingHr||"–"} · Battery ${d.bodyBatteryLast!=null?d.bodyBatteryLast:"–"}</div>
+  </div>`;
+}
 function brandRow(){return `<div class="brandrow"><div class="bl"><b>THE LINE</b><span class="ln-line"></span></div><div class="br">${esc(SPORTS[DB.profile.sport].label.toUpperCase())}<br>${DB.profile.raceDate?fmtDateFull(raceDateObj()):""}</div></div>`;}
 
 function todayCard(s,done){
@@ -940,6 +1012,7 @@ function viewAnalyse(){
       <div style="font-size:34px;font-weight:700;letter-spacing:-1.5px;margin:10px 0 4px">${p.goalMode==="time"?esc(p.targetStr):"Finish"}</div>
       <div style="font-size:12px;color:var(--mut);font-family:var(--mono)">${p.goalMode==="time"?"Ziel-Pace "+fmtPace(plan.paces?plan.paces.goal:0)+" /km":"Sicher ankommen"}</div>
     </div>
+    ${cardRecovery()}
     <div class="card">
       <div class="between"><div class="eyebrow">Compliance</div><b style="font-size:21px;color:${compliance>=90?"var(--accent)":"var(--warn)"}">${compliance}%</b></div>
       <div class="bl-track" style="margin:12px 0 6px;background:var(--surface-2)"><div class="bl-fill" style="width:${compliance}%;background:${compliance>=90?"var(--accent)":"var(--warn)"};box-shadow:none"></div></div>
@@ -968,9 +1041,10 @@ function viewMehr(){
     </div>
     <div class="section-eyebrow">Verbindungen</div>
     <div class="list">
-      <div class="li" onclick="openCoachSetup()"><div class="ii">${ic("zap",20)}</div><div class="lt"><b>KI-Coach &amp; Plan</b><span>${connected?"Verbunden":"Worker verbinden für KI-Plan"}</span></div>${connected?`<div class="dot"></div>`:`<div class="rt">verbinden ›</div>`}</div>
-      <div class="li"><div class="ii">${ic("heart",20)}</div><div class="lt"><b>Garmin · Recovery</b><span>Schlaf &amp; HRV</span></div><div class="rt">verbinden ›</div></div>
-      <div class="li"><div class="ii">${ic("activity",20)}</div><div class="lt"><b>Strava · Aktivitäten</b><span>Läufe automatisch</span></div><div class="rt">verbinden ›</div></div>
+      <div class="li" onclick="${connected?"openCoach()":"openCoachSetup()"}"><div class="ii">${ic("zap",20)}</div><div class="lt"><b>KI-Coach &amp; Plan</b><span>${connected?"Verbunden · Chat öffnen":"Worker verbinden für KI-Plan &amp; Coach"}</span></div>${connected?`<div class="dot"></div>`:`<div class="rt">verbinden ›</div>`}</div>
+      <div class="li" onclick="ghConnect()"><div class="ii">${ic("heart",20)}</div><div class="lt"><b>Garmin · Recovery</b><span>${garminConnected()?"Verbunden"+(DB.garmin.lastFetch?" · Sync "+fmtDate(new Date(DB.garmin.lastFetch)):""):"Schlaf &amp; HRV via Gist"}</span></div>${garminConnected()?`<div class="dot"></div>`:`<div class="rt">verbinden ›</div>`}</div>
+      <div class="li" onclick="stravaConnect()"><div class="ii">${ic("activity",20)}</div><div class="lt"><b>Strava · Aktivitäten</b><span>${stravaConnected()?"Verbunden"+(DB.strava.athlete?" · "+esc(DB.strava.athlete):""):"Läufe automatisch übernehmen"}</span></div>${stravaConnected()?`<div class="dot"></div>`:`<div class="rt">verbinden ›</div>`}</div>
+      ${(garminConnected()||stravaConnected())?`<div class="li" onclick="syncNow()"><div class="ii">${ic("refresh",20)}</div><div class="lt"><b>Jetzt synchronisieren</b><span>Garmin &amp; Strava abrufen</span></div><div class="rt">›</div></div>`:""}
     </div>
     <div class="section-eyebrow">App</div>
     <div class="list">
@@ -1050,6 +1124,203 @@ function saveLog(){
 function deleteLog(){const date=parseISO(_logDate);const s=sessionOn(date);if(s){delete DB.logs[logKey(s.wi,s.day)];save();}closeSheet();toast("Gelöscht");render();}
 function closeSheet(){document.getElementById("sheetRoot").classList.remove("open");}
 
+/* =========================================================================
+   INTEGRATIONS — Garmin (Recovery) & Strava (Aktivitäten)
+   ========================================================================= */
+function ghToken(){return (DB.github&&DB.github.token)||null;}
+function garminConnected(){return !!(DB.garmin&&DB.garmin.gistId&&ghToken());}
+async function ghConnect(){
+  const tok=prompt("GitHub Personal Access Token (Scope: gist) — liest deine Garmin-Recovery aus dem Sync-Gist:",ghToken()||"");
+  if(tok===null)return;
+  if(!tok.trim()){DB.github={};DB.garmin={};DB.wellness=null;save();toast("Garmin getrennt");render();return;}
+  try{
+    const r=await fetch("https://api.github.com/user",{headers:{Authorization:"token "+tok.trim()}});
+    if(!r.ok)throw new Error("Token ungültig ("+r.status+")");
+    DB.github={token:tok.trim(),user:(await r.json()).login};save();
+    const gid=prompt("Garmin-Wellness Gist-ID (aus deinem garmin-sync-Setup):",(DB.garmin&&DB.garmin.gistId)||"");
+    if(gid&&gid.trim()){DB.garmin={gistId:gid.trim()};save();await fetchWellness();toast("Garmin verbunden ✓");}
+    else{toast("GitHub verbunden — Gist-ID fehlt noch");}
+    render();
+  }catch(e){toast("Fehler: "+e.message);}
+}
+async function fetchWellness(){
+  if(!garminConnected())return;
+  try{
+    const r=await fetch("https://api.github.com/gists/"+DB.garmin.gistId,{headers:{Authorization:"token "+ghToken(),Accept:"application/vnd.github+json"}});
+    if(!r.ok)return;
+    const g=await r.json();const f=g.files&&g.files["garmin-wellness.json"];if(!f)return;
+    DB.wellness=JSON.parse(f.content);DB.garmin.lastFetch=Date.now();save();
+  }catch(e){console.warn("wellness",e.message);}
+}
+function latestWellness(){const w=DB.wellness;if(!w||!w.days)return null;for(const d of w.days){if(d.sleepSeconds||d.hrvLastNight||d.restingHr)return d;}return null;}
+function recoveryScore(d){
+  if(!d)return null;const cl=(v,a,b)=>Math.max(a,Math.min(b,v));const parts=[];
+  if(d.sleepScore)parts.push([d.sleepScore,1]);
+  if(d.hrvLastNight){let hv;
+    if(d.hrvBalancedLow&&d.hrvBalancedHigh&&d.hrvBalancedHigh>d.hrvBalancedLow){const f=(d.hrvLastNight-d.hrvBalancedLow)/(d.hrvBalancedHigh-d.hrvBalancedLow);hv=cl(45+f*48,10,100);}
+    else if(d.hrvWeeklyAvg){hv=cl(65+(d.hrvLastNight-d.hrvWeeklyAvg)/d.hrvWeeklyAvg*120,10,100);}else hv=65;
+    parts.push([hv,1.3]);}
+  if(d.bodyBatteryLast!=null)parts.push([d.bodyBatteryLast,0.7]);
+  if(!parts.length)return null;const w=parts.reduce((a,p)=>a+p[1],0);
+  return Math.round(parts.reduce((a,p)=>a+p[0]*p[1],0)/w);
+}
+function recoveryColor(s){return s==null?"var(--mut)":s>=67?"var(--good)":s>=34?"var(--warn)":"var(--bad)";}
+function recoveryLabel(s){return s==null?"—":s>=67?"Grünes Licht":s>=34?"Moderat":"Beansprucht";}
+function fmtH(sec){if(!sec)return "–";const h=Math.floor(sec/3600),m=Math.round(sec%3600/60);return h+":"+String(m).padStart(2,"0");}
+function openRecovery(){
+  const d=latestWellness();if(!d){toast("Noch keine Garmin-Daten");return;}
+  const s=recoveryScore(d),col=recoveryColor(s),lab=recoveryLabel(s);
+  const bars=[["Schlaf-Score",d.sleepScore,100,"var(--accent)"],["Body Battery",d.bodyBatteryLast,100,"var(--mut)"]].filter(b=>b[1]!=null);
+  document.getElementById("sheet").innerHTML=`
+    <div class="grab"></div>
+    <div class="eyebrow" style="color:var(--accent);margin-bottom:6px">Recovery · Garmin · Stand ${esc(d.date||"")}</div>
+    <div style="display:flex;align-items:flex-end;gap:12px;margin-bottom:16px"><div style="font-size:56px;font-weight:700;letter-spacing:-2px;color:${col};line-height:.9">${s==null?"–":s}</div><div style="padding-bottom:8px"><div style="font-size:15px;font-weight:600">${lab}</div><div class="mono" style="font-size:11px;color:var(--mut)">${s!=null?"von 100":""}</div></div></div>
+    ${bars.map(([l,v,mx,c])=>`<div style="margin-bottom:12px"><div class="between" style="margin-bottom:6px"><span class="mono" style="font-size:10px;letter-spacing:1px;color:var(--mut);text-transform:uppercase">${l}</span><b style="font-size:13px">${v}</b></div><div class="bl-track" style="background:var(--surface-2)"><div class="bl-fill" style="width:${Math.min(100,v/mx*100)}%;background:${c};box-shadow:none"></div></div></div>`).join("")}
+    <div class="two" style="margin-top:16px">
+      ${[["Schlaf",fmtH(d.sleepSeconds)],["HRV",d.hrvLastNight?d.hrvLastNight+" ms":"–"],["Ruhe-HF",d.restingHr?d.restingHr+" bpm":"–"],["Battery",d.bodyBatteryLast!=null?d.bodyBatteryLast:"–"]].map(([l,v])=>`<div class="stat" style="margin:0"><b style="font-size:17px;color:var(--txt)">${v}</b><span>${l}</span></div>`).join("")}
+    </div>
+    <button class="btn ghost" style="margin-top:16px" onclick="closeSheet()">Schließen</button>`;
+  document.getElementById("sheetRoot").classList.add("open");
+}
+
+/* ---- Strava ---- */
+function stravaConnected(){return !!(DB.strava&&DB.strava.refreshToken);}
+async function stravaTokenExchange(body){
+  const r=await fetch("https://www.strava.com/oauth/token",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  if(!r.ok)throw new Error("Strava /oauth/token "+r.status);return r.json();
+}
+async function checkStravaCallback(){
+  const u=new URL(location.href);const code=u.searchParams.get("code");if(!code)return;
+  const c=DB.strava||{};
+  if(!c.clientId||!c.clientSecret){history.replaceState({},"",u.pathname);return;}
+  try{
+    const d=await stravaTokenExchange({client_id:c.clientId,client_secret:c.clientSecret,code,grant_type:"authorization_code"});
+    if(!d.access_token)throw new Error(d.message||"keine Tokens");
+    c.accessToken=d.access_token;c.refreshToken=d.refresh_token;c.expiresAt=d.expires_at*1000;
+    c.athlete=d.athlete?(d.athlete.firstname+" "+d.athlete.lastname).trim():null;
+    DB.strava=c;save();history.replaceState({},"",u.pathname);toast("Strava verknüpft ✓");
+    await stravaFetchActivities();render();
+  }catch(e){history.replaceState({},"",u.pathname);toast("Strava-Auth: "+e.message);}
+}
+function stravaConnect(){
+  if(stravaConnected()){if(confirm("Strava trennen?")){delete DB.strava;save();render();toast("Strava getrennt");}return;}
+  const cid=prompt("Strava Client-ID (aus deiner Strava-API-App):",(DB.strava&&DB.strava.clientId)||"");if(!cid)return;
+  const cs=prompt("Strava Client-Secret:",(DB.strava&&DB.strava.clientSecret)||"");if(!cs)return;
+  DB.strava=Object.assign(DB.strava||{},{clientId:cid.trim(),clientSecret:cs.trim()});save();
+  const redirect=location.origin+location.pathname;
+  location.href="https://www.strava.com/oauth/authorize?client_id="+encodeURIComponent(cid.trim())+"&response_type=code&redirect_uri="+encodeURIComponent(redirect)+"&approval_prompt=auto&scope=activity:read_all";
+}
+async function ensureStravaToken(){
+  const c=DB.strava;if(!c||!c.refreshToken)return false;
+  if(c.expiresAt&&c.expiresAt-Date.now()>60000&&c.accessToken)return true;
+  try{const d=await stravaTokenExchange({client_id:c.clientId,client_secret:c.clientSecret,refresh_token:c.refreshToken,grant_type:"refresh_token"});
+    if(!d.access_token)return false;c.accessToken=d.access_token;c.refreshToken=d.refresh_token||c.refreshToken;c.expiresAt=d.expires_at*1000;save();return true;
+  }catch(e){console.warn("strava refresh",e);return false;}
+}
+async function stravaFetchActivities(){
+  if(!await ensureStravaToken())return;const c=DB.strava;
+  const after=Math.floor((Date.now()-4*86400000)/1000);
+  try{
+    const r=await fetch("https://www.strava.com/api/v3/athlete/activities?after="+after+"&per_page=30",{headers:{Authorization:"Bearer "+c.accessToken}});
+    if(!r.ok){toast("Strava-Abruf "+r.status);return;}
+    const acts=await r.json();const ignored=new Set(c.importedIds||[]);
+    c.pending=acts.filter(a=>!ignored.has(a.id)).map(a=>({id:a.id,type:a.type,name:a.name,distance:a.distance,moving_time:a.moving_time,elapsed_time:a.elapsed_time,average_heartrate:a.average_heartrate,total_elevation_gain:a.total_elevation_gain,start_date:a.start_date}));
+    c.lastFetch=Date.now();save();
+    if(c.pending.length)toast(c.pending.length+" neue Strava-Aktivität(en)");
+  }catch(e){toast("Strava-Abruf: "+e.message);}
+}
+function stravaKind(t){t=t||"";if(/Run/i.test(t))return "run";if(/Ride|Cycl/i.test(t))return "ride";if(/Swim/i.test(t))return "swim";return "other";}
+function actLabel(t){const m={Run:"Lauf",TrailRun:"Trail-Lauf",Ride:"Radfahren",VirtualRide:"Rad (virtuell)",Swim:"Schwimmen",WeightTraining:"Krafttraining",Workout:"Workout",Crossfit:"Crossfit",Hike:"Wandern",Walk:"Gehen",Yoga:"Yoga"};return m[t]||t;}
+function actIcon(t){const k=stravaKind(t);return k==="run"?"run":k==="ride"?"bike":k==="swim"?"swim":"activity";}
+function pushActivity(a,dist,sec,hr){if(!DB.activities)DB.activities=[];DB.activities.unshift({id:"A"+a.id,type:a.type,label:actLabel(a.type),date:toISO(new Date(a.start_date)),dist,sec,hr,note:a.name||""});}
+async function stravaImport(id){
+  const c=DB.strava;const a=(c.pending||[]).find(x=>x.id===id);if(!a){toast("nicht mehr in Liste");return;}
+  const kind=stravaKind(a.type);const dt=new Date(a.start_date);const d0=new Date(dt.getFullYear(),dt.getMonth(),dt.getDate());
+  const dist=+((a.distance||0)/1000).toFixed(2);const sec=a.moving_time||a.elapsed_time;const hr=a.average_heartrate?Math.round(a.average_heartrate):null;
+  let msg="";
+  if(kind==="run"){
+    const s=sessionOn(d0);
+    if(s&&s.kind!=="rest"&&(!s.sport||s.sport==="run")&&!DB.logs[logKey(s.wi,s.day)]){
+      DB.logs[logKey(s.wi,s.day)]={dist,time:sec,timeStr:fmtDur(sec),feel:null,hr,date:toISO(d0),pace:sec&&dist?sec/dist:null,note:"Strava: "+(a.name||"")};
+      msg="Lauf übernommen ✓";
+    }else{pushActivity(a,dist,sec,hr);msg="Als Aktivität gespeichert ✓";}
+  }else{pushActivity(a,dist,sec,hr);msg=actLabel(a.type)+" gespeichert ✓";}
+  c.importedIds=(c.importedIds||[]).concat([a.id]);c.pending=(c.pending||[]).filter(x=>x.id!==a.id);save();render();toast(msg);
+}
+function stravaDismiss(id){const c=DB.strava;c.importedIds=(c.importedIds||[]).concat([id]);c.pending=(c.pending||[]).filter(x=>x.id!==id);save();render();}
+async function stravaImportAll(){const list=((DB.strava||{}).pending||[]).slice();for(const a of list)await stravaImport(a.id);toast("Alle übernommen ✓");}
+function stravaPendingBlock(){
+  if(!stravaConnected())return "";const p=(DB.strava.pending||[]);if(!p.length)return "";
+  const rows=p.map(a=>{const k=stravaKind(a.type);const dist=(a.distance||0)/1000;const head=k==="other"?actLabel(a.type):dist.toFixed(1)+" km";const dt=new Date(a.start_date);
+    return `<div class="li" style="padding:12px 0">
+      <div class="ii">${ic(actIcon(a.type),18)}</div>
+      <div class="lt"><b>${esc(head)}</b><span>${WD_SHORT[wdIndex(dt)]} ${fmtDate(dt)} · ${fmtDur(a.moving_time||a.elapsed_time)}${a.average_heartrate?" · "+Math.round(a.average_heartrate)+" bpm":""}</span></div>
+      <button class="btn sm" onclick="stravaImport(${a.id})">Übernehmen</button>
+      <button style="background:none;border:none;color:var(--dim);padding:4px 6px;font-size:15px" onclick="stravaDismiss(${a.id})">✕</button></div>`;}).join("");
+  return `<div class="list" style="border-color:var(--accent-soft-bd)">
+    <div style="padding:14px 18px 4px;display:flex;align-items:center;gap:8px"><span class="dot"></span><span class="eyebrow" style="color:var(--accent)">Neue Strava-Aktivitäten · ${p.length}</span></div>
+    ${rows}${p.length>1?`<div style="padding:12px 18px"><button class="btn ghost sm" style="width:100%" onclick="stravaImportAll()">Alle übernehmen</button></div>`:""}</div>`;
+}
+async function syncNow(){toast("Synchronisiere…");await Promise.all([fetchWellness(),stravaFetchActivities()]);render();toast("Aktualisiert ✓");}
+
+/* =========================================================================
+   KI-COACH — Chat (Worker /coach)
+   ========================================================================= */
+function coachHistory(){if(!DB.coach)DB.coach={};if(!DB.coach.history)DB.coach.history=[];return DB.coach.history;}
+function buildCoachContext(){
+  const p=DB.profile,plan=DB.plan,wi=planWeekIndex(),wk=plan.weeks[wi],s=sessionOn(today());
+  const rec=latestWellness(),rs=rec?recoveryScore(rec):null;const unit=SPORTS[p.sport].unit;
+  return [
+    "Sportart: "+p.sportLabel+(p.goalMode==="time"?" · Ziel "+p.targetStr:" · Ziel: ankommen/finishen"),
+    "Wettkampf: "+p.raceName+" am "+fmtDateFull(raceDateObj())+" ("+daysToRace()+" Tage entfernt)",
+    "Aktuelle Woche: W"+wk.w+"/"+plan.weeks.length+" · Phase "+wk.phase+" · "+wk.km+(unit==="tri"?" h":" km")+(wk.longKm?" · lange Einheit "+wk.longKm:""),
+    "Heute geplant: "+(s&&s.kind!=="rest"?s.title+" — "+s.detail:"Ruhetag"),
+    "Erfahrung: "+EXP[p.experience].label+" · "+p.daysPerWeek+" Trainingstage/Woche",
+    plan.paces?"Kalibrierte Paces (min/km): easy "+fmtPace(plan.paces.easy)+", long "+fmtPace(plan.paces.long)+", tempo "+fmtPace(plan.paces.tempo)+", Intervall "+fmtPace(plan.paces.interval)+(plan.paces.goal?", Ziel "+fmtPace(plan.paces.goal):""):null,
+    rs!=null?"Recovery heute (Garmin): "+rs+"/100 ("+recoveryLabel(rs)+")":null,
+    p.constraints?"Persönliche Constraints: "+p.constraints:null
+  ].filter(Boolean).join("\n");
+}
+function openCoach(){
+  if(!DB.coach||!DB.coach.workerUrl){openCoachSetup();return;}
+  document.getElementById("coachRoot").classList.add("open");renderCoach();
+}
+function closeCoach(){document.getElementById("coachRoot").classList.remove("open");}
+function fmtCoach(text){
+  // Emojis raus (App-Regel: keine Emojis) + Light-Markdown → HTML
+  const noEmoji=String(text).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}\u{200D}\u{2190}-\u{21FF}\u{2300}-\u{23FF}]/gu,"").replace(/[ \t]{2,}/g," ");
+  return esc(noEmoji)
+    .replace(/^#{1,6}\s*/gm,"")            // Überschriften-Marker entfernen
+    .replace(/\*\*(.+?)\*\*/g,"<b>$1</b>") // **fett** → <b>
+    .replace(/\n{3,}/g,"\n\n")
+    .replace(/\n/g,"<br>");
+}
+function renderCoach(){
+  const h=coachHistory();
+  const msgs=h.length?h.map(m=>`<div class="cmsg ${m.role}"><div class="cbubble">${m.role==="assistant"?fmtCoach(m.content):esc(m.content).replace(/\n/g,"<br>")}</div></div>`).join(""):
+    `<div class="cempty">${ic("zap",26)}<div style="margin-top:12px;font-size:14px;color:var(--text-2)">Dein persönlicher KI-Coach</div><div style="font-size:12px;color:var(--mut);margin-top:6px;line-height:1.5">Frag mich zu deinem Training, deiner Form, einzelnen Einheiten oder wie du dich heute fühlst. Ich kenne deinen Plan und deine Daten.</div></div>`;
+  document.getElementById("coachRoot").innerHTML=`
+    <div class="cv-top"><button class="cv-back" onclick="closeCoach()">${ic("menu",18)}</button><div class="cv-title"><b>Coach</b><span class="ln-line"></span></div><button class="cv-back" onclick="if(confirm('Verlauf löschen?')){DB.coach.history=[];save();renderCoach();}" style="font-size:12px;font-family:var(--mono);color:var(--mut)">↺</button></div>
+    <div class="cv-body" id="cvBody">${msgs}</div>
+    <div class="cv-input"><input id="cvIn" placeholder="Frag deinen Coach…" onkeydown="if(event.key==='Enter')coachSend()"><button onclick="coachSend()">${ic("zap",18)}</button></div>`;
+  const b=document.getElementById("cvBody");if(b)b.scrollTop=b.scrollHeight;
+}
+async function coachSend(){
+  const inp=document.getElementById("cvIn");const text=(inp.value||"").trim();if(!text)return;
+  const h=coachHistory();h.push({role:"user",content:text});save();inp.value="";renderCoach();
+  const b=document.getElementById("cvBody");
+  b.insertAdjacentHTML("beforeend",`<div class="cmsg assistant" id="cvTyping"><div class="cbubble"><span class="typing">•••</span></div></div>`);b.scrollTop=b.scrollHeight;
+  try{
+    const url=DB.coach.workerUrl.replace(/\/$/,"")+"/coach";
+    const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode:"v2",messages:h.slice(-20),context:buildCoachContext()})});
+    const j=await r.json();
+    const t=document.getElementById("cvTyping");if(t)t.remove();
+    if(j.text){h.push({role:"assistant",content:j.text});save();}
+    else{h.push({role:"assistant",content:"Fehler: "+(j.error||"keine Antwort")});save();}
+  }catch(e){const t=document.getElementById("cvTyping");if(t)t.remove();h.push({role:"assistant",content:"Verbindungsfehler: "+e.message});save();}
+  renderCoach();
+}
+
 /* ---- day refresh ---- */
 let _renderDay=null;
 function refreshIfNewDay(){if(DB.onboarded&&_renderDay&&_renderDay!==isoToday()&&!document.getElementById("sheetRoot").classList.contains("open"))render();}
@@ -1059,6 +1330,10 @@ function refreshIfNewDay(){if(DB.onboarded&&_renderDay&&_renderDay!==isoToday()&
 function init(){
   if(!DB.onboarded){document.getElementById("app").style.display="none";document.getElementById("onboard").style.display="flex";startOnboarding();}
   else{render();}
+  // Strava-OAuth-Redirect abfangen; bei bestehender Verbindung im Hintergrund syncen
+  checkStravaCallback();
+  if(DB.onboarded){if(garminConnected())fetchWellness().then(()=>{if(route==="heute"||route==="analyse")render();});
+    if(stravaConnected())stravaFetchActivities().then(()=>{if(route==="heute")render();});}
 }
 init();
 </script>
