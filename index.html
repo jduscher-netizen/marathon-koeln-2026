@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0a0b0d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>SUB4 — Marathon Köln 2026</title>
+<title>SUB4 — Marathon München 2026</title>
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
@@ -312,7 +312,7 @@
 
 /* ============ PLAN DATA ============ */
 const DEFAULT_START = new Date(2026,4,11); // Mo 11.05.2026 (W1 day0)
-const DEFAULT_RACE  = new Date(2026,9,4);  // 04.10.2026
+const DEFAULT_RACE  = new Date(2026,9,11); // 11.10.2026 — Marathon München
 const DEFAULT_GOAL  = 14400;               // Sub 4:00:00 in Sekunden
 const PLAN_OFFSET   = Math.round((DEFAULT_RACE-DEFAULT_START)/86400000); // Tage Start→Race (Plan-Länge)
 // Überschreibbare Eckdaten (vom Plan-Editor-Chat änderbar) — Fallback = Defaults
@@ -321,7 +321,7 @@ function parseLocalDate(s){ if(s instanceof Date) return s; const m=String(s).ma
 function planStart(){ const c=DB&&DB.cfg; return c&&c.planStart? parseLocalDate(c.planStart) : DEFAULT_START; }
 function raceDate(){  const c=DB&&DB.cfg; return c&&c.raceDate?  parseLocalDate(c.raceDate)  : DEFAULT_RACE; }
 function goalSec(){   const c=DB&&DB.cfg; return (c&&c.goalSec)||DEFAULT_GOAL; }
-function raceCity(){  const c=DB&&DB.cfg; return (c&&c.raceCity)||"Köln"; }
+function raceCity(){  const c=DB&&DB.cfg; return (c&&c.raceCity)||"München"; }
 function raceLabel(){ return "Marathon "+raceCity(); }
 function raceDateStr(){ const d=raceDate(); return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(); }
 function dmShort(d){ return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."; }
@@ -347,13 +347,13 @@ const WEEKS = [
  {w:12, dr:"27.07.–02.08.", ph:"Build", km:68, lr:30, di:"12 km Tempo-DL Z4 (5:15) + Ein/Aus", do:"13 km Z2 (5:55)", fr:"7 km Z1 (6:30)", so:"30 km reines Z2 (6:00)"},
  {w:13, dr:"03.08.–09.08.", ph:"Build · Entlastung", km:44, lr:18, di:"5×1000m Z4 (4:55) Tp 2min + Ein/Aus", do:"9 km Z2 (6:00)", fr:"6 km Z1 (6:40)", so:"18 km Z2 (5:55)"},
  {w:14, dr:"10.08.–16.08.", ph:"Build", km:70, lr:28, di:"3×3000m Z4 (5:05) Tp 3min + Ein/Aus", do:"14 km Z2 (5:55)", fr:"7 km Z1 (6:30)", so:"28 km · 12 km MP Mitte"},
- {w:15, dr:"17.08.–23.08.", ph:"Peak", km:72, lr:30, di:"14 km Tempo-DL Z4 (5:15) + Ein/Aus", do:"14 km Z2 (5:55)", fr:"7 km Z1 (6:30)", so:"30 km · 15 km MP am Ende"},
- {w:16, dr:"24.08.–30.08.", ph:"Peak · Königswoche", km:75, lr:32, di:"5×2000m Z4 (4:55) Tp 2min + Ein/Aus", do:"15 km Z2 (5:55)", fr:"8 km Z1 (6:30)", so:"32 km Z2 · 8 km MP Mitte"},
+ {w:15, dr:"17.08.–23.08.", ph:"Peak · USA-Reise", km:47, lr:14, di:"14 km Tempo-DL Z4 (5:15) + Ein/Aus", do:"14 km Z2 (5:55)", fr:"7 km Z1 (6:30) Reisetag", so:"12 km Z2 locker (New York) · HF <150, kein Long Run auf Reise"},
+ {w:16, dr:"24.08.–30.08.", ph:"Peak · Königswoche", km:60, lr:32, di:"9 km Z2 locker (New York) · keine Intervalle auf Reise", do:"10 km Z2 locker (New York)", fr:"8 km Z1 (6:30)", so:"32 km Z2 · 8 km MP Mitte"},
  {w:17, dr:"31.08.–06.09.", ph:"Peak", km:70, lr:28, di:"16 km Tempo-DL Z4 (5:15) + Ein/Aus", do:"14 km Z2 (5:55)", fr:"7 km Z1 (6:30)", so:"28 km · 18 km MP am Ende"},
  {w:18, dr:"07.09.–13.09.", ph:"Peak · Entlastung", km:48, lr:20, di:"4×1000m Z4 (4:50) Tp 2min + Ein/Aus", do:"10 km Z2 (5:55)", fr:"6 km Z1 (6:35)", so:"20 km Z2 (5:55)"},
  {w:19, dr:"14.09.–20.09.", ph:"Taper", km:50, lr:22, di:"6 km MP (5:40) + Ein/Aus", do:"12 km Z2 (5:55)", fr:"6 km Z1 (6:35)", so:"22 km · 8 km MP am Ende"},
  {w:20, dr:"21.09.–27.09.", ph:"Taper", km:38, lr:16, di:"4×1000m Z4 (4:55) Tp 2min + Ein/Aus", do:"10 km Z2 (6:00)", fr:"5 km Z1 (6:35)", so:"16 km · 4 km MP"},
- {w:21, dr:"28.09.–04.10.", ph:"Wettkampf", km:55, lr:42, di:"5 km Z2 + 4×100m Steigerungen", do:"6 km Z1 (6:30)", fr:"–", so:"04.10. MARATHON KÖLN"},
+ {w:21, dr:"28.09.–04.10.", ph:"Taper · Rennwoche", km:34, lr:14, di:"6 km Z2 + 4×100m Steigerungen", do:"8 km Z2 (6:00)", fr:"5 km Z1 (6:35)", so:"12 km Z2 locker · letzter längerer Lauf vor München (Marathon 11.10.)"},
 ];
 
 const DOW = ["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -1018,11 +1018,13 @@ function addDays(d,n){ return new Date(d.getTime()+n*MS); }
 function dateOf(weekNum,dayIdx){ const s=planStart(); return new Date(s.getFullYear(),s.getMonth(),s.getDate()+(weekNum-1)*7+dayIdx); }
 function fmtD(d){ return DOW[(d.getDay()+6)%7]+" "+String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."; }
 function locate(d){
-  const ps=planStart();
-  const diff=Math.round((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(ps.getFullYear(),ps.getMonth(),ps.getDate()))/MS);
+  const ps=planStart(), rd=raceDate();
+  const du=Date.UTC(d.getFullYear(),d.getMonth(),d.getDate());
+  const diff=Math.round((du-Date.UTC(ps.getFullYear(),ps.getMonth(),ps.getDate()))/MS);
   if(diff<0) return {pre:true};
-  const w=Math.floor(diff/7)+1, day=diff%7;
-  if(w>21) return {post:true};
+  if(du>Date.UTC(rd.getFullYear(),rd.getMonth(),rd.getDate())) return {post:true}; // erst NACH dem Rennen "beendet"
+  let w=Math.floor(diff/7)+1, day=diff%7;
+  if(w>21) w=21;   // Tage zwischen Plan-Ende (W21) und Rennen als Renn-Woche (W21) zeigen
   return {week:w, dayIdx:day};
 }
 
@@ -3403,7 +3405,7 @@ function viewMehr(){
       <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:#f2f3f4;">Trainingsplan bearbeiten</div><div style="font-family:var(--mono);font-size:10px;color:#7e848c;margin-top:2px;">Per Chat anpassen — absolvierte Einheiten bleiben</div></div>
       <span style="color:#565c64;flex:none;">›</span>
     </div>
-    ${hasRaceOverride()?`<div onclick="resetRaceConfig()" style="cursor:pointer;text-align:center;margin-top:10px;font-family:var(--mono);font-size:10px;letter-spacing:.5px;color:#7e848c;">Eckdaten auf Original (Köln · 04.10.2026) zurücksetzen ›</div>`:""}
+    ${hasRaceOverride()?`<div onclick="resetRaceConfig()" style="cursor:pointer;text-align:center;margin-top:10px;font-family:var(--mono);font-size:10px;letter-spacing:.5px;color:#7e848c;">Eckdaten auf Original (München · 11.10.2026) zurücksetzen ›</div>`:""}
     <div style="height:18px"></div>
     ${conn}
     ${freeUnits}
@@ -3512,7 +3514,7 @@ function viewMehr(){
       <li>Optional: 10er-Test in W12 oder W17 (ersetzt Di)</li></ul>
     </div></details>
 
-    <details><summary>Wettkampf-Strategie Köln 04.10.</summary><div class="dc">
+    <details><summary>Wettkampf-Strategie München 11.10.</summary><div class="dc">
       <p><b>Pacing:</b> 1. Hälfte 5:42–5:45/km (zurückhaltend), 2. Hälfte 5:38/km. Negativer Split. Letzte 7 km nach Gefühl.</p>
       <p><b>HF:</b> erste 30 min unter 155 halten (auch wenn langsam wirkt), ab km 20 bis 160 okay.</p>
       <p><b>Verpflegung:</b> alle 30 min ein Gel, ab km 35 Koffein-Gel. Trinken alle 5 km, auch ohne Durst.</p>
@@ -3571,7 +3573,7 @@ function openSettings(){ go('mehr'); setTimeout(()=>{ const d=document.getElemen
 function hasRaceOverride(){ const c=DB.cfg; return !!(c && (c.raceDate||c.planStart||c.raceCity||c.goalSec)); }
 function resetRaceConfig(){
   if(!hasRaceOverride()){ toast("Schon im Original"); return; }
-  if(!confirm("Eckdaten auf den Original-Plan zurücksetzen (Köln · 04.10.2026 · Sub 4:00)? Deine eingetragenen/absolvierten Läufe bleiben erhalten.")) return;
+  if(!confirm("Eckdaten auf den Original-Plan zurücksetzen (München · 11.10.2026 · Sub 4:00)? Deine eingetragenen/absolvierten Läufe bleiben erhalten.")) return;
   DB.cfg={}; save(); render(); toast("Auf Original-Plan zurückgesetzt ✓");
 }
 function syncNow(btn){

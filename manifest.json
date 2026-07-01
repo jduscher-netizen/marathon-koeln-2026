@@ -1,7 +1,7 @@
 {
   "name": "SUB4",
   "short_name": "SUB4",
-  "description": "Persönlicher Marathon-Trainings-Tracker — Ziel Sub 4:00 in Köln",
+  "description": "Persönlicher Marathon-Trainings-Tracker — Ziel Sub 4:00 in München",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
