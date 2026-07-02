@@ -1315,6 +1315,62 @@ function viewTrack(){
   `;
 }
 
+/* ---- Form-Modell (CTL/ATL/TSB) + Zonenverteilung (A2) ---- */
+function sessionLoadFactor(kind){return {recovery:.6,easy:1,long:1.15,quality:1.6,race:1.9,cross:.7}[kind]||1;}
+function logKind(k){
+  const m=k.match(/^W(\d+)-(\d)$/);if(!m)return "easy";
+  const wi=+m[1]-1,day=+m[2];
+  const ov=DB.planEdits[k];if(ov&&ov.kind)return ov.kind;
+  const s=DB.plan.weeks[wi]&&DB.plan.weeks[wi].sessions.find(x=>x.day===day);
+  return (s&&s.kind)||"easy";
+}
+function dailyLoads(){
+  const map={};
+  Object.keys(DB.logs).forEach(k=>{
+    const l=DB.logs[k];if(!l||!l.date)return;
+    const min=(l.time||((l.dist||0)*((DB.plan.paces&&DB.plan.paces.easy)||360)))/60;
+    map[l.date]=(map[l.date]||0)+min*sessionLoadFactor(logKind(k));
+  });
+  (DB.activities||[]).forEach(a=>{const min=(a.sec||0)/60;if(!a.date||!min)return;map[a.date]=(map[a.date]||0)+min*.8;});
+  return map;
+}
+function formNow(){
+  const loads=dailyLoads();
+  const start=parseISO(DB.plan.startDate||DB.plan.weeks[0].start);
+  let ctl=0,atl=0;const t=today();
+  for(let d=start;d<=t;d=addDays(d,1)){const L=loads[toISO(d)]||0;ctl+=(L-ctl)/42;atl+=(L-atl)/7;}
+  return {ctl:Math.round(ctl),atl:Math.round(atl),tsb:Math.round(ctl-atl)};
+}
+function tsbLabel(t){return t>5?"frisch":t>=-10?"im Rhythmus":t>=-25?"müde":"überlastet";}
+function tsbColor(t){return t>5?"var(--accent)":t>=-10?"var(--text-2)":t>=-25?"var(--warn)":"var(--bad)";}
+function zoneSplit(){
+  const cutoff=addDays(today(),-28);let easy=0,hard=0;
+  Object.keys(DB.logs).forEach(k=>{
+    const l=DB.logs[k];if(!l||!l.date||parseISO(l.date)<cutoff)return;
+    const min=(l.time||0)/60;if(!min)return;
+    const kind=logKind(k);
+    if(kind==="quality"||kind==="race")hard+=min;else easy+=min;
+  });
+  const tot=easy+hard;
+  return tot?{easyPct:Math.round(easy/tot*100),tot:Math.round(tot)}:null;
+}
+function prognosisSvg(){
+  const p=DB.profile;if(p.goalMode!=="time"||!p.targetSec)return "";
+  const goal=p.targetSec;
+  const pts=DB.prognosis.slice(-3);
+  const est=pts.length?pts[pts.length-1].sec:goal;
+  const scale=16/300; // ±5 min → ±16 px; schneller als Ziel = UNTER der Linie
+  const y=s=>Math.max(6,Math.min(48,27-(s-goal)*scale));
+  const xs=[0.16,0.5,0.84].slice(3-Math.max(1,pts.length));
+  const dots=(pts.length?pts:[{sec:goal}]).map((pt,i,arr)=>{
+    const last=i===arr.length-1;
+    return `<circle cx="${(xs[i]*100).toFixed(1)}%" cy="${y(pt.sec).toFixed(1)}" r="${last?5:3.5}" fill="${last?"var(--accent)":"var(--dim)"}" ${last?'style="filter:drop-shadow(0 0 6px rgba(78,224,199,.8))"':""}/>`;
+  }).join("");
+  return `<svg width="100%" height="54" style="display:block;margin:12px 0 2px">
+    <line x1="0" y1="27" x2="100%" y2="27" stroke="var(--line-strong)" stroke-width="1.5" stroke-dasharray="5 5"/>
+    ${dots}</svg>
+  <div class="between"><span class="mono" style="font-size:9px;color:var(--dim);letter-spacing:1px">FRÜHER → HEUTE</span><span class="mono" style="font-size:9px;color:var(--mut);letter-spacing:1px">ZIEL ${fmtDur(goal)}</span></div>`;
+}
 function viewAnalyse(){
   const plan=DB.plan,p=DB.profile;
   const totalKm=Object.values(DB.logs).reduce((a,l)=>a+(parseFloat(l.dist)||0),0);
@@ -1323,14 +1379,30 @@ function viewAnalyse(){
   let planned=0,doneRuns=0;
   for(let i=0;i<=cur;i++){const wk=plan.weeks[i];wk.sessions.forEach(s=>{if(s.kind==="rest"||s.kind==="cross")return;const date=addDays(parseISO(wk.start),s.day);if(date>today())return;if(DB.skips[logKey(i,s.day)])return;planned++;if(DB.logs[logKey(i,s.day)])doneRuns++;});}
   const compliance=planned?Math.round(doneRuns/planned*100):0;
+  const est=p.goalMode==="time"&&p.targetSec?(DB.prognosis.length?DB.prognosis[DB.prognosis.length-1].sec:p.targetSec):null;
+  const dGoal=est!=null?p.targetSec-est:null; // + = schneller als Ziel
+  const form=formNow();
+  const zs=zoneSplit();
   return `
     <div class="ln-title"><b>Analyse</b><span class="sub">Plan vs. Realität</span></div>
     <div class="card">
-      <div class="eyebrow">${p.goalMode==="time"?"Prognose · unter der Linie":"Aufbau"}</div>
-      <div style="font-size:34px;font-weight:700;letter-spacing:-1.5px;margin:10px 0 4px">${p.goalMode==="time"?esc(p.targetStr):"Finish"}</div>
-      <div style="font-size:12px;color:var(--mut);font-family:var(--mono)">${p.goalMode==="time"?"Ziel-Pace "+fmtPace(plan.paces?plan.paces.goal:0)+" /km":"Sicher ankommen"}</div>
+      <div class="between"><div class="eyebrow">${p.goalMode==="time"?"Prognose · unter der Linie":"Aufbau"}</div>
+        ${dGoal?`<span class="mono" style="font-size:11px;color:${dGoal>0?"var(--accent)":"var(--warn)"}">${dGoal>0?"−":"+"}${fmtDur(Math.abs(dGoal))} ${dGoal>0?"✓":""}</span>`:""}</div>
+      <div style="font-size:34px;font-weight:700;letter-spacing:-1.5px;margin:10px 0 0">${est!=null?fmtDur(est):(p.goalMode==="time"?esc(p.targetStr):"Finish")}</div>
+      ${prognosisSvg()}
+      <div style="font-size:12px;color:var(--mut);font-family:var(--mono);margin-top:6px">${p.goalMode==="time"?"Ziel "+esc(p.targetStr)+" · Pace "+fmtPace(plan.paces?plan.paces.goal:0)+" /km":"Sicher ankommen"}</div>
     </div>
     ${cardRecovery()}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div class="card" style="margin:0"><div class="eyebrow">Form · TSB</div>
+        <div style="font-size:26px;font-weight:700;letter-spacing:-1px;margin:8px 0 2px;color:${tsbColor(form.tsb)}">${form.tsb>0?"+":""}${form.tsb}</div>
+        <div class="bl-track" style="background:var(--surface-2);margin:8px 0 6px"><div class="bl-marker" style="left:${Math.max(4,Math.min(96,50+form.tsb*1.6))}%;width:9px;height:9px;background:${tsbColor(form.tsb)};box-shadow:0 0 8px ${tsbColor(form.tsb)}"></div></div>
+        <div class="mono" style="font-size:10px;color:var(--mut)">${tsbLabel(form.tsb)} · Fitness ${form.ctl}</div></div>
+      <div class="card" style="margin:0"><div class="eyebrow">Locker / Hart</div>
+        ${zs?`<div style="font-size:26px;font-weight:700;letter-spacing:-1px;margin:8px 0 2px;color:${zs.easyPct>=75?"var(--accent)":"var(--warn)"}">${zs.easyPct}<span style="font-size:14px;color:var(--mut)"> %</span></div>
+        <div class="bl-track" style="background:var(--surface-2);margin:8px 0 6px"><div class="bl-fill" style="width:${zs.easyPct}%;background:${zs.easyPct>=75?"var(--accent)":"var(--warn)"};box-shadow:none"></div></div>
+        <div class="mono" style="font-size:10px;color:var(--mut)">Ziel ~80 % locker · 4 Wo</div>`:`<div style="font-size:13px;color:var(--dim);margin-top:10px">Noch zu wenige Einheiten</div>`}</div>
+    </div>
     <div class="card">
       <div class="between"><div class="eyebrow">Compliance</div><b style="font-size:21px;color:${compliance>=90?"var(--accent)":"var(--warn)"}">${compliance}%</b></div>
       <div class="bl-track" style="margin:12px 0 6px;background:var(--surface-2)"><div class="bl-fill" style="width:${compliance}%;background:${compliance>=90?"var(--accent)":"var(--warn)"};box-shadow:none"></div></div>
