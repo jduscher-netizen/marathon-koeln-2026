@@ -89,30 +89,30 @@ Adapter, kein Umbau. Das ist heute bereits so angelegt (`DB.logs`, `DB.activitie
 **A1 · Der adaptive Plan** *(Kern der Vision, komplett lokal machbar — Recovery kommt solange aus Garmin-Dev-Anbindung oder manueller Eingabe „Wie fühlst du dich heute?")*
 - [x] Morgen-Check: schlechte Recovery/Gefühl → Einheit wird entschärft (ein Tap, mit Begründung) *(02.07.)*
 - [x] Verpasst-Logik: nicht getrackte Einheit → Umplanungs-Vorschlag statt stilles Loch *(02.07.: easy → „nicht nachholen"; Schlüssel-Einheit → verschieben ohne harte Nachbartage, sonst ehrliches „ausfallen lassen")*
-- [ ] Wochen-Rekalibrierung: Ist-Paces vs. Plan → Zonen/Prognose nachziehen (So-Abend-Report)
+- [x] Wochen-Rekalibrierung: Ist-Paces vs. Plan → Zonen/Prognose nachziehen (So-Abend-Report) *(02.07.)*
 - [x] Coach führt Planänderungen aus (JSON-Diff → Plan), nicht nur beraten *(02.07.: json-Block wie V1-Plan-Editor; Vergangenheit/Erledigtes tabu; ✓-Bestätigung im Chat)*
 - [ ] Änderungs-Feed: „Plan angepasst — deshalb" (Vertrauen!)
 
 **A2 · Analyse-Tiefe**
-- [ ] Einzel-Einheiten-Analyse mit KI-Verdict (Pace/HF, Plan-Abgleich — V1-Funktion als Vorbild)
-- [ ] Form-Modell (CTL/ATL/TSB) aus geloggten Einheiten — rein clientseitig
-- [ ] Prognose-Trend „unter der Linie" (3-Punkte-Chart, Design existiert in der Spec)
-- [ ] Zonenverteilung / 80-20-Check pro Woche
+- [x] Einzel-Einheiten-Analyse mit KI-Verdict (Pace/HF, Plan-Abgleich — V1-Funktion als Vorbild) *(02.07.)*
+- [x] Form-Modell (CTL/ATL/TSB) aus geloggten Einheiten — rein clientseitig *(02.07.)*
+- [x] Prognose-Trend „unter der Linie" (3-Punkte-Chart, Design existiert in der Spec) *(02.07.)*
+- [x] Zonenverteilung / 80-20-Check pro Woche *(02.07.: 4-Wochen-Fenster)*
 
 **A3 · Tracking komplett**
-- [ ] Aktivitäten-Liste sichtbar (DB.activities existiert schon, keine UI)
-- [ ] Kraft-/Mobility-Einheit live mitschreiben (V1-Gym als Vorbild, Hyrox-relevant!)
+- [x] Aktivitäten-Liste sichtbar (DB.activities existiert schon, keine UI) *(02.07.)*
+- [x] Kraft-/Mobility-Einheit eintragen (Quicklog: Typ/Dauer/Puls; Live-Mitschreiben wie V1-Gym offen) *(02.07. teilweise)*
 - [ ] Freie Einheiten je Woche (Padel, Rad, …) zählen wie in V1
 - [x] Subjektives Tagesgefühl erfassen (ersetzt Garmin-Recovery, bis HealthKit kommt) *(02.07., Teil des Morgen-Checks)*
 
 **A4 · Renntag & Erlebnis**
-- [ ] Rennwochen-Modus (Taper-Countdown, Checkliste, Pacing-Plan)
-- [ ] Wochenreport (Zusammenfassung + Coach-Einordnung)
-- [ ] Onboarding-Ergänzung: Geburtsjahr/HF-Daten (max/Ruhe) → echte Zonen statt Schätzung
+- [x] Rennwochen-Modus (Taper-Countdown, Checkliste, Pacing-Plan) *(02.07.)*
+- [x] Wochenreport (Zusammenfassung + Coach-Einordnung) *(02.07.)*
+- [x] Onboarding-Ergänzung: Geburtsjahr/HF-Daten (max/Ruhe) → echte Zonen statt Schätzung *(02.07.)*
 
 **A5 · Feinschliff**
-- [ ] Übergänge/Animationen (Sheet-Motion, Tab-Crossfade), Leere-Zustände, Microcopy
-- [ ] PWA-Manifest + Icons für V2 (lokal installierbar „wie echt")
+- [x] Übergänge: Tab-Crossfade + Sheet-Motion *(02.07.; Leere-Zustände/Microcopy laufend)*
+- [x] PWA-Manifest + Icons für V2 (lokal installierbar „wie echt") *(02.07.)*
 - [ ] Plan-Editor-Feinheiten (Einheit verschieben/tauschen per UI, nicht nur Chat)
 
 ---

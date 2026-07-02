@@ -233,6 +233,8 @@ select.inp{appearance:none;-webkit-appearance:none;background-image:url("data:im
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 .empty{text-align:center;color:var(--dim);font-size:13px;padding:34px 20px;font-family:var(--mono);letter-spacing:.5px}
+@keyframes screenIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.screen-in{animation:screenIn .18s ease-out}
 
 /* morgen-check */
 .mc{border-color:var(--accent-soft-bd)}
@@ -898,7 +900,11 @@ function buildSession(profile,role,dayIdx,phase,vol,paces,isRace){
    APP  (router + views)
    ========================================================================= */
 let route="heute";
-function go(k){route=k;render();window.scrollTo(0,0);}
+function go(k){
+  route=k;render();window.scrollTo(0,0);
+  const el=document.getElementById("screen");
+  el.classList.remove("screen-in");void el.offsetWidth;el.classList.add("screen-in");
+}
 const VIEWS={heute:viewHeute,woche:viewWoche,track:viewTrack,analyse:viewAnalyse,mehr:viewMehr};
 function render(){
   if(!DB.onboarded){document.getElementById("app").style.display="none";document.getElementById("onboard").style.display="flex";if(!document.getElementById("onboard").innerHTML)startOnboarding();return;}
