@@ -963,6 +963,7 @@ function viewHeute(){
         <div class="bl-you">W${String(wk.w).padStart(2,"0")} · ${wk.phase.toUpperCase()}</div>
       </div>
     </div>
+    ${raceWeekBlock()}
     ${weekReportBlock()}
     ${missedBlock()}
     ${morningCheckBlock()}
@@ -996,9 +997,38 @@ function todayCard(s,done){
   if(done){
     return `<div class="today"><div class="k">Heute · ${WD_LONG[wdIndex(today())]} · Erledigt</div><div class="t">${esc(s.title)} ${ic("check-circle",16)}</div><div class="d">${esc(done.dist||"")} ${done.dist?"km":""} · ${done.time?fmtDur(done.time):""}${done.pace?" · "+fmtPace(done.pace)+" /km":""}</div><div style="display:flex;gap:10px"><button class="btn sm" onclick="openRunAnalysis('${s.date}')">Analyse ansehen</button><button class="btn ghost sm" onclick="openLog('${s.date}')">Bearbeiten</button></div></div>`;
   }
-  return `<div class="today"><div class="k">Heute · ${WD_LONG[wdIndex(today())]} · ${kindLabel}${adjChip}</div><div class="t">${esc(s.title)}</div><div class="d">${esc(s.detail)}${s.zone?" · "+s.zone:""}</div>${adjNote}<button class="btn" onclick="openLog('${s.date}')">Einheit starten</button></div>`;
+  return `<div class="today"><div class="k">Heute · ${WD_LONG[wdIndex(today())]} · ${kindLabel}${adjChip}</div><div class="t">${esc(s.title)}</div><div class="d">${esc(s.detail)}${s.zone?" · "+s.zone:""}</div>${adjNote}<button class="btn" onclick="openLog('${s.date}')">${s.kind==="race"?"Ergebnis eintragen":"Einheit starten"}</button></div>`;
 }
 function weekKmDone(wi){let sum=0;const wk=DB.plan.weeks[wi];wk.sessions.forEach(s=>{const l=DB.logs[logKey(wi,s.day)];if(l&&l.dist)sum+=parseFloat(l.dist)||0;});return Math.round(sum);}
+
+/* ---- Rennwochen-Modus (A4) ---- */
+function raceWeekBlock(){
+  const dtr=daysToRace();
+  if(dtr>7)return "";
+  const p=DB.profile,sp=SPORTS[p.sport];
+  const isTime=p.goalMode==="time"&&p.targetSec&&sp.dist;
+  let splits="";
+  if(isTime){
+    const pace=p.targetSec/sp.dist;
+    const marks=sp.dist>=42?[10,21.1,30,sp.dist]:sp.dist>=21?[5,10,15,sp.dist]:sp.dist>=10?[2.5,5,7.5,sp.dist]:[1,2,3,sp.dist];
+    splits=`<div class="stats4" style="margin:12px 0 0">${marks.map(km=>`<div class="stat" style="padding:11px 4px"><b style="font-size:14px;color:var(--txt)">${fmtDur(Math.round(km*pace))}</b><span>${km===sp.dist?"ZIEL":"KM "+String(km).replace(".",",")}</span></div>`).join("")}</div>
+    <div class="mono" style="font-size:10px;color:var(--mut);margin-top:9px">Ziel-Pace ${fmtPace(pace)} /km — die ersten Kilometer bewusst nicht schneller.</div>`;
+  }
+  const check=[
+    "Ab 3 Tage vorher: Kohlenhydrate rauf, Ballaststoffe runter",
+    "Nichts Neues am Renntag — Schuhe, Verpflegung, Frühstück: alles erprobt",
+    "Startunterlagen und Outfit am Vorabend richten",
+    dtr<=1?"Beine hoch, früh ins Bett — Schlaf ist jetzt dein Training":"Kurz und locker bleiben — Frische schlägt Umfang"
+  ];
+  return `<div class="card" style="border-color:var(--accent-soft-bd);box-shadow:0 0 30px -14px rgba(78,224,199,.5)">
+    <div class="eyebrow" style="color:var(--accent);margin-bottom:8px">Rennwoche · ${dtr===0?"Heute ist Renntag":"noch "+dtr+" Tag"+(dtr>1?"e":"")}</div>
+    <div style="font-size:16px;font-weight:700;letter-spacing:-.3px">${esc(p.raceName)}</div>
+    ${splits}
+    <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:6px">
+      ${check.map(c=>`<div style="display:flex;gap:9px;padding:7px 0;font-size:12.5px;color:var(--text-2);line-height:1.4"><span style="color:var(--accent);flex:0 0 auto;padding-top:1px">${ic("check",14)}</span>${c}</div>`).join("")}
+    </div>
+  </div>`;
+}
 
 /* =========================================================================
    MORGEN-CHECK — tägliche Erholung → Plan passt sich an (A1)
