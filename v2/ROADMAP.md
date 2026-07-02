@@ -88,9 +88,9 @@ Adapter, kein Umbau. Das ist heute bereits so angelegt (`DB.logs`, `DB.activitie
 
 **A1 · Der adaptive Plan** *(Kern der Vision, komplett lokal machbar — Recovery kommt solange aus Garmin-Dev-Anbindung oder manueller Eingabe „Wie fühlst du dich heute?")*
 - [x] Morgen-Check: schlechte Recovery/Gefühl → Einheit wird entschärft (ein Tap, mit Begründung) *(02.07.)*
-- [ ] Verpasst-Logik: nicht getrackte Einheit → Umplanungs-Vorschlag statt stilles Loch
+- [x] Verpasst-Logik: nicht getrackte Einheit → Umplanungs-Vorschlag statt stilles Loch *(02.07.: easy → „nicht nachholen"; Schlüssel-Einheit → verschieben ohne harte Nachbartage, sonst ehrliches „ausfallen lassen")*
 - [ ] Wochen-Rekalibrierung: Ist-Paces vs. Plan → Zonen/Prognose nachziehen (So-Abend-Report)
-- [ ] Coach führt Planänderungen aus (JSON-Diff → Plan), nicht nur beraten
+- [x] Coach führt Planänderungen aus (JSON-Diff → Plan), nicht nur beraten *(02.07.: json-Block wie V1-Plan-Editor; Vergangenheit/Erledigtes tabu; ✓-Bestätigung im Chat)*
 - [ ] Änderungs-Feed: „Plan angepasst — deshalb" (Vertrauen!)
 
 **A2 · Analyse-Tiefe**

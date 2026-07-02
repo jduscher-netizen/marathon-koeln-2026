@@ -258,6 +258,7 @@ select.inp{appearance:none;-webkit-appearance:none;background-image:url("data:im
 .cmsg.user .cbubble{background:var(--accent);color:#08110f;border-bottom-right-radius:6px}
 .cmsg.assistant .cbubble{background:var(--surface);border:1px solid var(--line);color:var(--text-2);border-bottom-left-radius:6px}
 .typing{letter-spacing:2px;color:var(--mut);animation:blink 1.2s infinite}
+.capplied{margin-top:10px;padding-top:10px;border-top:1px solid var(--accent-soft-bd);font-family:var(--mono);font-size:11px;line-height:1.7;color:var(--accent)}
 @keyframes blink{0%,100%{opacity:.3}50%{opacity:1}}
 .cv-input{display:flex;gap:10px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
 .cv-input input{flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:13px 18px;color:var(--txt);font-size:15px;outline:none}
@@ -316,7 +317,7 @@ function ic(n,s=20){const p=_IC[n]||_IC.zap;return `<svg width="${s}" height="${
 
 /* ---------- Storage ---------- */
 const KEY="theline_v2";
-function freshDB(){return{v:2,onboarded:false,profile:null,plan:null,logs:{},acts:{},coach:{},github:{},garmin:{},strava:{},wellness:null,activities:[],planEdits:{},checkins:{},createdAt:isoToday()};}
+function freshDB(){return{v:2,onboarded:false,profile:null,plan:null,logs:{},acts:{},coach:{},github:{},garmin:{},strava:{},wellness:null,activities:[],planEdits:{},checkins:{},skips:{},createdAt:isoToday()};}
 let DB=load();
 function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);return Object.assign(freshDB(),d);}}catch(e){}return freshDB();}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}}
@@ -947,6 +948,7 @@ function viewHeute(){
         <div class="bl-you">W${String(wk.w).padStart(2,"0")} · ${wk.phase.toUpperCase()}</div>
       </div>
     </div>
+    ${missedBlock()}
     ${morningCheckBlock()}
     ${todayCard(s,done)}
     ${stravaPendingBlock()}
@@ -1071,6 +1073,79 @@ function morningCheckBlock(){
   return `<div class="mc-strip"><span class="dot" style="background:${mcLevelColor(dec.level)};box-shadow:0 0 8px ${mcLevelColor(dec.level)}"></span>Morgen-Check · ${txt}</div>`;
 }
 
+/* =========================================================================
+   VERPASST-LOGIK — kein stilles Loch, sondern Umplanung (A1)
+   ========================================================================= */
+function findMissed(){
+  // jüngste nicht getrackte, nicht quittierte Einheit der letzten 3 Tage
+  for(let off=1;off<=3;off++){
+    const d=addDays(today(),-off);
+    const s=sessionOn(d);
+    if(!s||s.kind==="rest"||s.kind==="cross"||s.kind==="race")continue;
+    const k=logKey(s.wi,s.day);
+    if(DB.logs[k]||DB.skips[k])continue;
+    return s;
+  }
+  return null;
+}
+function findMoveTarget(missed){
+  // Kandidat: heute bis Samstag — freier oder lockerer Tag, ohne harte Nachbarn
+  const hard=x=>x&&(x.kind==="quality"||x.kind==="long"||x.kind==="race")&&!DB.skips[logKey(x.wi,x.day)]&&x.date!==missed.date;
+  for(let off=0;off<7;off++){
+    const d=addDays(today(),off);
+    if(off>0&&wdIndex(d)===0)break;               // nicht in die nächste Woche hinein
+    const s=sessionOn(d);if(!s)break;              // Planende
+    const k=logKey(s.wi,s.day);
+    if(DB.logs[k]||DB.skips[k])continue;
+    if(s.kind!=="rest"&&s.kind!=="easy")continue;
+    if(missed.kind==="quality"||missed.kind==="long"){
+      if(hard(sessionOn(addDays(d,-1)))||hard(sessionOn(addDays(d,1))))continue;
+    }
+    return s;
+  }
+  return null;
+}
+function missedBlock(){
+  const m=findMissed();if(!m)return "";
+  const md=parseISO(m.date);
+  const head=`<div class="eyebrow" style="color:var(--bad);margin-bottom:8px">Verpasst · ${WD_LONG[wdIndex(md)]} · ${esc(m.title)}</div>`;
+  // Lockere Einheiten: nicht nachholen — quittieren
+  if(m.kind==="easy"||m.kind==="recovery"){
+    return `<div class="card" style="border-color:rgba(224,88,79,.25)">${head}
+      <div style="font-size:12.5px;color:var(--mut);line-height:1.5;margin-bottom:14px">Kein Stress — lockere Kilometer holt man nicht nach. Der Plan läuft normal weiter.</div>
+      <button class="btn ghost sm" onclick="msSkip('${m.date}')">Verstanden</button></div>`;
+  }
+  // Schlüssel-Einheit: verschieben, wenn ein guter Tag frei ist
+  const t=findMoveTarget(m);
+  if(t){
+    const td=parseISO(t.date);
+    return `<div class="card" style="border-color:rgba(224,88,79,.25)">${head}
+      <div style="font-size:15px;font-weight:700;letter-spacing:-.2px;margin-bottom:6px">Nachholen am ${WD_LONG[wdIndex(td)]}${t.date===isoToday()?" (heute)":""}</div>
+      <div class="mono" style="font-size:11px;color:var(--text-2);margin-bottom:10px">${esc(m.detail)}</div>
+      <div style="font-size:12.5px;color:var(--mut);line-height:1.5;margin-bottom:14px">${t.kind==="easy"?"Der lockere Lauf an dem Tag entfällt dafür — Schlüssel-Einheiten gehen vor.":"Der Tag ist frei — die Einheit passt dort ohne harte Nachbartage."}</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn" style="flex:1.4;padding:12px" onclick="msMove('${m.date}','${t.date}')">Verschieben</button>
+        <button class="btn ghost" style="flex:1;padding:12px" onclick="msSkip('${m.date}')">Ausfallen lassen</button>
+      </div></div>`;
+  }
+  return `<div class="card" style="border-color:rgba(224,88,79,.25)">${head}
+    <div style="font-size:12.5px;color:var(--mut);line-height:1.5;margin-bottom:14px">Diese Woche ist zu voll zum Nachholen. Ausfallen lassen ist hier die richtige Wahl — Konstanz schlägt Aufholjagd.</div>
+    <button class="btn ghost sm" onclick="msSkip('${m.date}')">Ausfallen lassen</button></div>`;
+}
+function msSkip(dateISO){
+  const s=sessionOn(parseISO(dateISO));if(!s)return;
+  DB.skips[logKey(s.wi,s.day)]={date:dateISO,reason:"missed",ts:Date.now()};
+  save();render();toast("Okay — Plan läuft weiter");
+}
+function msMove(fromISO,toISO2){
+  const from=sessionOn(parseISO(fromISO)),to=sessionOn(parseISO(toISO2));
+  if(!from||!to)return;
+  DB.planEdits[logKey(to.wi,to.day)]={title:from.title,detail:from.detail,kind:from.kind,zone:from.zone||"",dist:from.dist,
+    reason:"Nachgeholt von "+WD_LONG[wdIndex(parseISO(fromISO))]+" — verpasste Schlüssel-Einheit.",origTitle:to.title,date:isoToday(),src:"missed"};
+  DB.skips[logKey(from.wi,from.day)]={date:fromISO,reason:"moved",ts:Date.now()};
+  save();render();toast("Einheit verschoben ✓");
+}
+
 function viewWoche(){
   const plan=DB.plan;const cur=planWeekIndex();
   const totalW=plan.weeks.length;
@@ -1107,8 +1182,10 @@ function weekDays(wk,wi){
     const ov=DB.planEdits[logKey(wi,dd)];
     if(ov)s={...(s||{day:dd,kind:"rest"}),title:ov.title,detail:ov.detail,kind:ov.kind||(s?s.kind:"easy"),adjusted:true};
     const isToday=toISO(date)===isoToday();
-    if(!s||s.kind==="rest"){rows.push(`<div class="wk-day rest ${isToday?"is-today":""}"><div class="dd">${WD_SHORT[dd]} ${date.getDate()}.</div><div class="dc">— frei —</div></div>`);continue;}
+    if(!s||s.kind==="rest"){rows.push(`<div class="wk-day rest ${isToday?"is-today":""}"><div class="dd">${WD_SHORT[dd]} ${date.getDate()}.</div><div class="dc">— frei —${s&&s.adjusted?` <span class="chip" style="font-size:7px;padding:1px 5px;vertical-align:1px">Angepasst</span>`:""}</div></div>`);continue;}
     const l=DB.logs[logKey(wi,dd)];
+    const sk=DB.skips[logKey(wi,dd)];
+    if(sk){rows.push(`<div class="wk-day rest ${isToday?"is-today":""}"><div class="dd">${WD_SHORT[dd]} ${date.getDate()}.</div><div class="dc" style="text-decoration:line-through;opacity:.7">${esc(s.title)}<small style="text-decoration:none">${sk.reason==="moved"?"verschoben":"ausgelassen"}</small></div></div>`);continue;}
     rows.push(`<div class="wk-day ${isToday?"is-today":""}" onclick="event.stopPropagation();openLog('${toISO(date)}')">
       <div class="dd">${WD_SHORT[dd]} ${date.getDate()}.</div>
       <div class="dc">${esc(s.title)}${s.adjusted?` <span class="chip" style="font-size:7px;padding:1px 5px;vertical-align:1px">Angepasst</span>`:""}${l?" "+ic("check",13):""}<small>${esc(s.detail)}</small></div></div>`);
@@ -1144,7 +1221,7 @@ function viewAnalyse(){
   const totalRuns=Object.keys(DB.logs).length;
   const cur=planWeekIndex();
   let planned=0,doneRuns=0;
-  for(let i=0;i<=cur;i++){const wk=plan.weeks[i];wk.sessions.forEach(s=>{if(s.kind==="rest"||s.kind==="cross")return;const date=addDays(parseISO(wk.start),s.day);if(date>today())return;planned++;if(DB.logs[logKey(i,s.day)])doneRuns++;});}
+  for(let i=0;i<=cur;i++){const wk=plan.weeks[i];wk.sessions.forEach(s=>{if(s.kind==="rest"||s.kind==="cross")return;const date=addDays(parseISO(wk.start),s.day);if(date>today())return;if(DB.skips[logKey(i,s.day)])return;planned++;if(DB.logs[logKey(i,s.day)])doneRuns++;});}
   const compliance=planned?Math.round(doneRuns/planned*100):0;
   return `
     <div class="ln-title"><b>Analyse</b><span class="sub">Plan vs. Realität</span></div>
@@ -1413,6 +1490,23 @@ async function syncNow(){toast("Synchronisiere…");await Promise.all([fetchWell
    KI-COACH — Chat (Worker /coach)
    ========================================================================= */
 function coachHistory(){if(!DB.coach)DB.coach={};if(!DB.coach.history)DB.coach.history=[];return DB.coach.history;}
+function coachWeekLines(){
+  // kompakter Wochenplan (aktuelle + 2 Folgewochen) — Basis für Planänderungen des Coachs
+  const plan=DB.plan,cur=planWeekIndex();const out=[];
+  for(let i=cur;i<Math.min(cur+3,plan.weeks.length);i++){
+    const wk=plan.weeks[i];const start=parseISO(wk.start);
+    const days=[];
+    for(let dd=0;dd<7;dd++){
+      const s=sessionOn(addDays(start,dd));
+      const k=logKey(i,dd);
+      let txt=s&&s.kind!=="rest"?s.title:"frei";
+      if(DB.logs[k])txt+=" [erledigt]";else if(DB.skips[k])txt+=" [ausgelassen]";else if(s&&s.adjusted)txt+=" [angepasst]";
+      days.push(WD_SHORT[dd]+" "+txt);
+    }
+    out.push("W"+wk.w+" ("+wk.phase+", ab "+wk.start+"): "+days.join(" · "));
+  }
+  return out.join("\n");
+}
 function buildCoachContext(){
   const p=DB.profile,plan=DB.plan,wi=planWeekIndex(),wk=plan.weeks[wi],s=sessionOn(today());
   const rec=latestWellness(),rs=rec?recoveryScore(rec):null;const unit=SPORTS[p.sport].unit;
@@ -1420,12 +1514,36 @@ function buildCoachContext(){
     "Sportart: "+p.sportLabel+(p.goalMode==="time"?" · Ziel "+p.targetStr:" · Ziel: ankommen/finishen"),
     "Wettkampf: "+p.raceName+" am "+fmtDateFull(raceDateObj())+" ("+daysToRace()+" Tage entfernt)",
     "Aktuelle Woche: W"+wk.w+"/"+plan.weeks.length+" · Phase "+wk.phase+" · "+wk.km+(unit==="tri"?" h":" km")+(wk.longKm?" · lange Einheit "+wk.longKm:""),
-    "Heute geplant: "+(s&&s.kind!=="rest"?s.title+" — "+s.detail:"Ruhetag"),
+    "Heute: "+WD_LONG[wdIndex(today())]+" ("+isoToday()+") · geplant: "+(s&&s.kind!=="rest"?s.title+" — "+s.detail:"Ruhetag"),
     "Erfahrung: "+EXP[p.experience].label+" · "+p.daysPerWeek+" Trainingstage/Woche",
     plan.paces?"Kalibrierte Paces (min/km): easy "+fmtPace(plan.paces.easy)+", long "+fmtPace(plan.paces.long)+", tempo "+fmtPace(plan.paces.tempo)+", Intervall "+fmtPace(plan.paces.interval)+(plan.paces.goal?", Ziel "+fmtPace(plan.paces.goal):""):null,
     rs!=null?"Recovery heute (Garmin): "+rs+"/100 ("+recoveryLabel(rs)+")":null,
-    p.constraints?"Persönliche Constraints: "+p.constraints:null
+    p.constraints?"Persönliche Constraints: "+p.constraints:null,
+    "Plan der nächsten Wochen:\n"+coachWeekLines()
   ].filter(Boolean).join("\n");
+}
+// Planänderungen aus der Coach-Antwort anwenden (json-Block wie im V1-Plan-Editor)
+function applyCoachChanges(text){
+  const m=text.match(/```json([\s\S]*?)```/i)||text.match(/\{\s*"changes"[\s\S]*\}/);
+  if(!m)return {clean:text,applied:[]};
+  let obj;try{obj=JSON.parse(m[1]||m[0]);}catch(e){return {clean:text.replace(/```json[\s\S]*?```/i,"").trim(),applied:[]};}
+  const changes=Array.isArray(obj.changes)?obj.changes:[];
+  const applied=[];
+  for(const c of changes.slice(0,14)){
+    const wi=(c.week|0)-1;if(wi<0||!DB.plan.weeks[wi])continue;
+    const day=c.day|0;if(day<0||day>6)continue;
+    const slotDate=addDays(parseISO(DB.plan.weeks[wi].start),day);
+    if(slotDate<today())continue;                     // Vergangenheit ist tabu
+    const k=logKey(wi,day);
+    if(DB.logs[k])continue;                            // Erledigtes ist tabu
+    const orig=(DB.plan.weeks[wi].sessions.find(x=>x.day===day)||{}).title||"frei";
+    DB.planEdits[k]={title:c.title||(c.kind==="rest"?"Ruhetag":"Einheit"),detail:c.detail||"",kind:c.kind||"easy",zone:c.zone||"",
+      dist:(typeof c.dist==="number"?c.dist:undefined),reason:c.reason||"Vom Coach angepasst.",origTitle:orig,date:isoToday(),src:"coach"};
+    delete DB.skips[k];
+    applied.push("W"+(wi+1)+" "+WD_SHORT[day]+" → "+(c.kind==="rest"?"frei":(c.title||c.kind)));
+  }
+  if(applied.length)save();
+  return {clean:text.replace(/```json[\s\S]*?```/i,"").trim(),applied};
 }
 function openCoach(){
   if(!DB.coach||!DB.coach.workerUrl){openCoachSetup();return;}
@@ -1443,7 +1561,7 @@ function fmtCoach(text){
 }
 function renderCoach(){
   const h=coachHistory();
-  const msgs=h.length?h.map(m=>`<div class="cmsg ${m.role}"><div class="cbubble">${m.role==="assistant"?fmtCoach(m.content):esc(m.content).replace(/\n/g,"<br>")}</div></div>`).join(""):
+  const msgs=h.length?h.map(m=>`<div class="cmsg ${m.role}"><div class="cbubble">${m.role==="assistant"?fmtCoach(m.content):esc(m.content).replace(/\n/g,"<br>")}${m.applied&&m.applied.length?`<div class="capplied">${m.applied.map(a=>"✓ "+esc(a)).join("<br>")}</div>`:""}</div></div>`).join(""):
     `<div class="cempty">${ic("zap",26)}<div style="margin-top:12px;font-size:14px;color:var(--text-2)">Dein persönlicher KI-Coach</div><div style="font-size:12px;color:var(--mut);margin-top:6px;line-height:1.5">Frag mich zu deinem Training, deiner Form, einzelnen Einheiten oder wie du dich heute fühlst. Ich kenne deinen Plan und deine Daten.</div></div>`;
   document.getElementById("coachRoot").innerHTML=`
     <div class="cv-top"><button class="cv-back" onclick="closeCoach()">${ic("menu",18)}</button><div class="cv-title"><b>Coach</b><span class="ln-line"></span></div><button class="cv-back" onclick="if(confirm('Verlauf löschen?')){DB.coach.history=[];save();renderCoach();}" style="font-size:12px;font-family:var(--mono);color:var(--mut)">↺</button></div>
@@ -1461,7 +1579,11 @@ async function coachSend(){
     const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode:"v2",messages:h.slice(-20),context:buildCoachContext()})});
     const j=await r.json();
     const t=document.getElementById("cvTyping");if(t)t.remove();
-    if(j.text){h.push({role:"assistant",content:j.text});save();}
+    if(j.text){
+      const {clean,applied}=applyCoachChanges(j.text);
+      h.push({role:"assistant",content:clean||"Plan angepasst.",applied});save();
+      if(applied.length)toast("Plan angepasst ✓");
+    }
     else{h.push({role:"assistant",content:"Fehler: "+(j.error||"keine Antwort")});save();}
   }catch(e){const t=document.getElementById("cvTyping");if(t)t.remove();h.push({role:"assistant",content:"Verbindungsfehler: "+e.message});save();}
   renderCoach();
