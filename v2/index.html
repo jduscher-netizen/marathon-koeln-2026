@@ -317,7 +317,7 @@ function ic(n,s=20){const p=_IC[n]||_IC.zap;return `<svg width="${s}" height="${
 
 /* ---------- Storage ---------- */
 const KEY="theline_v2";
-function freshDB(){return{v:2,onboarded:false,profile:null,plan:null,logs:{},acts:{},coach:{},github:{},garmin:{},strava:{},wellness:null,activities:[],planEdits:{},checkins:{},skips:{},createdAt:isoToday()};}
+function freshDB(){return{v:2,onboarded:false,profile:null,plan:null,logs:{},acts:{},coach:{},github:{},garmin:{},strava:{},wellness:null,activities:[],planEdits:{},checkins:{},skips:{},reports:{},prognosis:[],createdAt:isoToday()};}
 let DB=load();
 function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);return Object.assign(freshDB(),d);}}catch(e){}return freshDB();}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}}
@@ -919,7 +919,7 @@ function logKey(wi,day){return "W"+(wi+1)+"-"+day;}
 
 function viewHeute(){
   const p=DB.profile,plan=DB.plan;
-  ensureMorningCheck();
+  ensureMorningCheck();ensureWeekReports();
   const dtr=daysToRace();
   const wi=planWeekIndex();const wk=plan.weeks[wi];
   const totalW=plan.weeks.length;
@@ -948,6 +948,7 @@ function viewHeute(){
         <div class="bl-you">W${String(wk.w).padStart(2,"0")} · ${wk.phase.toUpperCase()}</div>
       </div>
     </div>
+    ${weekReportBlock()}
     ${missedBlock()}
     ${morningCheckBlock()}
     ${todayCard(s,done)}
@@ -1071,6 +1072,105 @@ function morningCheckBlock(){
     :s.kind==="rest"?"Ruhetag — passt zu deiner Erholung"
     :"Plan beibehalten — höre heute auf deinen Körper";
   return `<div class="mc-strip"><span class="dot" style="background:${mcLevelColor(dec.level)};box-shadow:0 0 8px ${mcLevelColor(dec.level)}"></span>Morgen-Check · ${txt}</div>`;
+}
+
+/* =========================================================================
+   WOCHENREPORT + PACE-REKALIBRIERUNG (A1/A4)
+   ========================================================================= */
+function ensureWeekReports(){
+  const plan=DB.plan;if(!plan)return;
+  const cur=planWeekIndex();
+  for(let wi=0;wi<cur;wi++){
+    const end=addDays(parseISO(plan.weeks[wi].start),6);
+    if(end<today()&&!DB.reports[wi])generateWeekReport(wi);
+  }
+}
+function generateWeekReport(wi){
+  const wk=DB.plan.weeks[wi];if(!wk)return null;
+  let planned=0,done=0,skipped=0;const deltas=[];
+  wk.sessions.forEach(raw=>{
+    const k=logKey(wi,raw.day);
+    const ov=DB.planEdits[k];
+    const s=ov?{...raw,kind:ov.kind||raw.kind,pace:ov.pace}:raw; // Override: Plan-Pace nur wenn bekannt
+    if(s.kind==="rest"||s.kind==="cross")return;
+    if(DB.skips[k]){skipped++;return;}
+    planned++;
+    const l=DB.logs[k];if(!l)return;
+    done++;
+    const pace=l.pace||(l.time&&l.dist?l.time/l.dist:null);
+    // Pace-Referenz nur aus gleichmäßigen Einheiten (easy/long), nicht aus Intervallen
+    if(pace&&s.pace&&(s.kind==="easy"||s.kind==="long"||s.kind==="recovery")&&l.feel!=="Hart")deltas.push(pace-s.pace);
+  });
+  const kmDone=weekKmDone(wi);
+  const compliance=planned?Math.round(done/planned*100):null;
+  const medDelta=deltas.length?Math.round(deltas.sort((a,b)=>a-b)[Math.floor(deltas.length/2)]):null;
+  // Rekalibrierung: konsistent schneller/langsamer bei lockeren Läufen → Referenz-Paces nachziehen
+  let recal=null;
+  if(deltas.length>=2&&medDelta!=null&&Math.abs(medDelta)>10&&DB.plan.paces){
+    const shift=Math.max(-12,Math.min(12,Math.round(medDelta*0.5)));
+    ["easy","long","tempo","interval"].forEach(k=>{if(DB.plan.paces[k])DB.plan.paces[k]+=shift;});
+    recal={shift,note:shift<0?"Du läufst locker konstant schneller als geplant — deine Referenz-Paces wurden um "+Math.abs(shift)+" s/km geschärft.":"Deine lockeren Läufe liegen konstant über der Vorgabe — Referenz-Paces um "+shift+" s/km entspannt. Ehrlich kalibriert trainiert es sich besser."};
+    // Prognose-Punkt (nur bei Zielzeit-Modus)
+    const p=DB.profile;const sp=SPORTS[p.sport];
+    if(p.goalMode==="time"&&p.targetSec&&sp.dist){
+      const prev=DB.prognosis.length?DB.prognosis[DB.prognosis.length-1].sec:p.targetSec;
+      const est=Math.round(prev+shift*sp.dist*0.6);
+      DB.prognosis.push({date:isoToday(),sec:est,w:wk.w});
+    }
+  } else if(DB.profile.goalMode==="time"&&DB.profile.targetSec&&!DB.prognosis.length){
+    DB.prognosis.push({date:isoToday(),sec:DB.profile.targetSec,w:wk.w});
+  }
+  const txt=weekReportText(wk,kmDone,compliance,done,planned,skipped,medDelta,recal);
+  DB.reports[wi]={w:wk.w,phase:wk.phase,generated:isoToday(),kmPlan:wk.km,kmDone,compliance,done,planned,skipped,medDelta,recal,text:txt,seen:false};
+  save();
+  return DB.reports[wi];
+}
+function weekReportText(wk,kmDone,compliance,done,planned,skipped,medDelta,recal){
+  const out=[];
+  if(compliance===null)out.push("Eine ruhige Woche ohne geplante Läufe.");
+  else if(compliance>=100)out.push("Volle Woche: alle "+planned+" Einheiten absolviert — genau so baut man eine "+wk.phase+"-Phase.");
+  else if(compliance>=75)out.push(done+" von "+planned+" Einheiten — solide Basis, der Plan trägt.");
+  else out.push(done+" von "+planned+" Einheiten. Kein Drama — aber Konstanz ist der stärkste Hebel, den du hast.");
+  if(skipped)out.push(skipped+" Einheit"+(skipped>1?"en":"")+" bewusst ausgelassen — sauber kommuniziert statt still verpasst.");
+  if(kmDone&&wk.km)out.push(kmDone+" von "+wk.km+" km gelaufen.");
+  if(recal)out.push(recal.note);
+  else if(medDelta!=null&&Math.abs(medDelta)<=10)out.push("Deine Paces treffen die Vorgaben — Kalibrierung passt.");
+  return out.join(" ");
+}
+function latestUnseenReport(){
+  const keys=Object.keys(DB.reports).map(Number).sort((a,b)=>b-a);
+  for(const wi of keys){if(!DB.reports[wi].seen)return wi;}
+  return null;
+}
+function weekReportBlock(){
+  const wi=latestUnseenReport();if(wi===null)return "";
+  const r=DB.reports[wi];
+  return `<div class="card" style="border-color:var(--accent-soft-bd)">
+    <div class="eyebrow" style="color:var(--accent);margin-bottom:8px">Wochenreport · W${String(r.w).padStart(2,"0")} · ${esc(r.phase)}</div>
+    <div style="font-size:15px;font-weight:700;letter-spacing:-.2px;margin-bottom:4px">${r.compliance!=null?r.compliance+" % erfüllt · "+r.kmDone+" km":"Woche abgeschlossen"}</div>
+    <div style="font-size:12.5px;color:var(--mut);line-height:1.5;margin-bottom:14px">${esc(r.text.split(" ").slice(0,18).join(" "))}…</div>
+    <button class="btn sm" onclick="openWeekReport(${wi})">Report ansehen</button>
+  </div>`;
+}
+function openWeekReport(wi){
+  const r=DB.reports[wi];if(!r)return;
+  r.seen=true;save();
+  const tiles=[[r.kmDone+"/"+r.kmPlan,"KM"],[r.compliance!=null?r.compliance+"%":"—","COMPLIANCE"],[r.done+"/"+r.planned,"EINHEITEN"],[r.medDelta!=null?(r.medDelta>0?"+":"−")+Math.abs(r.medDelta)+"s":"—","PACE VS PLAN"]];
+  document.getElementById("sheet").innerHTML=`
+    <div class="grab"></div>
+    <div class="eyebrow" style="color:var(--accent);margin-bottom:6px">Wochenreport · W${String(r.w).padStart(2,"0")} · ${esc(r.phase)}</div>
+    <div style="font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:16px">${r.compliance!=null?r.compliance+" % erfüllt":"Woche "+r.w}</div>
+    <div class="stats4" style="margin-bottom:14px">${tiles.map(([v,l])=>`<div class="stat"><b style="font-size:15px;color:var(--txt)">${v}</b><span>${l}</span></div>`).join("")}</div>
+    <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px">
+      <div class="eyebrow" style="margin-bottom:8px">Einordnung</div>
+      <div style="font-size:13px;color:var(--text-2);line-height:1.55">${esc(r.text)}</div>
+    </div>
+    ${r.recal?`<div style="background:var(--accent-soft);border:1px solid var(--accent-soft-bd);border-radius:14px;padding:13px 16px;margin-bottom:12px"><div class="eyebrow" style="color:var(--accent);margin-bottom:6px">Rekalibriert</div><div style="font-size:12.5px;color:var(--text-2)">Referenz-Paces ${r.recal.shift<0?"−":"+"}${Math.abs(r.recal.shift)} s/km${DB.prognosis.length?" · Prognose: "+fmtDur(DB.prognosis[DB.prognosis.length-1].sec):""}</div></div>`:""}
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn ghost" style="flex:1" onclick="closeSheet();openCoach()">Mit Coach besprechen</button>
+      <button class="btn" style="flex:1" onclick="closeSheet()">Fertig</button>
+    </div>`;
+  document.getElementById("sheetRoot").classList.add("open");
 }
 
 /* =========================================================================
@@ -1240,7 +1340,18 @@ function viewAnalyse(){
       <div class="card" style="margin:0"><div class="eyebrow">Gesamt</div><div style="font-size:26px;font-weight:700;letter-spacing:-1px;margin-top:8px">${Math.round(totalKm)}<span style="font-size:14px;color:var(--mut)"> km</span></div></div>
       <div class="card" style="margin:0"><div class="eyebrow">Einheiten</div><div style="font-size:26px;font-weight:700;letter-spacing:-1px;margin-top:8px">${totalRuns}</div></div>
     </div>
+    ${reportListBlock()}
   `;
+}
+function reportListBlock(){
+  const keys=Object.keys(DB.reports).map(Number).sort((a,b)=>b-a);
+  if(!keys.length)return "";
+  return `<div class="section-eyebrow">Wochenreports</div><div class="list">
+    ${keys.map(wi=>{const r=DB.reports[wi];return `<div class="li" onclick="openWeekReport(${wi})">
+      <div class="ii">${ic("calendar",18)}</div>
+      <div class="lt"><b>W${String(r.w).padStart(2,"0")} · ${esc(r.phase)}</b><span>${r.kmDone} km · ${r.compliance!=null?r.compliance+" %":"—"}${r.recal?" · rekalibriert":""}</span></div>
+      <div class="rt">›</div></div>`;}).join("")}
+  </div>`;
 }
 
 function viewMehr(){
