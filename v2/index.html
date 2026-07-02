@@ -387,7 +387,7 @@ const EXP={
    ========================================================================= */
 let OB={i:0,data:{}};
 const OB_STEPS=[
-  "welcome","sport","goalmode","target","raceinfo","experience","volume","days","longday","time","cross","constraints","review"
+  "welcome","sport","goalmode","target","raceinfo","experience","volume","days","longday","time","about","cross","constraints","review"
 ];
 
 function startOnboarding(){OB={i:0,data:{sport:"marathon",goalMode:"time",experience:"intermediate",daysPerWeek:4,availableDays:[false,true,false,true,false,false,true],longDay:6,sessionMinutes:75,cross:[]}};renderOB();}
@@ -428,7 +428,7 @@ function obStep(step){
     </div>`;
   }
   if(step==="sport"){
-    return `<div class="ob-step-eyebrow">Schritt 1</div>
+    return `<div class="ob-step-eyebrow">Schritt ${OB.i}</div>
       <div class="ob-h">Was ist dein Ziel?</div>
       <div class="ob-p">Wähle deine Disziplin. Alles Weitere passt sich an.</div>
       <div class="choices grid">
@@ -440,7 +440,7 @@ function obStep(step){
   }
   if(step==="goalmode"){
     const isTime=d.goalMode==="time";
-    return `<div class="ob-step-eyebrow">Schritt 2</div>
+    return `<div class="ob-step-eyebrow">Schritt ${OB.i}</div>
       <div class="ob-h">Zielzeit oder ankommen?</div>
       <div class="ob-p">Steuert, wie ambitioniert deine Paces und Einheiten kalibriert werden.</div>
       <div class="choices">
@@ -456,12 +456,12 @@ function obStep(step){
     const sp=SPORTS[d.sport];
     if(d.goalMode!=="time"){
       // skip target entry — advance handled in foot; but render info
-      return `<div class="ob-step-eyebrow">Schritt 3</div>
+      return `<div class="ob-step-eyebrow">Schritt ${OB.i}</div>
         <div class="ob-h">Alles klar — ankommen.</div>
         <div class="ob-p">Wir bauen deinen Plan auf ein sicheres Finish aus. Tippe auf Weiter.</div>`;
     }
     const needsHours=d.sport!=="5k"&&d.sport!=="10k";
-    return `<div class="ob-step-eyebrow">Schritt 3</div>
+    return `<div class="ob-step-eyebrow">Schritt ${OB.i}</div>
       <div class="ob-h">Deine Zielzeit</div>
       <div class="ob-p">Für ${sp.label}. Tippe die Zahlen — die Doppelpunkte setzt die App.</div>
       <div class="timeseg">
@@ -473,7 +473,7 @@ function obStep(step){
       ${sp.dist?`<div class="hint" id="ob-pacehint" style="text-align:center;margin-top:14px">${targetPaceHint(d.targetTimeStr,sp.dist)}</div>`:""}`;
   }
   if(step==="raceinfo"){
-    return `<div class="ob-step-eyebrow">Schritt 4</div>
+    return `<div class="ob-step-eyebrow">Schritt ${OB.i}</div>
       <div class="ob-h">Wann &amp; wo?</div>
       <div class="ob-p">Das Datum bestimmt die Länge deines Aufbaus.</div>
       <div class="field"><label>Wettkampf-Datum</label>
@@ -483,7 +483,7 @@ function obStep(step){
         <input class="inp" id="ob-race" value="${esc(d.raceName||"")}" placeholder="z.B. Berlin Marathon" oninput="OB.data.raceName=this.value"></div>`;
   }
   if(step==="experience"){
-    return `<div class="ob-step-eyebrow">Schritt 5</div>
+    return `<div class="ob-step-eyebrow">Schritt ${OB.i}</div>
       <div class="ob-h">Deine Erfahrung</div>
       <div class="ob-p">Ehrlich einschätzen — davon hängen Umfang und Intensität ab.</div>
       <div class="choices">
@@ -494,7 +494,7 @@ function obStep(step){
   }
   if(step==="volume"){
     const isTri=SPORTS[d.sport].unit==="tri";
-    return `<div class="ob-step-eyebrow">Schritt 6</div>
+    return `<div class="ob-step-eyebrow">Schritt ${OB.i}</div>
       <div class="ob-h">Aktueller Umfang</div>
       <div class="ob-p">Wo stehst du gerade? ${isTri?"Stunden pro Woche über alle Sportarten.":"Kilometer, die du aktuell pro Woche läufst."}</div>
       <div class="field"><label>${isTri?"Stunden / Woche":"Kilometer / Woche"}</label>
@@ -504,7 +504,7 @@ function obStep(step){
         <div class="hint">Hilft, deine Paces exakt zu treffen.</div></div>`:""}`;
   }
   if(step==="days"){
-    return `<div class="ob-step-eyebrow">Schritt 7</div>
+    return `<div class="ob-step-eyebrow">Schritt ${OB.i}</div>
       <div class="ob-h">Wie viele Tage pro Woche?</div>
       <div class="ob-p">Realistisch für deinen Alltag — Konstanz schlägt Heldentaten.</div>
       <div class="stepper" style="margin:30px 0 26px">
@@ -520,7 +520,7 @@ function obStep(step){
   }
   if(step==="longday"){
     const avail=d.availableDays.map((v,i)=>v?i:-1).filter(i=>i>=0);
-    return `<div class="ob-step-eyebrow">Schritt 8</div>
+    return `<div class="ob-step-eyebrow">Schritt ${OB.i}</div>
       <div class="ob-h">Dein langer Tag</div>
       <div class="ob-p">An welchem Tag hast du am meisten Zeit? Dorthin legen wir die lange Einheit.</div>
       <div class="days" style="flex-wrap:wrap;gap:8px">
@@ -528,16 +528,30 @@ function obStep(step){
       </div>`;
   }
   if(step==="time"){
-    return `<div class="ob-step-eyebrow">Schritt 9</div>
+    return `<div class="ob-step-eyebrow">Schritt ${OB.i}</div>
       <div class="ob-h">Zeit pro Einheit</div>
       <div class="ob-p">Wie lange dauert eine typische Einheit an einem normalen Tag?</div>
       <div class="seg" style="margin-top:24px">
         ${[45,60,75,90,120].map(m=>`<button class="${d.sessionMinutes===m?"on":""}" onclick="obSet('sessionMinutes',${m})">${m>=60?(m/60===Math.floor(m/60)?m/60+"h":Math.floor(m/60)+":"+(m%60))+"":m+"m"}</button>`).join("")}
       </div>`;
   }
+  if(step==="about"){
+    return `<div class="ob-step-eyebrow">Schritt ${OB.i}</div>
+      <div class="ob-h">Über dich</div>
+      <div class="ob-p">Optional — macht deine Herzfrequenz-Zonen und die Analyse deutlich präziser.</div>
+      <div class="field"><label>Geburtsjahr</label>
+        <input class="inp" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="z.B. 1990" value="${esc(d.yob||"")}" oninput="OB.data.yob=this.value"></div>
+      <div class="two">
+        <div class="field" style="margin:0"><label>Ruhe-HF (bpm)</label>
+          <input class="inp" inputmode="numeric" pattern="[0-9]*" maxlength="3" placeholder="z.B. 52" value="${esc(d.rhr||"")}" oninput="OB.data.rhr=this.value"></div>
+        <div class="field" style="margin:0"><label>Max-HF (bpm)</label>
+          <input class="inp" inputmode="numeric" pattern="[0-9]*" maxlength="3" placeholder="falls bekannt" value="${esc(d.maxhr||"")}" oninput="OB.data.maxhr=this.value"></div>
+      </div>
+      <div class="hint">Ohne Max-HF rechnen wir mit 220 − Alter; mit Ruhe-HF nutzen wir die genauere Karvonen-Formel.</div>`;
+  }
   if(step==="cross"){
     const opts=[["strength","Krafttraining","dumbbell"],["mobility","Mobility / Yoga","activity"],["cycling","Radfahren","bike"],["swimming","Schwimmen","swim"]];
-    return `<div class="ob-step-eyebrow">Schritt 10</div>
+    return `<div class="ob-step-eyebrow">Schritt ${OB.i}</div>
       <div class="ob-h">Ergänzendes Training</div>
       <div class="ob-p">Was machst du zusätzlich gern? (Optional, mehrfach wählbar)</div>
       <div class="choices">
@@ -548,7 +562,7 @@ function obStep(step){
       </div>`;
   }
   if(step==="constraints"){
-    return `<div class="ob-step-eyebrow">Schritt 11</div>
+    return `<div class="ob-step-eyebrow">Schritt ${OB.i}</div>
       <div class="ob-h">Noch etwas, das wir wissen sollten?</div>
       <div class="ob-p">Reisen, Verletzungshistorie, Wunsch-Ruhetage — alles, was deinen Plan realistisch macht. (Optional)</div>
       <div class="field">
@@ -655,6 +669,7 @@ async function finishOnboarding(){
     cross:d.cross.slice(),
     constraints:d.constraints||"",
     weeks:planWeeks(d),
+    hr:{yob:parseInt(d.yob,10)||null,rhr:parseInt(d.rhr,10)||null,maxhr:parseInt(d.maxhr,10)||null},
     createdAt:isoToday()
   };
   DB.profile=profile;save();
@@ -1489,6 +1504,7 @@ function viewMehr(){
     </div>
     <div class="list">
       <div class="li"><div class="ii">${ic("target",20)}</div><div class="lt"><b>Erfahrung &amp; Umfang</b><span>${EXP[p.experience].label} · ${p.currentVolume} ${SPORTS[p.sport].unit==="tri"?"h":"km"}/Wo · ${p.daysPerWeek} Tage</span></div></div>
+      <div class="li" onclick="openHrSheet()"><div class="ii">${ic("heart",20)}</div><div class="lt"><b>Herzfrequenz &amp; Zonen</b><span>${hrZones()?"Z2 bis "+hrZones()[2].hi+" bpm · "+(p.hr.maxhr?"Max "+p.hr.maxhr:"aus Alter")+(p.hr.rhr?" · Karvonen":""):"Nicht hinterlegt — antippen"}</span></div><div class="rt">›</div></div>
       <div class="li" onclick="regeneratePlan()"><div class="ii">${ic("refresh",20)}</div><div class="lt"><b>Plan neu generieren</b><span>Aus deinem aktuellen Profil</span></div><div class="rt">›</div></div>
     </div>
     <div class="section-eyebrow">Verbindungen</div>
@@ -1520,6 +1536,35 @@ async function regeneratePlan(){
   toast("Plan neu erstellt ✓");render();
 }
 function renderGeneratingOverlay(){document.getElementById("app").style.display="none";const el=document.getElementById("onboard");el.style.display="flex";renderGenerating();}
+/* ---- HF & Zonen (A4) ---- */
+function openHrSheet(){
+  const h=(DB.profile&&DB.profile.hr)||{};
+  const z=hrZones();
+  const zoneRows=z?[["Z1 · Regeneration","bis "+z[1].hi],["Z2 · Grundlage",z[2].lo+"–"+z[2].hi],["Z3 · Grauzone",z[3].lo+"–"+z[3].hi],["Z4 · Schwelle",z[4].lo+"–"+z[4].hi],["Z5 · VO2max","ab "+z[5].lo]]:null;
+  document.getElementById("sheet").innerHTML=`
+    <div class="grab"></div>
+    <div class="eyebrow" style="color:var(--accent);margin-bottom:6px">Herzfrequenz &amp; Zonen</div>
+    <div style="font-size:19px;font-weight:700;letter-spacing:-.3px;margin-bottom:16px">Deine Werte</div>
+    <div class="field"><label>Geburtsjahr</label>
+      <input class="inp" id="hr-yob" inputmode="numeric" pattern="[0-9]*" maxlength="4" value="${h.yob||""}" placeholder="z.B. 1990"></div>
+    <div class="two">
+      <div class="field" style="margin:0"><label>Ruhe-HF</label><input class="inp" id="hr-rhr" inputmode="numeric" pattern="[0-9]*" maxlength="3" value="${h.rhr||""}" placeholder="z.B. 52"></div>
+      <div class="field" style="margin:0"><label>Max-HF</label><input class="inp" id="hr-max" inputmode="numeric" pattern="[0-9]*" maxlength="3" value="${h.maxhr||""}" placeholder="falls bekannt"></div>
+    </div>
+    ${zoneRows?`<div style="background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:6px 16px;margin-bottom:14px">
+      ${zoneRows.map(([l,v],i)=>`<div class="between" style="padding:9px 0;${i<4?"border-bottom:1px solid var(--line)":""}">
+        <span style="font-size:12px;color:var(--text-2)">${l}</span><b class="mono" style="font-size:12px;color:${i===2?"var(--warn)":i<2?"var(--accent)":"var(--txt)"}">${v}</b></div>`).join("")}
+    </div>`:""}
+    <button class="btn" onclick="saveHr()">Speichern</button>`;
+  document.getElementById("sheetRoot").classList.add("open");
+}
+function saveHr(){
+  if(!DB.profile.hr)DB.profile.hr={};
+  DB.profile.hr.yob=parseInt(document.getElementById("hr-yob").value,10)||null;
+  DB.profile.hr.rhr=parseInt(document.getElementById("hr-rhr").value,10)||null;
+  DB.profile.hr.maxhr=parseInt(document.getElementById("hr-max").value,10)||null;
+  save();toast("Gespeichert ✓");openHrSheet();render();
+}
 function openCoachSetup(){
   const cur=DB.coach&&DB.coach.workerUrl||"";
   const url=prompt("Cloudflare-Worker-URL (für KI-Plan & Coach):",cur);
@@ -1843,6 +1888,7 @@ function buildCoachContext(){
     "Erfahrung: "+EXP[p.experience].label+" · "+p.daysPerWeek+" Trainingstage/Woche",
     plan.paces?"Kalibrierte Paces (min/km): easy "+fmtPace(plan.paces.easy)+", long "+fmtPace(plan.paces.long)+", tempo "+fmtPace(plan.paces.tempo)+", Intervall "+fmtPace(plan.paces.interval)+(plan.paces.goal?", Ziel "+fmtPace(plan.paces.goal):""):null,
     rs!=null?"Recovery heute (Garmin): "+rs+"/100 ("+recoveryLabel(rs)+")":null,
+    (function(){const z=hrZones();return z?"HF-Zonen (bpm): Z1 <"+z[1].hi+" · Z2 "+z[2].lo+"–"+z[2].hi+" · Z3 "+z[3].lo+"–"+z[3].hi+" (meiden) · Z4 "+z[4].lo+"–"+z[4].hi+" · Z5 >"+z[5].lo:null;})(),
     p.constraints?"Persönliche Constraints: "+p.constraints:null,
     "Plan der nächsten Wochen:\n"+coachWeekLines()
   ].filter(Boolean).join("\n");
