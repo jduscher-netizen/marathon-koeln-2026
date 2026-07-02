@@ -1310,9 +1310,60 @@ function viewTrack(){
       <div style="width:14px;height:14px;border-radius:99px;border:2px solid var(--accent)"></div>
       <div class="lt"><b>${esc(o.s.title)}</b><span>${fmtDate(o.date)} · W${o.i+1} · ${esc(o.s.detail)}</span></div>
       <div class="rt">${ic("edit",16)}</div></div></div>`).join(""):`<div class="empty">Alles eingetragen ✓</div>`}
-    ${DB.profile.cross.includes("strength")?`<div class="section-eyebrow">Kraft &amp; Mobilität</div>
-      <div class="list"><div class="li"><div class="ii">${ic("dumbbell",22)}</div><div class="lt"><b>Krafttraining</b><span>Frei nach Plan</span></div><button class="btn sm" onclick="toast('Kraft-Tracking folgt')">Start</button></div></div>`:""}
+    <div class="section-eyebrow">Freie Einheiten</div>
+    <div class="list">
+      <div class="li" onclick="openQuickLog('strength')"><div class="ii">${ic("dumbbell",20)}</div><div class="lt"><b>Kraft</b><span>Krafttraining eintragen</span></div><div class="rt">+</div></div>
+      <div class="li" onclick="openQuickLog('mobility')"><div class="ii">${ic("activity",20)}</div><div class="lt"><b>Mobility / Yoga</b><span>Beweglichkeit eintragen</span></div><div class="rt">+</div></div>
+      <div class="li" onclick="openQuickLog('other')"><div class="ii">${ic("zap",20)}</div><div class="lt"><b>Sonstiges</b><span>Rad, Schwimmen, Padel, …</span></div><div class="rt">+</div></div>
+    </div>
+    ${activityListBlock()}
   `;
+}
+/* ---- Aktivitäten & Quicklog (A3) ---- */
+const QL_TYPES={strength:{label:"Krafttraining",icon:"dumbbell"},mobility:{label:"Mobility / Yoga",icon:"activity"},other:{label:"Einheit",icon:"zap"}};
+function activityListBlock(){
+  const acts=(DB.activities||[]).slice(0,12);
+  if(!acts.length)return "";
+  return `<div class="section-eyebrow">Aktivitäten · ${DB.activities.length}</div><div class="list">
+    ${acts.map(a=>`<div class="li">
+      <div class="ii">${ic(a.icon||actIcon(a.type)||"zap",18)}</div>
+      <div class="lt"><b>${esc(a.label||a.type||"Einheit")}</b><span>${a.date?fmtDate(parseISO(a.date)):""}${a.dist?" · "+a.dist+" km":""}${a.sec?" · "+fmtDur(a.sec):""}${a.hr?" · "+a.hr+" bpm":""}${a.note?" · "+esc(a.note):""}</span></div>
+      <button style="background:none;border:none;color:var(--dim);padding:4px 6px;font-size:15px" onclick="deleteActivity('${esc(a.id)}')">✕</button></div>`).join("")}
+  </div>`;
+}
+function deleteActivity(id){
+  if(!confirm("Aktivität löschen?"))return;
+  DB.activities=(DB.activities||[]).filter(a=>a.id!==id);save();render();toast("Gelöscht");
+}
+let _qlType="strength";
+function openQuickLog(type){
+  _qlType=type||"strength";
+  document.getElementById("sheet").innerHTML=`
+    <div class="grab"></div>
+    <div class="eyebrow" style="color:var(--accent);margin-bottom:6px">Freie Einheit · ${WD_LONG[wdIndex(today())]}</div>
+    <div style="font-size:19px;font-weight:700;letter-spacing:-.3px;margin-bottom:16px">Einheit eintragen</div>
+    <div class="field"><label>Typ</label>
+      <div class="seg" id="ql-type">${Object.keys(QL_TYPES).map(k=>`<button class="${k===_qlType?"on":""}" onclick="qlType('${k}',this)">${QL_TYPES[k].label.split(" ")[0]}</button>`).join("")}</div></div>
+    <div class="field"><label>Bezeichnung${_qlType==="other"?"":" (optional)"}</label>
+      <input class="inp" id="ql-name" placeholder="${_qlType==="strength"?"z.B. Push / Oberkörper":_qlType==="mobility"?"z.B. Yoga 20 min":"z.B. Rennrad, Padel, Schwimmen"}"></div>
+    <div class="two">
+      <div class="field" style="margin:0"><label>Dauer (min)</label><input class="inp big" id="ql-min" inputmode="numeric" pattern="[0-9]*" maxlength="3" placeholder="45"></div>
+      <div class="field" style="margin:0"><label>Puls Ø (optional)</label><input class="inp big" id="ql-hr" inputmode="numeric" pattern="[0-9]*" maxlength="3" placeholder="—"></div>
+    </div>
+    <button class="btn" style="margin-top:6px" onclick="saveQuickLog()">Speichern</button>`;
+  document.getElementById("sheetRoot").classList.add("open");
+}
+function qlType(k,btn){_qlType=k;[...btn.parentNode.children].forEach(b=>b.classList.remove("on"));btn.classList.add("on");
+  const n=document.getElementById("ql-name");if(n)n.placeholder=k==="strength"?"z.B. Push / Oberkörper":k==="mobility"?"z.B. Yoga 20 min":"z.B. Rennrad, Padel, Schwimmen";}
+function saveQuickLog(){
+  const min=parseInt(document.getElementById("ql-min").value,10);
+  if(!(min>0)){toast("Dauer eingeben");return;}
+  const name=document.getElementById("ql-name").value.trim();
+  const hr=parseInt(document.getElementById("ql-hr").value,10)||null;
+  if(!DB.activities)DB.activities=[];
+  DB.activities.unshift({id:"Q"+Date.now(),type:_qlType,icon:QL_TYPES[_qlType].icon,
+    label:name||QL_TYPES[_qlType].label,date:isoToday(),sec:min*60,hr,note:""});
+  save();closeSheet();toast("Eingetragen ✓");render();
 }
 
 /* ---- Form-Modell (CTL/ATL/TSB) + Zonenverteilung (A2) ---- */
