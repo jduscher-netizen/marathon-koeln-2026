@@ -91,7 +91,7 @@ Adapter, kein Umbau. Das ist heute bereits so angelegt (`DB.logs`, `DB.activitie
 - [x] Verpasst-Logik: nicht getrackte Einheit → Umplanungs-Vorschlag statt stilles Loch *(02.07.: easy → „nicht nachholen"; Schlüssel-Einheit → verschieben ohne harte Nachbartage, sonst ehrliches „ausfallen lassen")*
 - [x] Wochen-Rekalibrierung: Ist-Paces vs. Plan → Zonen/Prognose nachziehen (So-Abend-Report) *(02.07.)*
 - [x] Coach führt Planänderungen aus (JSON-Diff → Plan), nicht nur beraten *(02.07.: json-Block wie V1-Plan-Editor; Vergangenheit/Erledigtes tabu; ✓-Bestätigung im Chat)*
-- [ ] Änderungs-Feed: „Plan angepasst — deshalb" (Vertrauen!)
+- [x] Änderungs-Feed: „Plan angepasst — deshalb" (Vertrauen!) *(02.07.: Mehr → Plan-Änderungen; Quelle + Begründung je Eintrag)*
 
 **A2 · Analyse-Tiefe**
 - [x] Einzel-Einheiten-Analyse mit KI-Verdict (Pace/HF, Plan-Abgleich — V1-Funktion als Vorbild) *(02.07.)*
@@ -101,8 +101,8 @@ Adapter, kein Umbau. Das ist heute bereits so angelegt (`DB.logs`, `DB.activitie
 
 **A3 · Tracking komplett**
 - [x] Aktivitäten-Liste sichtbar (DB.activities existiert schon, keine UI) *(02.07.)*
-- [x] Kraft-/Mobility-Einheit eintragen (Quicklog: Typ/Dauer/Puls; Live-Mitschreiben wie V1-Gym offen) *(02.07. teilweise)*
-- [ ] Freie Einheiten je Woche (Padel, Rad, …) zählen wie in V1
+- [x] Kraft-/Mobility-Einheit: Quicklog + Live-Mitschreiben (Timer, Übungen, Sätze kg×Wdh, reload-fest) *(02.07.)*
+- [x] Freie Einheiten je Woche zählen (Zähler im aufgeklappten Wochen-Card) *(02.07.)*
 - [x] Subjektives Tagesgefühl erfassen (ersetzt Garmin-Recovery, bis HealthKit kommt) *(02.07., Teil des Morgen-Checks)*
 
 **A4 · Renntag & Erlebnis**
@@ -113,7 +113,7 @@ Adapter, kein Umbau. Das ist heute bereits so angelegt (`DB.logs`, `DB.activitie
 **A5 · Feinschliff**
 - [x] Übergänge: Tab-Crossfade + Sheet-Motion *(02.07.; Leere-Zustände/Microcopy laufend)*
 - [x] PWA-Manifest + Icons für V2 (lokal installierbar „wie echt") *(02.07.)*
-- [ ] Plan-Editor-Feinheiten (Einheit verschieben/tauschen per UI, nicht nur Chat)
+- [x] Plan-Editor per UI: Verschieben (Tages-Auswahl) + Ausfallen lassen im Log-Sheet *(02.07.)*
 
 ---
 
