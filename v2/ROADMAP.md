@@ -63,7 +63,61 @@
 
 ---
 
-## 3 · Roadmap (5 Phasen, jede endet mit etwas Auslieferbarem)
+## 3 · Strategie (festgelegt 02.07.2026): Produkt vor Infrastruktur
+
+> **Entscheidung:** Die App bleibt **lokal** (localStorage, kein Backend), bis sie funktionell
+> „der Hammer" ist. Erst dann kommt das technische Gerüst (Accounts/Sync), und **als allerletzter
+> Schritt** die Datenanbindung — dann über **Apple Health/HealthKit als DIE eine Quelle**
+> (einfacher für Endverbraucher als Strava-/Garmin-APIs; Garmin-/Strava-Daten landen ohnehin
+> in Apple Health). Die bestehenden Strava-/Garmin-Bastel-Anbindungen bleiben als Dev-Features
+> für den eigenen Gebrauch.
+
+**Konsequenz für die Reihenfolge:**
+
+| Stufe | Inhalt | Status |
+|---|---|---|
+| **A — Produkt** (jetzt) | Alles, was die App lokal herausragend macht: adaptiver Plan, Analyse-Tiefe, Tracking komplett, Renntag, Feinschliff | ⟵ **aktueller Fokus** |
+| **B — Gerüst** | Accounts, DB-Sync, Worker-Härtung, Domain, DSGVO | danach |
+| **C — Anbindung & Launch** | Capacitor + **HealthKit** (eine Integration statt drei), App Store, Abo | zuletzt |
+
+**Wichtig für A:** Datenmodell so halten, dass HealthKit es später nur „befüllt"
+(Aktivitäten mit HF/Dauer/Distanz, Schlaf/HRV als Wellness-Tage) — dann ist Stufe C ein
+Adapter, kein Umbau. Das ist heute bereits so angelegt (`DB.logs`, `DB.activities`, `DB.wellness`).
+
+### Stufe A im Detail — was „der Hammer" konkret heißt
+
+**A1 · Der adaptive Plan** *(Kern der Vision, komplett lokal machbar — Recovery kommt solange aus Garmin-Dev-Anbindung oder manueller Eingabe „Wie fühlst du dich heute?")*
+- [ ] Morgen-Check: schlechte Recovery/Gefühl → Einheit wird entschärft (ein Tap, mit Begründung)
+- [ ] Verpasst-Logik: nicht getrackte Einheit → Umplanungs-Vorschlag statt stilles Loch
+- [ ] Wochen-Rekalibrierung: Ist-Paces vs. Plan → Zonen/Prognose nachziehen (So-Abend-Report)
+- [ ] Coach führt Planänderungen aus (JSON-Diff → Plan), nicht nur beraten
+- [ ] Änderungs-Feed: „Plan angepasst — deshalb" (Vertrauen!)
+
+**A2 · Analyse-Tiefe**
+- [ ] Einzel-Einheiten-Analyse mit KI-Verdict (Pace/HF, Plan-Abgleich — V1-Funktion als Vorbild)
+- [ ] Form-Modell (CTL/ATL/TSB) aus geloggten Einheiten — rein clientseitig
+- [ ] Prognose-Trend „unter der Linie" (3-Punkte-Chart, Design existiert in der Spec)
+- [ ] Zonenverteilung / 80-20-Check pro Woche
+
+**A3 · Tracking komplett**
+- [ ] Aktivitäten-Liste sichtbar (DB.activities existiert schon, keine UI)
+- [ ] Kraft-/Mobility-Einheit live mitschreiben (V1-Gym als Vorbild, Hyrox-relevant!)
+- [ ] Freie Einheiten je Woche (Padel, Rad, …) zählen wie in V1
+- [ ] Subjektives Tagesgefühl erfassen (ersetzt Garmin-Recovery, bis HealthKit kommt)
+
+**A4 · Renntag & Erlebnis**
+- [ ] Rennwochen-Modus (Taper-Countdown, Checkliste, Pacing-Plan)
+- [ ] Wochenreport (Zusammenfassung + Coach-Einordnung)
+- [ ] Onboarding-Ergänzung: Geburtsjahr/HF-Daten (max/Ruhe) → echte Zonen statt Schätzung
+
+**A5 · Feinschliff**
+- [ ] Übergänge/Animationen (Sheet-Motion, Tab-Crossfade), Leere-Zustände, Microcopy
+- [ ] PWA-Manifest + Icons für V2 (lokal installierbar „wie echt")
+- [ ] Plan-Editor-Feinheiten (Einheit verschieben/tauschen per UI, nicht nur Chat)
+
+---
+
+## 3b · Ursprüngliche Phasen (B/C-Material, verschoben bis Stufe A fertig)
 
 ### Phase 0 — Fundament reparieren *(Tage, kein Backend nötig)*
 - [ ] Eigenes **Repo + Domain** (z. B. `theline.app`) — weg von `…/marathon-koeln-2026/v2/`.
@@ -139,13 +193,15 @@
 
 ---
 
-## 6 · Die nächsten 5 konkreten Schritte (Reihenfolge)
+## 6 · Die nächsten 5 konkreten Schritte (Produkt-first, Stand 02.07.2026)
 
-1. **Worker härten** (Auth-Key + Rate-Limit) — schützt sofort echtes Geld.
-2. **PWA-Manifest + Icons für V2** + Worker-URL als Default — App fühlt sich installiert „echt" an.
-3. **Eigene Domain + eigenes Repo** — Produktidentität statt `/v2/`-Pfad.
-4. **Accounts + D1-Sync** (Phase 1 Kern) — Voraussetzung für alles Kommerzielle.
-5. **Morgen-Check als erstes adaptives Feature** (Phase 2 Einstieg) — kleinster Baustein mit größter „für mich gemacht"-Wirkung, nutzt vorhandene Recovery-Daten.
+1. **Morgen-Check + Tagesgefühl** (A1/A3): „Wie fühlst du dich?" bzw. Recovery → Einheit anpassen mit Begründung. Kleinster Baustein, größte „für mich gemacht"-Wirkung.
+2. **Verpasst-Logik + Coach führt Änderungen aus** (A1): der Plan lebt.
+3. **Einzel-Einheiten-Analyse mit KI-Verdict** (A2): nach jedem Lauf ein echtes Coach-Feedback.
+4. **Wochen-Rekalibrierung + Wochenreport** (A1/A4): Sonntagabend-Moment.
+5. **Kraft/Mobility-Tracking + Aktivitäten-Liste** (A3): Tracking fühlt sich vollständig an.
+
+*(Worker-Härtung, Domain, Accounts: bewusst zurückgestellt bis Stufe A sitzt. Einzige Ausnahme: sollte der Worker öffentlich kursieren, Auth vorziehen.)*
 
 ---
 
