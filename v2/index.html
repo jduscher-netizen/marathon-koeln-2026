@@ -978,7 +978,7 @@ function todayCard(s,done){
   const adjChip=s.adjusted?` <span class="chip" style="vertical-align:2px">Angepasst</span>`:"";
   const adjNote=s.adjusted&&s.adjustReason?`<div style="font-size:12px;color:var(--mut);line-height:1.45;margin:-8px 0 14px">${esc(s.adjustReason)}</div>`:"";
   if(done){
-    return `<div class="today"><div class="k">Heute · ${WD_LONG[wdIndex(today())]} · Erledigt</div><div class="t">${esc(s.title)} ${ic("check-circle",16)}</div><div class="d">${esc(done.dist||"")} ${done.dist?"km":""} · ${done.time?fmtDur(done.time):""}</div><button class="btn ghost sm" onclick="openLog('${s.date}')">Bearbeiten</button></div>`;
+    return `<div class="today"><div class="k">Heute · ${WD_LONG[wdIndex(today())]} · Erledigt</div><div class="t">${esc(s.title)} ${ic("check-circle",16)}</div><div class="d">${esc(done.dist||"")} ${done.dist?"km":""} · ${done.time?fmtDur(done.time):""}${done.pace?" · "+fmtPace(done.pace)+" /km":""}</div><div style="display:flex;gap:10px"><button class="btn sm" onclick="openRunAnalysis('${s.date}')">Analyse ansehen</button><button class="btn ghost sm" onclick="openLog('${s.date}')">Bearbeiten</button></div></div>`;
   }
   return `<div class="today"><div class="k">Heute · ${WD_LONG[wdIndex(today())]} · ${kindLabel}${adjChip}</div><div class="t">${esc(s.title)}</div><div class="d">${esc(s.detail)}${s.zone?" · "+s.zone:""}</div>${adjNote}<button class="btn" onclick="openLog('${s.date}')">Einheit starten</button></div>`;
 }
@@ -1186,7 +1186,7 @@ function weekDays(wk,wi){
     const l=DB.logs[logKey(wi,dd)];
     const sk=DB.skips[logKey(wi,dd)];
     if(sk){rows.push(`<div class="wk-day rest ${isToday?"is-today":""}"><div class="dd">${WD_SHORT[dd]} ${date.getDate()}.</div><div class="dc" style="text-decoration:line-through;opacity:.7">${esc(s.title)}<small style="text-decoration:none">${sk.reason==="moved"?"verschoben":"ausgelassen"}</small></div></div>`);continue;}
-    rows.push(`<div class="wk-day ${isToday?"is-today":""}" onclick="event.stopPropagation();openLog('${toISO(date)}')">
+    rows.push(`<div class="wk-day ${isToday?"is-today":""}" onclick="event.stopPropagation();${l?"openRunAnalysis":"openLog"}('${toISO(date)}')">
       <div class="dd">${WD_SHORT[dd]} ${date.getDate()}.</div>
       <div class="dc">${esc(s.title)}${s.adjusted?` <span class="chip" style="font-size:7px;padding:1px 5px;vertical-align:1px">Angepasst</span>`:""}${l?" "+ic("check",13):""}<small>${esc(s.detail)}</small></div></div>`);
   }
@@ -1317,6 +1317,7 @@ function openLog(dateISO){
         </div></div>
     </div>
     <div class="pace-strip"><span class="pl">Schnitt-Pace</span><span class="pv" id="lg-pace">—</span></div>
+    <div class="field"><label>Puls Ø (optional)</label><input class="inp" id="lg-hr" inputmode="numeric" pattern="[0-9]*" maxlength="3" placeholder="z.B. 148" value="${existing&&existing.hr?esc(String(existing.hr)):""}" style="max-width:140px"></div>
     <div class="field"><label>Empfinden</label>
       <div class="seg" id="lg-feel">${["Locker","Moderat","Hart"].map((f,i)=>`<button class="${existing&&existing.feel===f||(!existing&&f==="Moderat")?"on":""}" onclick="logFeel('${f}',this)">${f}</button>`).join("")}</div></div>
     <button class="btn" onclick="saveLog()">Einheit speichern</button>
@@ -1341,10 +1342,100 @@ function saveLog(){
   const sec=parseTimeToSec(timeStr);
   if(!(dist>0)){toast("Distanz eingeben");return;}
   const feelBtn=document.querySelector("#lg-feel button.on");
-  DB.logs[logKey(s.wi,s.day)]={dist,time:sec,timeStr,feel:_logFeel||(feelBtn?feelBtn.textContent:"Moderat"),date:_logDate,pace:sec&&dist?sec/dist:null};
-  save();closeSheet();toast("Gespeichert ✓");render();
+  const hr=parseInt((document.getElementById("lg-hr")||{}).value,10)||null;
+  DB.logs[logKey(s.wi,s.day)]={dist,time:sec,timeStr,hr,feel:_logFeel||(feelBtn?feelBtn.textContent:"Moderat"),date:_logDate,pace:sec&&dist?sec/dist:null};
+  save();toast("Gespeichert ✓");render();
+  openRunAnalysis(_logDate);
 }
 function deleteLog(){const date=parseISO(_logDate);const s=sessionOn(date);if(s){delete DB.logs[logKey(s.wi,s.day)];save();}closeSheet();toast("Gelöscht");render();}
+
+/* =========================================================================
+   EINZEL-LAUF-ANALYSE — lokales Verdict + KI-Verdict (A2)
+   ========================================================================= */
+function hrZones(){
+  const h=DB.profile&&DB.profile.hr;if(!h||!(h.maxhr||h.yob))return null;
+  const max=h.maxhr||(220-(today().getFullYear()-h.yob));
+  const rest=h.rhr||null;
+  const pct=p=>rest?Math.round(rest+(max-rest)*p):Math.round(max*p); // Karvonen, wenn Ruhe-HF bekannt
+  return [null,{lo:0,hi:pct(.6)},{lo:pct(.6),hi:pct(.7)},{lo:pct(.7),hi:pct(.8)},{lo:pct(.8),hi:pct(.9)},{lo:pct(.9),hi:max}];
+}
+function hrZoneOf(hr){const z=hrZones();if(!z)return null;for(let i=5;i>=2;i--){if(hr>=z[i].lo)return i;}return 1;}
+function runVerdictLocal(s,l,pace,planPace){
+  const out=[];
+  const d=pace&&planPace?Math.round(pace-planPace):null; // + = langsamer als Soll
+  const isEasyKind=s.kind==="easy"||s.kind==="recovery"||s.kind==="long";
+  if(d!=null){
+    if(isEasyKind){
+      if(d<-20)out.push("Du warst "+Math.abs(d)+" s/km schneller als geplant — für eine lockere Einheit zu flott. Locker heißt locker: Genau dort entsteht deine aerobe Basis.");
+      else if(d<=15)out.push("Sauber im Zielbereich gelaufen ("+fmtPace(pace)+" statt "+fmtPace(planPace)+" /km) — genau so soll sich Grundlage anfühlen.");
+      else if(l.feel==="Hart")out.push("Langsamer als geplant und es fühlte sich hart an — dein Körper meldet Ermüdung. Behalte die nächsten Tage im Blick.");
+      else out.push("Etwas langsamer als geplant, aber locker geblieben — völlig in Ordnung. Der Reiz zählt, nicht die Zahl.");
+    } else {
+      if(d<=-10&&l.feel!=="Hart")out.push("Stark: schneller als die Vorgabe ("+fmtPace(pace)+" /km) und trotzdem kontrolliert — deine Form entwickelt sich.");
+      else if(d<=10)out.push("Vorgabe getroffen ("+fmtPace(pace)+" /km) — genau die Qualität, die dich zum Ziel bringt.");
+      else if(l.feel==="Hart")out.push("Heute war nicht dein Tag — passiert. Eine harte Einheit unter Plan sagt nichts über deine Form, wenn die Erholung stimmt.");
+      else out.push("Unter der Vorgabe, aber nicht am Limit — beim nächsten Mal etwas mutiger anlaufen.");
+    }
+  } else if(pace){out.push("Pace "+fmtPace(pace)+" /km über "+l.dist+" km.");}
+  if(l.hr){
+    const z=hrZones();
+    if(z){const zi=hrZoneOf(l.hr);
+      if(isEasyKind&&zi>=3)out.push("Puls "+l.hr+" liegt in Zone "+zi+" — für lockere Einheiten zu hoch. Tempo raus, HF unter "+z[1].hi+" halten.");
+      else if(isEasyKind)out.push("Puls "+l.hr+" — sauber in der Grundlagenzone.");
+      else out.push("Puls Ø "+l.hr+" bpm.");
+    } else out.push("Puls Ø "+l.hr+" bpm.");
+  }
+  if(s.adjusted)out.push("Diese Einheit war vorab angepasst — gut, dass du auf die Signale gehört hast.");
+  return out.join(" ");
+}
+function openRunAnalysis(dateISO){
+  const date=parseISO(dateISO);const s=sessionOn(date);if(!s)return;
+  const k=logKey(s.wi,s.day);const l=DB.logs[k];if(!l){openLog(dateISO);return;}
+  const pace=l.pace||(l.time&&l.dist?l.time/l.dist:null);
+  const planPace=s.pace||null;
+  const d=pace&&planPace?Math.round(pace-planPace):null;
+  const verdict=runVerdictLocal(s,l,pace,planPace);
+  const tiles=[[l.dist!=null?l.dist:"—","KM"],[l.time?fmtDur(l.time):"—","ZEIT"],[pace?fmtPace(pace):"—","PACE /KM"],[l.hr||"—","PULS Ø"]];
+  document.getElementById("sheet").innerHTML=`
+    <div class="grab"></div>
+    <div class="eyebrow" style="color:var(--accent);margin-bottom:6px">Analyse · ${WD_SHORT[wdIndex(date)]} ${fmtDate(date)} · W${s.week}</div>
+    <div style="font-size:19px;font-weight:700;letter-spacing:-.3px;margin-bottom:2px">${esc(s.title)}${s.adjusted?` <span class="chip" style="vertical-align:3px">Angepasst</span>`:""}</div>
+    ${s.detail?`<div class="mono" style="font-size:11px;color:var(--mut);margin-bottom:16px">Soll: ${esc(s.detail)}</div>`:`<div style="margin-bottom:16px"></div>`}
+    <div class="stats4" style="margin-bottom:14px">${tiles.map(([v,lb])=>`<div class="stat"><b style="font-size:17px;color:var(--txt)">${v}</b><span>${lb}</span></div>`).join("")}</div>
+    ${d!=null?`<div class="pace-strip" style="margin-bottom:14px"><span class="pl">vs. Plan</span><span class="pv" style="color:${d<=5?"var(--accent)":"var(--warn)"}">${d>0?"+":"−"}${Math.abs(d)} s/km</span></div>`:""}
+    <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px">
+      <div class="eyebrow" style="margin-bottom:8px">Einordnung</div>
+      <div style="font-size:13px;color:var(--text-2);line-height:1.55">${esc(verdict)}${l.feel?` <span style="color:var(--mut)">(Empfinden: ${esc(l.feel)})</span>`:""}</div>
+    </div>
+    <div id="ai-verdict">${l.aiVerdict?aiVerdictCard(l.aiVerdict):((DB.coach&&DB.coach.workerUrl)?`<div style="background:var(--surface-2);border:1px solid var(--accent-soft-bd);border-radius:14px;padding:14px 16px;margin-bottom:12px"><div class="eyebrow" style="color:var(--accent);margin-bottom:8px">Coach</div><div style="font-size:13px;color:var(--mut)"><span class="typing">•••</span> analysiert deinen Lauf…</div></div>`:"")}</div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn ghost" style="flex:1" onclick="openLog('${dateISO}')">Bearbeiten</button>
+      <button class="btn" style="flex:1" onclick="closeSheet()">Fertig</button>
+    </div>`;
+  document.getElementById("sheetRoot").classList.add("open");
+  if(!l.aiVerdict&&DB.coach&&DB.coach.workerUrl)fetchRunVerdict(dateISO,s,l,pace,planPace);
+}
+function aiVerdictCard(text){
+  return `<div style="background:var(--surface-2);border:1px solid var(--accent-soft-bd);border-radius:14px;padding:14px 16px;margin-bottom:12px">
+    <div class="eyebrow" style="color:var(--accent);margin-bottom:8px">Coach</div>
+    <div style="font-size:13px;color:var(--text-2);line-height:1.55">${fmtCoach(text)}</div></div>`;
+}
+async function fetchRunVerdict(dateISO,s,l,pace,planPace){
+  try{
+    const q="Analysiere kurz diese absolvierte Einheit (3-4 Sätze, sprich mich direkt an, keine Aufzählung): "+
+      s.title+" am "+dateISO+". Soll: "+(s.detail||"—")+". Ist: "+(l.dist||"?")+" km in "+(l.time?fmtDur(l.time):"?")+
+      (pace?" ("+fmtPace(pace)+" /km)":"")+(planPace?", Plan-Pace "+fmtPace(planPace)+" /km":"")+
+      (l.hr?", Puls Ø "+l.hr:"")+(l.feel?", Empfinden: "+l.feel:"")+(s.adjusted?", Einheit war vorab angepasst":"")+".";
+    const url=DB.coach.workerUrl.replace(/\/$/,"")+"/coach";
+    const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode:"v2",messages:[{role:"user",content:q}],context:buildCoachContext()})});
+    const j=await r.json();
+    if(j.text){
+      const k=logKey(s.wi,s.day);
+      if(DB.logs[k]){DB.logs[k].aiVerdict=j.text;save();}
+      const el=document.getElementById("ai-verdict");if(el)el.innerHTML=aiVerdictCard(j.text);
+    } else {const el=document.getElementById("ai-verdict");if(el)el.innerHTML="";}
+  }catch(e){const el=document.getElementById("ai-verdict");if(el)el.innerHTML="";}
+}
 function closeSheet(){document.getElementById("sheetRoot").classList.remove("open");}
 
 /* =========================================================================
