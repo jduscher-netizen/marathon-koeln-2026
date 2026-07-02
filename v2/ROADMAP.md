@@ -87,7 +87,7 @@ Adapter, kein Umbau. Das ist heute bereits so angelegt (`DB.logs`, `DB.activitie
 ### Stufe A im Detail — was „der Hammer" konkret heißt
 
 **A1 · Der adaptive Plan** *(Kern der Vision, komplett lokal machbar — Recovery kommt solange aus Garmin-Dev-Anbindung oder manueller Eingabe „Wie fühlst du dich heute?")*
-- [ ] Morgen-Check: schlechte Recovery/Gefühl → Einheit wird entschärft (ein Tap, mit Begründung)
+- [x] Morgen-Check: schlechte Recovery/Gefühl → Einheit wird entschärft (ein Tap, mit Begründung) *(02.07.)*
 - [ ] Verpasst-Logik: nicht getrackte Einheit → Umplanungs-Vorschlag statt stilles Loch
 - [ ] Wochen-Rekalibrierung: Ist-Paces vs. Plan → Zonen/Prognose nachziehen (So-Abend-Report)
 - [ ] Coach führt Planänderungen aus (JSON-Diff → Plan), nicht nur beraten
@@ -103,7 +103,7 @@ Adapter, kein Umbau. Das ist heute bereits so angelegt (`DB.logs`, `DB.activitie
 - [ ] Aktivitäten-Liste sichtbar (DB.activities existiert schon, keine UI)
 - [ ] Kraft-/Mobility-Einheit live mitschreiben (V1-Gym als Vorbild, Hyrox-relevant!)
 - [ ] Freie Einheiten je Woche (Padel, Rad, …) zählen wie in V1
-- [ ] Subjektives Tagesgefühl erfassen (ersetzt Garmin-Recovery, bis HealthKit kommt)
+- [x] Subjektives Tagesgefühl erfassen (ersetzt Garmin-Recovery, bis HealthKit kommt) *(02.07., Teil des Morgen-Checks)*
 
 **A4 · Renntag & Erlebnis**
 - [ ] Rennwochen-Modus (Taper-Countdown, Checkliste, Pacing-Plan)

@@ -229,6 +229,13 @@ select.inp{appearance:none;-webkit-appearance:none;background-image:url("data:im
 
 .empty{text-align:center;color:var(--dim);font-size:13px;padding:34px 20px;font-family:var(--mono);letter-spacing:.5px}
 
+/* morgen-check */
+.mc{border-color:var(--accent-soft-bd)}
+.mc-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.mc-opts button{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:13px 4px;color:var(--text-2);font-size:13px;font-weight:600;transition:.15s}
+.mc-opts button:active{transform:scale(.96);border-color:var(--accent)}
+.mc-strip{display:flex;align-items:center;gap:9px;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:11px 16px;margin-bottom:14px;font-family:var(--mono);font-size:10px;letter-spacing:1.2px;color:var(--mut);text-transform:uppercase}
+
 /* coach card on Heute */
 .coachcard{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px 18px;color:var(--txt);margin-bottom:14px}
 .coachcard .ci{width:38px;height:38px;border-radius:12px;background:var(--accent-soft);border:1px solid var(--accent-soft-bd);display:flex;align-items:center;justify-content:center;color:var(--accent);flex:0 0 auto}
@@ -309,7 +316,7 @@ function ic(n,s=20){const p=_IC[n]||_IC.zap;return `<svg width="${s}" height="${
 
 /* ---------- Storage ---------- */
 const KEY="theline_v2";
-function freshDB(){return{v:2,onboarded:false,profile:null,plan:null,logs:{},acts:{},coach:{},github:{},garmin:{},strava:{},wellness:null,activities:[],createdAt:isoToday()};}
+function freshDB(){return{v:2,onboarded:false,profile:null,plan:null,logs:{},acts:{},coach:{},github:{},garmin:{},strava:{},wellness:null,activities:[],planEdits:{},checkins:{},createdAt:isoToday()};}
 let DB=load();
 function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);return Object.assign(freshDB(),d);}}catch(e){}return freshDB();}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}}
@@ -582,7 +589,12 @@ function obDays(n){OB.data.daysPerWeek=Math.max(2,Math.min(7,OB.data.daysPerWeek
 function obToggleDay(i){OB.data.availableDays[i]=!OB.data.availableDays[i];if(!OB.data.availableDays[OB.data.longDay])OB.data.longDay=OB.data.availableDays.map((v,x)=>v?x:-1).filter(x=>x>=0).slice(-1)[0]??6;renderOB();}
 function obToggleCross(k){const a=OB.data.cross;const i=a.indexOf(k);if(i>=0)a.splice(i,1);else a.push(k);renderOB();}
 function crossLabel(k){return{strength:"Kraft",mobility:"Mobility",cycling:"Rad",swimming:"Schwimmen"}[k]||k;}
-function planWeeks(d){if(!d.raceDate)return SPORTS[d.sport].defWeeks;const n=Math.floor(daysBetween(today(),parseISO(d.raceDate))/7);return Math.max(4,Math.min(24,n));}
+function planWeeks(d){
+  if(!d.raceDate)return SPORTS[d.sport].defWeeks;
+  // W1 = aktuelle Woche (kein Loch zwischen Onboarding und Planstart), letzte Woche = Rennwoche
+  const n=Math.round(daysBetween(monday(today()),monday(parseISO(d.raceDate)))/7)+1;
+  return Math.max(4,Math.min(24,n));
+}
 
 function targetPaceHint(str,dist){const s=parseTimeToSec(str);if(!s||!dist)return "Gib deine Zielzeit ein.";const pace=s/dist;return "Ziel-Pace ≈ "+fmtPace(pace)+" /km";}
 function raceDateHint(iso){const d=parseISO(iso);if(!d)return "Noch kein Datum gewählt.";const days=daysBetween(today(),d);if(days<0)return "Datum liegt in der Vergangenheit.";const wk=Math.floor(days/7);return days+" Tage · ~"+wk+" Wochen Aufbau";}
@@ -896,12 +908,17 @@ function sessionOn(date){
   if(wi<0)return null;
   const wk=p.weeks[wi];const di=wdIndex(date);
   const s=wk.sessions.find(x=>x.day===di);
-  return s?{...s,week:wk.w,wi,date:toISO(date)}:{day:di,kind:"rest",title:"Ruhetag",detail:"",week:wk.w,wi,date:toISO(date)};
+  const base=s?{...s,week:wk.w,wi,date:toISO(date)}:{day:di,kind:"rest",title:"Ruhetag",detail:"",week:wk.w,wi,date:toISO(date)};
+  const ov=DB.planEdits&&DB.planEdits[logKey(wi,di)];
+  if(!ov)return base;
+  return {...base,title:ov.title,detail:ov.detail,kind:ov.kind||base.kind,zone:ov.zone!=null?ov.zone:base.zone,
+    dist:ov.dist!=null?ov.dist:base.dist,adjusted:true,adjustReason:ov.reason||"",origTitle:ov.origTitle||base.title};
 }
 function logKey(wi,day){return "W"+(wi+1)+"-"+day;}
 
 function viewHeute(){
   const p=DB.profile,plan=DB.plan;
+  ensureMorningCheck();
   const dtr=daysToRace();
   const wi=planWeekIndex();const wk=plan.weeks[wi];
   const totalW=plan.weeks.length;
@@ -930,6 +947,7 @@ function viewHeute(){
         <div class="bl-you">W${String(wk.w).padStart(2,"0")} · ${wk.phase.toUpperCase()}</div>
       </div>
     </div>
+    ${morningCheckBlock()}
     ${todayCard(s,done)}
     ${stravaPendingBlock()}
     <button class="coachcard" onclick="openCoach()"><div class="ci">${ic("zap",20)}</div><div class="ct"><b>Dein KI-Coach</b><span>${coachHistory().length?"Unterhaltung fortsetzen":"Frag zu Plan, Form &amp; heutiger Einheit"}</span></div><div style="color:var(--dim)">›</div></button>
@@ -955,12 +973,103 @@ function todayCard(s,done){
     return `<div class="today rest"><div class="k">Heute · ${WD_LONG[wdIndex(today())]}</div><div class="t">Ruhetag</div><div class="d">Erholung ist Teil des Plans.</div></div>`;
   }
   const kindLabel={long:"Langer Lauf",quality:"Qualität",easy:"Locker",cross:"Cross-Training",race:"Renntag",recovery:"Recovery"}[s.kind]||"Einheit";
+  const adjChip=s.adjusted?` <span class="chip" style="vertical-align:2px">Angepasst</span>`:"";
+  const adjNote=s.adjusted&&s.adjustReason?`<div style="font-size:12px;color:var(--mut);line-height:1.45;margin:-8px 0 14px">${esc(s.adjustReason)}</div>`:"";
   if(done){
     return `<div class="today"><div class="k">Heute · ${WD_LONG[wdIndex(today())]} · Erledigt</div><div class="t">${esc(s.title)} ${ic("check-circle",16)}</div><div class="d">${esc(done.dist||"")} ${done.dist?"km":""} · ${done.time?fmtDur(done.time):""}</div><button class="btn ghost sm" onclick="openLog('${s.date}')">Bearbeiten</button></div>`;
   }
-  return `<div class="today"><div class="k">Heute · ${WD_LONG[wdIndex(today())]} · ${kindLabel}</div><div class="t">${esc(s.title)}</div><div class="d">${esc(s.detail)}${s.zone?" · "+s.zone:""}</div><button class="btn" onclick="openLog('${s.date}')">Einheit starten</button></div>`;
+  return `<div class="today"><div class="k">Heute · ${WD_LONG[wdIndex(today())]} · ${kindLabel}${adjChip}</div><div class="t">${esc(s.title)}</div><div class="d">${esc(s.detail)}${s.zone?" · "+s.zone:""}</div>${adjNote}<button class="btn" onclick="openLog('${s.date}')">Einheit starten</button></div>`;
 }
 function weekKmDone(wi){let sum=0;const wk=DB.plan.weeks[wi];wk.sessions.forEach(s=>{const l=DB.logs[logKey(wi,s.day)];if(l&&l.dist)sum+=parseFloat(l.dist)||0;});return Math.round(sum);}
+
+/* =========================================================================
+   MORGEN-CHECK — tägliche Erholung → Plan passt sich an (A1)
+   ========================================================================= */
+const MC_FEELS=[["top","Top",85],["gut","Gut",68],["muede","Müde",45],["erschoepft","Erschöpft",25]];
+function mcToday(){return DB.checkins[isoToday()]||null;}
+function ensureMorningCheck(){
+  // Garmin-Recovery von HEUTE vorhanden → Check automatisch beantworten
+  if(mcToday())return;
+  const w=latestWellness();
+  if(w&&w.date===isoToday()){
+    const score=recoveryScore(w);
+    if(score!=null){DB.checkins[isoToday()]={source:"garmin",score,decided:null,ts:Date.now()};save();}
+  }
+}
+// Entscheidungslogik: Score + geplante Einheit → ggf. Anpassungsvorschlag
+function mcDecision(score,s){
+  const paces=(DB.plan&&DB.plan.paces)||{};
+  if(!s||s.kind==="rest"||s.kind==="race")return {level:score>=60?"green":(score>=40?"mid":"low"),adjust:null};
+  if(score>=60)return {level:"green",adjust:null};
+  if(score>=40){
+    if(s.kind==="quality"){
+      const d=s.dist||Math.max(5,Math.round(((DB.plan.weeks[s.wi]||{}).km||30)*0.16));
+      return {level:"mid",adjust:{title:"Lockerer Dauerlauf",detail:d+" km ruhig"+(paces.easy?" @ "+fmtPace(paces.easy)+" /km":"")+" — statt "+s.title,kind:"easy",zone:"Z2",dist:d,
+        reason:"Mittlere Erholung: Harte Reize brauchen Frische, sonst verpufft der Effekt. Heute Grundlage — das Tempo holen wir nach, wenn du erholt bist."}};
+    }
+    if(s.kind==="long"&&s.dist){
+      const d=Math.max(8,Math.round(s.dist*0.72));
+      return {level:"mid",adjust:{title:s.title+" (gekürzt)",detail:d+" km locker"+(paces.long?" @ "+fmtPace(paces.long)+" /km":"")+" — statt "+s.dist+" km",kind:"long",zone:"Z2",dist:d,
+        reason:"Mittlere Erholung: Der lange Lauf bleibt, aber gekürzt. Der aerobe Reiz bleibt erhalten — die Extra-Ermüdung sparen wir uns."}};
+    }
+    return {level:"mid",adjust:null};
+  }
+  if(s.kind==="cross")return {level:"low",adjust:null};
+  return {level:"low",adjust:{title:"Regeneration",detail:"20–30 min ganz locker (Z1) — oder komplett frei, wenn der Körper Nein sagt",kind:"recovery",zone:"Z1",
+    reason:"Deine Erholung ist heute im Keller. Training auf leerem Akku macht dich langsamer, nicht schneller — heute ist Erholung das Training."}};
+}
+function mcAnswer(feel){
+  const f=MC_FEELS.find(x=>x[0]===feel);if(!f)return;
+  DB.checkins[isoToday()]={source:"feel",feel,score:f[2],decided:null,ts:Date.now()};
+  save();render();
+}
+function mcAccept(){
+  const c=mcToday();if(!c)return;
+  const s=sessionOn(today());if(!s){c.decided="kept";save();render();return;}
+  const dec=mcDecision(c.score,s);
+  if(dec.adjust){
+    DB.planEdits[logKey(s.wi,s.day)]={...dec.adjust,origTitle:s.adjusted?s.origTitle:s.title,date:isoToday(),src:"morgencheck"};
+    c.decided="adjusted";save();toast("Plan für heute angepasst ✓");render();
+  } else {c.decided="kept";save();render();}
+}
+function mcKeep(){const c=mcToday();if(!c)return;c.decided="kept";save();render();}
+function mcLevelColor(l){return l==="green"?"var(--accent)":l==="mid"?"var(--warn)":"var(--bad)";}
+function morningCheckBlock(){
+  const s=sessionOn(today());
+  if(!s||s.kind==="race")return "";                              // Renntag: kein Auto-Eingriff
+  if(s.kind!=="rest"&&DB.logs[logKey(s.wi,s.day)])return "";     // schon trainiert → vorbei
+  const c=mcToday();
+  // Stufe 1 — Frage
+  if(!c){
+    if(s.kind==="rest")return "";                                // Ruhetag ohne Garmin: nicht fragen
+    return `<div class="card mc">
+      <div class="eyebrow" style="color:var(--accent);margin-bottom:10px">Morgen-Check · ${WD_LONG[wdIndex(today())]}</div>
+      <div style="font-size:16px;font-weight:700;letter-spacing:-.3px;margin-bottom:14px">Wie erholt bist du heute?</div>
+      <div class="mc-opts">${MC_FEELS.map(([k,l])=>`<button onclick="mcAnswer('${k}')">${l}</button>`).join("")}</div>
+    </div>`;
+  }
+  const dec=mcDecision(c.score,s);
+  // Stufe 2 — Vorschlag steht aus
+  if(c.decided==null&&dec.adjust){
+    return `<div class="card mc" style="border-color:${dec.level==="low"?"rgba(224,88,79,.35)":"rgba(224,165,59,.35)"}">
+      <div class="eyebrow" style="color:${mcLevelColor(dec.level)};margin-bottom:8px">Morgen-Check · ${c.source==="garmin"?"Recovery "+c.score:"Dein Gefühl: "+(MC_FEELS.find(x=>x[0]===c.feel)||["","—"])[1]}</div>
+      <div style="font-size:15px;font-weight:700;letter-spacing:-.2px;margin-bottom:6px">Vorschlag: ${esc(dec.adjust.title)}</div>
+      <div class="mono" style="font-size:11px;color:var(--text-2);margin-bottom:10px">${esc(dec.adjust.detail)}</div>
+      <div style="font-size:12.5px;color:var(--mut);line-height:1.5;margin-bottom:14px">${esc(dec.adjust.reason)}</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn" style="flex:1.4;padding:12px" onclick="mcAccept()">Anpassen</button>
+        <button class="btn ghost" style="flex:1;padding:12px" onclick="mcKeep()">Plan behalten</button>
+      </div>
+    </div>`;
+  }
+  // Stufe 3 — entschieden bzw. grünes Licht → schmale Statuszeile
+  if(c.decided==null){c.decided="kept";save();}
+  const txt=c.decided==="adjusted"?"Plan für heute angepasst"
+    :dec.level==="green"?("Grünes Licht"+(c.source==="garmin"?" · Recovery "+c.score:""))
+    :s.kind==="rest"?"Ruhetag — passt zu deiner Erholung"
+    :"Plan beibehalten — höre heute auf deinen Körper";
+  return `<div class="mc-strip"><span class="dot" style="background:${mcLevelColor(dec.level)};box-shadow:0 0 8px ${mcLevelColor(dec.level)}"></span>Morgen-Check · ${txt}</div>`;
+}
 
 function viewWoche(){
   const plan=DB.plan;const cur=planWeekIndex();
@@ -994,13 +1103,15 @@ function weekDays(wk,wi){
   const rows=[];
   for(let dd=0;dd<7;dd++){
     const date=addDays(start,dd);
-    const s=wk.sessions.find(x=>x.day===dd);
+    let s=wk.sessions.find(x=>x.day===dd);
+    const ov=DB.planEdits[logKey(wi,dd)];
+    if(ov)s={...(s||{day:dd,kind:"rest"}),title:ov.title,detail:ov.detail,kind:ov.kind||(s?s.kind:"easy"),adjusted:true};
     const isToday=toISO(date)===isoToday();
     if(!s||s.kind==="rest"){rows.push(`<div class="wk-day rest ${isToday?"is-today":""}"><div class="dd">${WD_SHORT[dd]} ${date.getDate()}.</div><div class="dc">— frei —</div></div>`);continue;}
     const l=DB.logs[logKey(wi,dd)];
     rows.push(`<div class="wk-day ${isToday?"is-today":""}" onclick="event.stopPropagation();openLog('${toISO(date)}')">
       <div class="dd">${WD_SHORT[dd]} ${date.getDate()}.</div>
-      <div class="dc">${esc(s.title)}${l?" "+ic("check",13):""}<small>${esc(s.detail)}</small></div></div>`);
+      <div class="dc">${esc(s.title)}${s.adjusted?` <span class="chip" style="font-size:7px;padding:1px 5px;vertical-align:1px">Angepasst</span>`:""}${l?" "+ic("check",13):""}<small>${esc(s.detail)}</small></div></div>`);
   }
   return rows.join("");
 }
