@@ -2262,13 +2262,6 @@ function viewHeute(){
   const todayRun=RUNS.find(R=>effDay(loc.week,R.slot)===loc.dayIdx && !runIsRest(loc.week,R.slot));
   const KL={quality:"QUALITÄT",easy:"GA1",recovery:"RECOVERY",long:"LONG RUN"};
 
-  // ----- THE BUILD LINE: Stations (accent sobald erreicht) -----
-  const STN=[{n:"BASE",x:4},{n:"BUILD",x:46},{n:"PEAK",x:72},{n:"TAPER",x:88}];
-  const stations=STN.map(s=>{ const on=s.x<=fillPct;
-    return `<div style="position:absolute;top:${on?"25px":"26px"};left:${s.x}%;width:${on?"8px":"6px"};height:${on?"8px":"6px"};border-radius:99px;background:${on?"#e05a1f":"#d5cfc0"};transform:translate(-50%,0);"></div>
-    <div style="position:absolute;top:0;left:${s.x}%;transform:translateX(-50%);font-family:var(--mono);font-size:8px;color:${on?"#93917e":"#b6b4a4"};white-space:nowrap;">${s.n}</div>`;
-  }).join("");
-
   const brand=`<div style="display:flex;align-items:center;justify-content:space-between;">
     <div style="display:flex;align-items:center;gap:10px;">
       <span style="font-family:var(--display);font-weight:600;font-size:22px;letter-spacing:1px;color:#16294d;">TEMPO</span>
@@ -2280,70 +2273,66 @@ function viewHeute(){
     </div>
   </div>`;
 
-  const hero=`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:24px;padding:20px 20px 22px;">
-    <div style="display:flex;align-items:flex-end;justify-content:space-between;">
-      <div>
-        <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:#93917e;text-transform:uppercase;">Noch</div>
-        <div style="display:flex;align-items:flex-end;gap:8px;"><span style="font-weight:700;font-size:64px;line-height:.85;letter-spacing:-2px;color:#16294d;">${dRace}</span><span style="font-weight:600;font-size:15px;color:#e05a1f;padding-bottom:8px;">Tage</span></div>
-      </div>
-      <div style="text-align:right;font-family:var(--mono);font-size:10px;color:#93917e;line-height:1.5;">${raceStr}<br><span style="color:#16294d;">42,195 km</span></div>
+  // ----- TEMPO Hero: große Zahl auf Creme, keine Karte -----
+  const hero=`<div style="padding:2px 2px 0;">
+    <div style="display:flex;align-items:baseline;gap:12px;">
+      <span style="font-family:var(--display);font-weight:600;font-size:92px;line-height:.95;color:#e05a1f;">${dRace}</span>
+      <span style="font-family:var(--display);font-weight:600;font-size:26px;letter-spacing:1px;color:#16294d;">TAGE</span>
     </div>
-    <div style="position:relative;height:58px;margin-top:18px;">
-      <div style="position:absolute;top:28px;left:0;right:0;height:2px;background:rgba(255,255,255,.1);"></div>
-      <div style="position:absolute;top:28px;left:0;width:${fillPct}%;height:2px;background:#e05a1f;"></div>
-      ${stations}
-      <div style="position:absolute;top:21px;right:0;width:2px;height:16px;background:#16294d;"></div>
-      <div style="position:absolute;top:42px;right:0;font-family:var(--mono);font-size:8px;color:#16294d;">${raceCity().toUpperCase()}</div>
-      <div style="position:absolute;top:22px;left:${fillPct}%;width:14px;height:14px;border-radius:99px;background:#e05a1f;transform:translateX(-50%);"></div>
-      <div style="position:absolute;top:44px;left:${fillPct}%;transform:translateX(-50%);font-family:var(--mono);font-size:8px;color:#e05a1f;white-space:nowrap;">W${String(loc.week).padStart(2,"0")} · ${phase.toUpperCase()}</div>
+    <div style="font-size:13px;font-weight:600;color:#69675c;margin-top:6px;">Woche ${loc.week} von 21 · ${phase} — ${done>0?"auf Kurs.":"bereit."}</div>
+  </div>`;
+
+  // ----- DIE BAHN: Pill-Track mit oranger Füllung -----
+  const stNames=[["BASE",4],["BUILD",46],["PEAK",72],["TAPER",88]];
+  const bahn=`<div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;">
+      <span style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:2px;color:#16294d;text-transform:uppercase;">Die Bahn</span>
+      <span style="font-size:12px;font-weight:600;color:#93917e;">Runde ${loc.week} von 21</span>
+    </div>
+    <div style="height:18px;border:2px solid #16294d;border-radius:99px;padding:3px;">
+      <div style="height:100%;width:${fillPct}%;background:#e05a1f;border-radius:99px;"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:8px;font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:1px;">
+      ${stNames.map(([n,x])=>`<span style="color:${x<=fillPct?"#e05a1f":"#b6b4a4"};">${n}</span>`).join("")}
+      <span style="color:#16294d;">ZIEL</span>
     </div>
   </div>`;
 
-  const thresh=`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:24px;padding:18px 20px 20px;">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">
-      <span style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;">Prognose · ${hasPred?(under?"unter der Linie":"über der Linie"):"noch offen"}</span>
-      ${hasPred?`<span style="font-family:var(--mono);font-size:10px;color:${dCol};">${deltaStr}</span>`:""}
+  // ----- Prognose-Duo: zwei Half-Cards -----
+  const thresh=`<div style="display:flex;gap:12px;">
+    <div style="flex:1;background:#ffffff;border:2px solid #16294d;border-radius:14px;padding:15px 16px;">
+      <div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;">Prognose</div>
+      <div style="font-family:var(--display);font-size:28px;font-weight:600;color:#16294d;margin-top:6px;">${predStr}</div>
     </div>
-    <div style="position:relative;height:34px;margin:14px 0 6px;">
-      <div style="position:absolute;top:6px;left:0;right:0;height:1px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 5px,transparent 5px 10px);"></div>
-      <div style="position:absolute;top:-7px;right:0;font-family:var(--mono);font-size:9px;color:#93917e;">SUB ${goalStr()}</div>
-      ${hasPred?`<div style="position:absolute;top:18px;left:${dotX}%;width:11px;height:11px;border-radius:99px;background:#e05a1f;transform:translateX(-50%);"></div>
-      <div style="position:absolute;top:6px;left:${dotX}%;width:1px;height:12px;background:rgba(224,90,31,.5);transform:translateX(-50%);"></div>`:""}
+    <div style="flex:1;background:#ffffff;border:2px solid #16294d;border-radius:14px;padding:15px 16px;">
+      <div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;">${hasPred?(under?"Unter Ziel":"Über Ziel"):"Ziel"}</div>
+      <div style="font-family:var(--display);font-size:28px;font-weight:600;color:${hasPred?dCol:"#93917e"};margin-top:6px;">${hasPred?deltaStr:goalShort()}</div>
     </div>
-    <div style="font-size:38px;font-weight:700;letter-spacing:-1.5px;color:#16294d;line-height:1;">${predStr}</div>
   </div>`;
 
+  // ----- Heute-Karte: Navy (TEMPO) -----
   let today_;
   if(todayRun){ const c=runContent(loc.week,todayRun.slot); const TL=DB.logs[runId(loc.week,todayRun.slot)];
     if(TL && TL.dist){
-      today_=`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:24px;padding:17px 20px;display:flex;gap:15px;align-items:center;">
-        <div style="width:3px;align-self:stretch;border-radius:99px;background:#e05a1f;"></div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#e05a1f;text-transform:uppercase;">Heute · ${DOWL[loc.dayIdx]} · ${KL[todayRun.kind]||""} · ✓ erledigt</div>
-          <div style="font-size:17px;font-weight:600;color:#16294d;margin-top:5px;">${c.title}</div>
-          <div style="font-family:var(--mono);font-size:12px;color:#93917e;margin-top:2px;">${TL.dist} km · ${hms(TL.sec)} · ${pace(TL.sec/TL.dist)}/km${TL.hr?" · "+TL.hr+" bpm":""}</div>
-        </div>
-        <div onclick="openRunAnalysis(${loc.week},'${todayRun.slot}')" style="cursor:pointer;font-size:13px;font-weight:600;color:#e05a1f;border:1px solid rgba(224,90,31,.4);padding:9px 14px;border-radius:99px;flex:none;">Analyse</div>
+      today_=`<div style="background:#16294d;border-radius:18px;padding:22px;">
+        <span style="display:inline-block;background:#e05a1f;color:#faf5ee;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;border-radius:4px;padding:4px 9px;">✓ Erledigt · ${DOWL[loc.dayIdx]}</span>
+        <div style="font-family:var(--display);font-size:28px;font-weight:600;letter-spacing:.5px;color:#faf5ee;margin-top:12px;text-transform:uppercase;">${c.title}</div>
+        <div style="font-size:13px;color:#a8b3c7;margin-top:5px;">${TL.dist} km · ${hms(TL.sec)} · ${pace(TL.sec/TL.dist)}/km${TL.hr?" · "+TL.hr+" bpm":""}</div>
+        <div onclick="openRunAnalysis(${loc.week},'${todayRun.slot}')" style="display:inline-block;cursor:pointer;margin-top:16px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#f0824e;border:2px solid #f0824e;padding:10px 26px;border-radius:99px;">Analyse</div>
       </div>`;
     } else {
-      today_=`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:24px;padding:17px 20px;display:flex;gap:15px;align-items:center;">
-        <div style="width:3px;align-self:stretch;border-radius:99px;background:#e05a1f;"></div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#e05a1f;text-transform:uppercase;">Heute · ${DOWL[loc.dayIdx]} · ${KL[todayRun.kind]||""}</div>
-          <div style="font-size:17px;font-weight:600;color:#16294d;margin-top:5px;">${c.title}</div>
-          <div style="font-family:var(--mono);font-size:12px;color:#93917e;margin-top:2px;">${c.det}</div>
-        </div>
-        <div onclick="openLog(${loc.week},'${todayRun.slot}')" style="cursor:pointer;font-size:13px;font-weight:600;color:#faf5ee;background:#e05a1f;padding:10px 16px;border-radius:10px;flex:none;">Start</div>
+      today_=`<div style="background:#16294d;border-radius:18px;padding:22px;">
+        <span style="display:inline-block;background:#e05a1f;color:#faf5ee;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;border-radius:4px;padding:4px 9px;">Heute · ${DOWL[loc.dayIdx]} · ${KL[todayRun.kind]||""}</span>
+        <div style="font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:.5px;color:#faf5ee;margin-top:12px;text-transform:uppercase;">${c.title}</div>
+        <div style="font-size:13px;color:#a8b3c7;margin-top:5px;">${c.det}</div>
+        <div onclick="openLog(${loc.week},'${todayRun.slot}')" style="display:inline-block;cursor:pointer;margin-top:16px;font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#faf5ee;background:#e05a1f;padding:12px 38px;border-radius:10px;">Start</div>
       </div>`;
     }
   } else {
-    today_=`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:24px;padding:17px 20px;display:flex;gap:15px;align-items:center;">
-      <div style="width:3px;align-self:stretch;border-radius:99px;background:#b6b4a4;"></div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;">Heute · ${DOWL[loc.dayIdx]} · Frei</div>
-        <div style="font-size:17px;font-weight:600;color:#16294d;margin-top:5px;">Kein fixer Lauf</div>
-        <div style="font-family:var(--mono);font-size:12px;color:#93917e;margin-top:2px;">Freie Einheit nach Lust</div>
-      </div>
+    today_=`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:16px;padding:17px 20px;">
+      <div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;">Heute · ${DOWL[loc.dayIdx]} · Frei</div>
+      <div style="font-family:var(--display);font-size:20px;font-weight:600;color:#16294d;margin-top:6px;text-transform:uppercase;">Kein fixer Lauf</div>
+      <div style="font-size:13px;color:#93917e;margin-top:2px;">Freie Einheit nach Lust — Bahn frei.</div>
     </div>`;
   }
 
@@ -2366,7 +2355,7 @@ function viewHeute(){
     <div style="font-size:14px;color:#69675c;line-height:1.55;">${read}</div>
   </div>`;
 
-  return `<div class="wrap" style="display:flex;flex-direction:column;gap:15px;">${brand}${hero}${thresh}${today_}${stravaPendingBlock()}${coach}${tilesRow}${recentFeed()}</div>`;
+  return `<div class="wrap" style="display:flex;flex-direction:column;gap:16px;">${brand}${hero}${today_}${bahn}${thresh}${stravaPendingBlock()}${coach}${tilesRow}${recentFeed()}</div>`;
 }
 
 /* ============ VIEW: WOCHE ============ */
@@ -2395,94 +2384,98 @@ function viewWoche(){
   if(wocheOpen===undefined) wocheOpen=curW;
   const DOWS=["Mo","Di","Mi","Do","Fr","Sa","So"];
 
-  // Tagesliste der aktuellen Woche (Mo–So) im LINE-Stil
-  const dayList=(w)=>{ let out="";
+  // Tagesliste (Mo–So) — dark=true für die Navy-Karte der aktuellen Woche
+  const dayList=(w,dark)=>{ let out="";
+    const cDay=dark?"#f0824e":"#93917e", cDayFree=dark?"#465b85":"#b6b4a4";
+    const cTxt=dark?"#e9edf5":"#69675c", cFree=dark?"#465b85":"#b6b4a4";
     for(let d=0; d<7; d++){
       const dt=dateOf(w,d);
       const rs=RUNS.filter(R=>effDay(w,R.slot)===d && !runIsRest(w,R.slot));
       const isToday=(w===curW && d===loc.dayIdx);
       const dayLabel=`${DOWS[d]} ${dt.getDate()}.`;
-      let txt, col="#69675c", weight="400";
+      let txt, col=cTxt, weight="400";
       if(rs.length){ const R=rs[0], c=runContent(w,R.slot), L=DB.logs[runId(w,R.slot)];
         const short=c.title.replace(/^Lauf · /,"");
         const detShort=(c.det||"").split(/[:(]/)[0].trim();
-        txt=`${short}${detShort&&detShort!=="–"?" · "+detShort:""}${L?' <span style="color:#e05a1f">✓</span>':""}`;
+        txt=`${short}${detShort&&detShort!=="–"?" · "+detShort:""}${L?' <span style="color:'+(dark?"#f0824e":"#e05a1f")+'">✓</span>':""}`;
         if(R.kind==="long") weight="600";
-      } else { txt="— frei —"; col="#b6b4a4"; }
+      } else { txt="— frei —"; col=cFree; }
       if(isToday){
-        out+=`<div onclick="${rs.length?`openRun(${w},'${rs[0].slot}')`:""}" style="display:flex;align-items:center;gap:10px;background:rgba(224,90,31,.08);border-radius:9px;padding:8px 10px;margin:0 -4px;${rs.length?"cursor:pointer;":""}">
-          <span style="font-family:var(--mono);font-size:10px;color:#e05a1f;width:44px;">${dayLabel}</span>
-          <span style="font-size:12px;color:#16294d;font-weight:600;">${rs.length?txt:"— frei —"}</span>
-          <span style="margin-left:auto;font-family:var(--mono);font-size:8px;color:#e05a1f;border:1px solid rgba(224,90,31,.4);padding:2px 6px;border-radius:5px;">HEUTE</span></div>`;
+        out+=`<div onclick="${rs.length?`openRun(${w},'${rs[0].slot}')`:""}" style="display:flex;align-items:center;gap:10px;background:rgba(224,90,31,${dark?".18":".12"});border-radius:8px;padding:8px 10px;margin:0 -4px;${rs.length?"cursor:pointer;":""}">
+          <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${dark?"#f0824e":"#e05a1f"};width:44px;">${dayLabel}</span>
+          <span style="font-size:13px;color:${dark?"#faf5ee":"#16294d"};font-weight:600;">${rs.length?txt:"— frei —"}</span>
+          <span style="margin-left:auto;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:1px;color:#faf5ee;background:${dark?"#f0824e":"#e05a1f"};padding:2px 7px;border-radius:4px;">HEUTE</span></div>`;
       } else {
         out+=`<div onclick="${rs.length?`openRun(${w},'${rs[0].slot}')`:""}" style="display:flex;align-items:center;gap:10px;${rs.length?"cursor:pointer;":""}">
-          <span style="font-family:var(--mono);font-size:10px;color:${rs.length?"#93917e":"#b6b4a4"};width:48px;">${dayLabel}</span>
-          <span style="font-size:12px;color:${col};font-weight:${weight};">${txt}</span></div>`;
+          <span style="font-family:var(--mono);font-size:12px;font-weight:500;color:${rs.length?cDay:cDayFree};width:44px;">${dayLabel}</span>
+          <span style="font-size:13px;color:${col};font-weight:${weight};">${txt}</span></div>`;
       }
     }
-    return `<div style="margin-top:14px;display:flex;flex-direction:column;gap:7px;">${out}</div>`;
+    return `<div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">${out}</div>`;
   };
 
+  // TEMPO: Bahnennummern-Quadrate statt Spine
+  const numSq=(w,mode)=>{ // mode: past|cur|future|race
+    const st=mode==="cur"||mode==="race"?"background:#e05a1f;color:#faf5ee;":mode==="past"?"background:#16294d;color:#faf5ee;":"background:#e8e1d2;color:#93917e;";
+    return `<div style="width:36px;height:36px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:15px;font-weight:600;${st}">${w}</div>`;
+  };
   let rows="";
   for(let w=1; w<=21; w++){
     const W=WEEKS[w-1];
     const done=runDoneKm(w);
     const pct=Math.round(Math.min(100, W.km?done/W.km*100:0));
     let pl=0, dn=0; RUNS.forEach(R=>{ if(runIsRest(w,R.slot)) return; pl++; if(DB.logs[runId(w,R.slot)]) dn++; });
-    const isCur=w===curW, isPast=w<curW, open=(w===wocheOpen);
-    const node = isCur
-      ? `<div id="wkCurNode" style="position:absolute;left:-25px;top:20px;width:13px;height:13px;border-radius:99px;background:#e05a1f;transform:translateX(-50%);"></div>`
-      : isPast
-      ? `<div style="position:absolute;left:-25px;top:18px;width:8px;height:8px;border-radius:99px;background:#b6b4a4;transform:translateX(-50%);"></div>`
-      : `<div style="position:absolute;left:-25px;top:18px;width:8px;height:8px;border-radius:99px;background:#e8e1d2;border:1px solid #d5cfc0;transform:translateX(-50%);"></div>`;
+    const isCur=w===curW, isPast=w<curW, isRace=w===21, open=(w===wocheOpen);
     const chev=`<span style="color:#b6b4a4;font-size:12px;line-height:1;flex:none;">${open?"▾":"▸"}</span>`;
-    const barCol=isCur?"#e05a1f":(pct>=100?"#e05a1f":"#c98f14");
-    const content = open
-      ? `${(isCur||isPast)?`<div style="height:4px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:10px;"><div style="width:${pct}%;height:100%;background:${barCol};border-radius:99px;"></div></div>`:""}${dayList(w)}${actPanelLine(w)}`
-      : "";
 
     if(isCur){
-      rows += `<div id="wk${w}" style="position:relative;margin-bottom:12px;">${node}
-        <div style="background:#ffffff;border:1px solid rgba(224,90,31,.35);border-radius:18px;padding:16px 16px 14px;">
+      rows += `<div id="wk${w}" style="margin:14px 0;">
+        <div style="background:#16294d;border-radius:18px;padding:18px;">
           <div onclick="wocheToggle(${w})" style="cursor:pointer;">
-            <div style="display:flex;align-items:center;gap:6px;"><span style="font-family:var(--mono);font-size:11px;color:#e05a1f;">W${String(w).padStart(2,"0")}</span><span style="font-size:15px;font-weight:700;color:#16294d;">${W.ph}</span><span style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#faf5ee;background:#e05a1f;padding:2px 7px;border-radius:5px;">AKTUELL</span><span style="margin-left:auto;color:#b6b4a4;font-size:12px;line-height:1;">${open?"▾":"▸"}</span></div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-              <span style="font-family:var(--mono);font-size:9px;color:#93917e;">${weekRange(w)} · ${Math.round(done)}/${W.km} km · LR ${W.lr}</span>
-              <span style="font-family:var(--mono);font-size:11px;color:#e05a1f;">${pct}%</span>
+            <div style="display:flex;align-items:center;gap:12px;">${numSq(w,"cur")}
+              <span style="font-family:var(--display);font-size:15px;font-weight:600;letter-spacing:.5px;color:#faf5ee;text-transform:uppercase;">${W.ph}</span>
+              <span style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;color:#faf5ee;background:#e05a1f;padding:3px 8px;border-radius:4px;">AKTUELL</span>
+              <span style="margin-left:auto;color:#7d90b3;font-size:12px;">${open?"▾":"▸"}</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+              <span style="font-size:12px;color:#a8b3c7;">${weekRange(w)} · ${Math.round(done)}/${W.km} km · LR ${W.lr}</span>
+              <span style="font-family:var(--display);font-size:13px;font-weight:600;color:#f0824e;">${pct}%</span>
             </div>
+            <div style="height:6px;border-radius:99px;background:#233a63;overflow:hidden;margin-top:10px;"><div style="width:${pct}%;height:100%;background:#e05a1f;border-radius:99px;"></div></div>
           </div>
-          ${content}
-        </div></div>`;
+          ${open?dayList(w,true):""}
+        </div>
+        ${open?actPanelLine(w):""}</div>`;
+    } else if(isRace&&!isPast){
+      rows += `<div id="wk${w}">
+        <div onclick="wocheToggle(${w})" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:2px solid #e8e1d2;">
+          ${numSq(w,"race")}
+          <div style="min-width:0;"><div style="font-family:var(--display);font-size:15px;font-weight:600;letter-spacing:.5px;color:#16294d;text-transform:uppercase;">Renntag · ${raceCity()}</div>
+          <div style="font-size:11px;color:#b6b4a4;margin-top:1px;">${weekRange(w)}</div></div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:9px;"><span style="font-size:12px;font-weight:600;color:#16294d;">42,195 km</span>${chev}</div>
+        </div>
+        ${open?`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:14px;padding:6px 16px 14px;margin:10px 0;">${dayList(w,false)}</div>`:""}</div>`;
     } else {
       const pctCol = isPast ? (pct>=100?"#e05a1f":"#c98f14") : "#b6b4a4";
-      rows += `<div id="wk${w}" style="position:relative;margin-bottom:12px;">${node}
-        <div style="background:#faf5ee;border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:13px 15px;${isPast&&!open?"opacity:.6;":""}">
-          <div onclick="wocheToggle(${w})" style="cursor:pointer;">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <div style="display:flex;align-items:center;gap:5px;min-width:0;"><span style="font-family:var(--mono);font-size:11px;color:#93917e;">W${String(w).padStart(2,"0")}</span><span style="font-size:13px;font-weight:600;color:#69675c;white-space:nowrap;">${W.ph}</span></div>
-              <div style="display:flex;align-items:center;gap:9px;flex:none;"><span style="font-family:var(--mono);font-size:11px;color:${pctCol};">${isPast?pct+"%":"—"}</span>${chev}</div>
-            </div>
-            <div style="font-family:var(--mono);font-size:9px;color:#b6b4a4;margin-top:4px;">${weekRange(w)} · ${isPast?dn+"/"+pl+" Läufe · ":W.km+" km · "}LR ${W.lr} km</div>
-          </div>
-          ${content}
-        </div></div>`;
+      rows += `<div id="wk${w}" style="${isPast&&!open?"opacity:.65;":""}">
+        <div onclick="wocheToggle(${w})" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:2px solid #e8e1d2;">
+          ${numSq(w,isPast?"past":"future")}
+          <div style="min-width:0;"><div style="font-family:var(--display);font-size:15px;font-weight:600;letter-spacing:.5px;color:${isPast?"#16294d":"#93917e"};text-transform:uppercase;">${W.ph}</div>
+          <div style="font-size:11px;color:#b6b4a4;margin-top:1px;">${weekRange(w)} · ${isPast?dn+"/"+pl+" Läufe · ":""}LR ${W.lr} km</div></div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:9px;"><span style="font-family:var(--display);font-size:13px;font-weight:600;color:${pctCol};">${isPast?pct+"%":W.km+" km"}</span>${chev}</div>
+        </div>
+        ${open?`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:14px;padding:6px 16px 14px;margin:10px 0;">${dayList(w,false)}${actPanelLine(w)}</div>`:""}</div>`;
     }
   }
 
   setTimeout(()=>{
-    const tl=document.getElementById("wkTimeline"), fill=document.getElementById("wkSpineFill"), node=document.getElementById("wkCurNode");
-    if(tl&&fill&&node){ const r1=tl.getBoundingClientRect(), r2=node.getBoundingClientRect(); fill.style.height=Math.max(0,(r2.top+r2.height/2)-(r1.top+6))+"px"; }
     const el=document.getElementById("wk"+curW); if(el && !viewWoche._scrolled){ el.scrollIntoView({block:"center"}); viewWoche._scrolled=true; }
   },40);
 
+  const doneWeeks=curW-1;
   return `<div class="wrap">
     <div class="ln-title"><b>Wochen</b><span class="ln-line"></span></div>
-    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;margin-bottom:18px;">21 Wochen · ${raceCity()} ${String(raceDate().getDate()).padStart(2,"0")}.${String(raceDate().getMonth()+1).padStart(2,"0")}</div>
-    <div id="wkTimeline" style="position:relative;padding-left:26px;">
-      <div style="position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:rgba(255,255,255,.08);"></div>
-      <div id="wkSpineFill" style="position:absolute;left:5px;top:6px;width:2px;height:0;background:#e05a1f;"></div>
-      ${rows}
-    </div>
+    <div style="font-size:12px;font-weight:600;color:#93917e;margin-bottom:14px;">21 RUNDEN · ${doneWeeks} GELAUFEN · ${raceCity().toUpperCase()} ${String(raceDate().getDate()).padStart(2,"0")}.${String(raceDate().getMonth()+1).padStart(2,"0")}.</div>
+    ${rows}
   </div>`;
 }
 
