@@ -2236,6 +2236,144 @@ function recentFeed(){
     <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;margin-bottom:2px;">Zuletzt absolviert</div>
     ${rows}</div>`;
 }
+/* ============ MORGEN-CHECK & VERPASST-LOGIK (adaptiver Plan) ============ */
+const MC_FEELS=[["top","Top",85],["gut","Gut",68],["muede","Müde",45],["erschoepft","Erschöpft",25]];
+function chlog(entry){ if(!DB.changeLog)DB.changeLog=[]; DB.changeLog.unshift(Object.assign({date:dkey(today()),ts:Date.now()},entry)); if(DB.changeLog.length>60)DB.changeLog.length=60; }
+function mcToday(){ if(!DB.checkins)DB.checkins={}; return DB.checkins[dkey(today())]||null; }
+function ensureMorningCheck(){
+  if(!DB.checkins)DB.checkins={};
+  if(mcToday())return;
+  const d=latestWellness(); const score=d?recoveryScore(d):null;
+  if(d&&score!=null&&d.date===dkey(today())){ DB.checkins[dkey(today())]={source:"garmin",score,decided:null,ts:Date.now()}; save(); }
+}
+function mcParseKm(det){ const m=(det||"").match(/(\d+(?:[.,]\d+)?)\s*km/i); return m?parseFloat(m[1].replace(",",".")):null; }
+function mcDecision(score,w,slot){
+  if(!slot)return {level:score>=60?"green":(score>=40?"mid":"low"),adjust:null};
+  const R=RUNS.find(r=>r.slot===slot); const c=runContent(w,slot);
+  if(score>=60)return {level:"green",adjust:null};
+  if(score>=40){
+    if(R.kind==="quality"){
+      const km=mcParseKm(c.det)||8;
+      return {level:"mid",adjust:{title:"Lockerer Dauerlauf",det:km+" km Z2 (5:55–6:05) — statt "+c.title,
+        reason:"Mittlere Erholung: Harte Reize brauchen Frische, sonst verpufft der Effekt. Heute Grundlage — das Tempo holen wir nach."}};
+    }
+    if(R.kind==="long"){
+      const km=mcParseKm(c.det);
+      if(km)return {level:"mid",adjust:{title:c.title+" (gekürzt)",det:Math.max(10,Math.round(km*0.72))+" km Z2 locker — statt "+km+" km",
+        reason:"Mittlere Erholung: Der lange Lauf bleibt, aber gekürzt. Der aerobe Reiz bleibt erhalten — die Extra-Ermüdung sparen wir uns."}};
+    }
+    return {level:"mid",adjust:null};
+  }
+  return {level:"low",adjust:{title:"Regeneration",det:"20–30 min ganz locker (Z1, HF <140) — oder komplett frei",
+    reason:"Deine Erholung ist heute im Keller. Training auf leerem Akku macht dich langsamer, nicht schneller — heute ist Erholung das Training."}};
+}
+function mcAnswer(feel){ const f=MC_FEELS.find(x=>x[0]===feel); if(!f)return;
+  DB.checkins[dkey(today())]={source:"feel",feel,score:f[2],decided:null,ts:Date.now()}; save(); render(); }
+function mcAccept(w,slot){
+  const c=mcToday(); if(!c)return;
+  const dec=mcDecision(c.score,w,slot);
+  if(dec.adjust){
+    const id=runId(w,slot); const orig=runContent(w,slot).title;
+    DB.planEdits[id]={title:dec.adjust.title,det:dec.adjust.det};
+    chlog({id,src:"Morgen-Check",text:orig+" → "+dec.adjust.title,reason:dec.adjust.reason});
+    c.decided="adjusted"; save(); toast("Plan für heute angepasst ✓"); render();
+  } else { c.decided="kept"; save(); render(); }
+}
+function mcKeep(){ const c=mcToday(); if(c){c.decided="kept"; save(); render();} }
+function mcLevelColor(l){ return l==="green"?"#e05a1f":l==="mid"?"#c98f14":"#e0584f"; }
+function morningCheckBlock(loc,todayRun){
+  if(!loc.week)return "";
+  const dRace=Math.ceil((raceDate()-today())/MS); if(dRace<=0)return "";
+  if(todayRun){ const id=runId(loc.week,todayRun.slot); if(DB.logs[id]||DB.skips[id])return ""; }
+  const c=mcToday();
+  if(!c){
+    if(!todayRun)return "";
+    return `<div style="background:#ffffff;border:2px solid #16294d;border-radius:16px;padding:18px 20px;">
+      <div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;color:#e05a1f;text-transform:uppercase;margin-bottom:10px;">Morgen-Check</div>
+      <div style="font-family:var(--display);font-size:19px;font-weight:600;color:#16294d;text-transform:uppercase;margin-bottom:13px;">Wie erholt bist du heute?</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+        ${MC_FEELS.map(([k,l])=>`<div onclick="mcAnswer('${k}')" style="cursor:pointer;text-align:center;border:2px solid #16294d;border-radius:10px;padding:11px 4px;font-size:13px;font-weight:600;color:#16294d;">${l}</div>`).join("")}
+      </div></div>`;
+  }
+  const slot=todayRun?todayRun.slot:null;
+  const dec=mcDecision(c.score,loc.week,slot);
+  if(c.decided==null&&dec.adjust&&todayRun){
+    return `<div style="background:#ffffff;border:2px solid ${dec.level==="low"?"#e0584f":"#c98f14"};border-radius:16px;padding:18px 20px;">
+      <div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;color:${mcLevelColor(dec.level)};text-transform:uppercase;margin-bottom:8px;">Morgen-Check · ${c.source==="garmin"?"Recovery "+c.score:"Gefühl: "+(MC_FEELS.find(x=>x[0]===c.feel)||["","—"])[1]}</div>
+      <div style="font-family:var(--display);font-size:20px;font-weight:600;color:#16294d;text-transform:uppercase;">Vorschlag: ${dec.adjust.title}</div>
+      <div style="font-size:12px;font-weight:600;color:#69675c;margin-top:4px;">${dec.adjust.det}</div>
+      <div style="font-size:12.5px;color:#93917e;line-height:1.5;margin-top:8px;">${dec.adjust.reason}</div>
+      <div style="display:flex;gap:10px;margin-top:14px;">
+        <div onclick="mcAccept(${loc.week},'${slot}')" style="flex:1.3;cursor:pointer;text-align:center;background:#e05a1f;color:#faf5ee;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:12px 0;border-radius:10px;">Anpassen</div>
+        <div onclick="mcKeep()" style="flex:1;cursor:pointer;text-align:center;border:2px solid #16294d;color:#16294d;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:10px 0;border-radius:10px;">Behalten</div>
+      </div></div>`;
+  }
+  if(c.decided==null){ c.decided="kept"; save(); }
+  const txt=c.decided==="adjusted"?"Plan für heute angepasst"
+    :dec.level==="green"?("Grünes Licht"+(c.source==="garmin"?" · Recovery "+c.score:""))
+    :!todayRun?"Freier Tag — passt zu deiner Erholung"
+    :"Plan beibehalten — höre heute auf deinen Körper";
+  return `<div style="display:flex;align-items:center;gap:9px;background:#ffffff;border:1px solid #e8e1d2;border-radius:12px;padding:11px 16px;">
+    <span style="width:8px;height:8px;border-radius:99px;background:${mcLevelColor(dec.level)};flex:none;"></span>
+    <span style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;">Morgen-Check · ${txt}</span></div>`;
+}
+/* Verpasst: kein stilles Loch */
+function findMissed(){
+  for(let off=1;off<=3;off++){
+    const dt=new Date(+today()-off*MS); const loc=locate(dt);
+    if(!loc.week)continue;
+    const R=RUNS.find(r=>effDay(loc.week,r.slot)===loc.dayIdx&&!runIsRest(loc.week,r.slot));
+    if(!R)continue;
+    const id=runId(loc.week,R.slot);
+    if(DB.logs[id]||DB.skips[id])continue;
+    return {w:loc.week,slot:R.slot,kind:R.kind,dt,id,c:runContent(loc.week,R.slot)};
+  }
+  return null;
+}
+function findMoveTarget(m){
+  // moves verschieben innerhalb der eigenen Woche — nur anbieten, wenn die Einheit aus der aktuellen Woche stammt
+  const loc=locate(today()); if(!loc.week||m.w!==loc.week)return null;
+  const hardAt=(w,d)=>RUNS.some(r=>{const rid=runId(w,r.slot);return effDay(w,r.slot)===d&&!runIsRest(w,r.slot)&&(r.kind==="quality"||r.kind==="long")&&!DB.skips[rid]&&rid!==m.id;});
+  for(let d=loc.dayIdx; d<7; d++){
+    const w=loc.week;
+    const occ=RUNS.find(r=>effDay(w,r.slot)===d&&!runIsRest(w,r.slot)&&!DB.skips[runId(w,r.slot)]);
+    if(occ){ const oid=runId(w,occ.slot); if(DB.logs[oid])continue; if(occ.kind!=="easy"&&occ.kind!=="recovery")continue; }
+    if(m.kind==="quality"||m.kind==="long"){ if(d>0&&hardAt(loc.week,d-1))continue; if(d<6&&hardAt(loc.week,d+1))continue; }
+    return {day:d,occ:occ||null,w:loc.week};
+  }
+  return null;
+}
+function missedBlock(){
+  const m=findMissed(); if(!m)return "";
+  const head=`<div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;color:#e0584f;text-transform:uppercase;margin-bottom:8px;">Verpasst · ${DOWL[effDay(m.w,m.slot)]} · ${m.c.title}</div>`;
+  if(m.kind==="easy"||m.kind==="recovery"){
+    return `<div style="background:#ffffff;border:2px solid rgba(224,88,79,.4);border-radius:16px;padding:18px 20px;">${head}
+      <div style="font-size:12.5px;color:#69675c;line-height:1.5;margin-bottom:13px;">Kein Stress — lockere Kilometer holt man nicht nach. Der Plan läuft normal weiter.</div>
+      <div onclick="msSkip('${m.id}')" style="display:inline-block;cursor:pointer;border:2px solid #16294d;color:#16294d;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:9px 22px;border-radius:10px;">Verstanden</div></div>`;
+  }
+  const t=findMoveTarget(m);
+  if(t){
+    return `<div style="background:#ffffff;border:2px solid rgba(224,88,79,.4);border-radius:16px;padding:18px 20px;">${head}
+      <div style="font-family:var(--display);font-size:19px;font-weight:600;color:#16294d;text-transform:uppercase;">Nachholen am ${DOWL[t.day]}${t.day===locate(today()).dayIdx?" (heute)":""}</div>
+      <div style="font-size:12px;font-weight:600;color:#69675c;margin-top:4px;">${m.c.det}</div>
+      <div style="font-size:12.5px;color:#93917e;line-height:1.5;margin-top:8px;">${t.occ?"Der lockere Lauf an dem Tag entfällt dafür — Schlüssel-Einheiten gehen vor.":"Der Tag ist frei — die Einheit passt dort ohne harte Nachbartage."}</div>
+      <div style="display:flex;gap:10px;margin-top:14px;">
+        <div onclick="msMove('${m.id}',${m.w},'${m.slot}',${t.day},${t.occ?`'${runId(t.w,t.occ.slot)}'`:"null"})" style="flex:1.3;cursor:pointer;text-align:center;background:#e05a1f;color:#faf5ee;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:12px 0;border-radius:10px;">Verschieben</div>
+        <div onclick="msSkip('${m.id}')" style="flex:1;cursor:pointer;text-align:center;border:2px solid #16294d;color:#16294d;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:10px 0;border-radius:10px;">Ausfallen</div>
+      </div></div>`;
+  }
+  return `<div style="background:#ffffff;border:2px solid rgba(224,88,79,.4);border-radius:16px;padding:18px 20px;">${head}
+    <div style="font-size:12.5px;color:#69675c;line-height:1.5;margin-bottom:13px;">Diese Woche ist zu voll zum Nachholen. Ausfallen lassen ist die richtige Wahl — Konstanz schlägt Aufholjagd.</div>
+    <div onclick="msSkip('${m.id}')" style="display:inline-block;cursor:pointer;border:2px solid #16294d;color:#16294d;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:9px 22px;border-radius:10px;">Ausfallen lassen</div></div>`;
+}
+function msSkip(id){ DB.skips[id]={reason:"missed",date:dkey(today())}; chlog({id,src:"Ausgelassen",text:"Einheit ausgelassen",reason:"Bewusst ausgefallen — zählt nicht gegen die Compliance."}); save(); render(); toast("Okay — Plan läuft weiter"); }
+function msMove(id,w,slot,day,occId){
+  DB.moves[id]=day;
+  if(occId){ DB.skips[occId]={reason:"replaced",date:dkey(today())}; }
+  chlog({id,src:"Nachgeholt",text:runContent(w,slot).title+" → "+DOWL[day],reason:"Verpasste Schlüssel-Einheit verschoben."});
+  save(); render(); toast("Einheit verschoben ✓");
+}
+
 function viewHeute(){
   const td=today(), loc=locate(td);
   if(loc.pre){ return `<div class="wrap"><div class="card center"><div style="font-size:30px;font-weight:700;letter-spacing:-1.5px;color:var(--txt)">Noch ${Math.ceil((planStart()-td)/MS)} Tage</div><div class="eyebrow" style="margin-top:8px">bis Trainingsstart ${dmShort(planStart())}${planStart().getFullYear()}</div></div></div>`; }
@@ -2259,8 +2397,9 @@ function viewHeute(){
   const dCol=under?"#e05a1f":"#c98f14";
 
   const rec=recoveryScore(latestWellness());
-  const todayRun=RUNS.find(R=>effDay(loc.week,R.slot)===loc.dayIdx && !runIsRest(loc.week,R.slot));
+  const todayRun=RUNS.find(R=>effDay(loc.week,R.slot)===loc.dayIdx && !runIsRest(loc.week,R.slot) && !DB.skips[runId(loc.week,R.slot)]);
   const KL={quality:"QUALITÄT",easy:"GA1",recovery:"RECOVERY",long:"LONG RUN"};
+  ensureMorningCheck();
 
   const brand=`<div style="display:flex;align-items:center;justify-content:space-between;">
     <div style="display:flex;align-items:center;gap:10px;">
@@ -2355,7 +2494,7 @@ function viewHeute(){
     <div style="font-size:14px;color:#69675c;line-height:1.55;">${read}</div>
   </div>`;
 
-  return `<div class="wrap" style="display:flex;flex-direction:column;gap:16px;">${brand}${hero}${today_}${bahn}${thresh}${stravaPendingBlock()}${coach}${tilesRow}${recentFeed()}</div>`;
+  return `<div class="wrap" style="display:flex;flex-direction:column;gap:16px;">${brand}${hero}${missedBlock()}${morningCheckBlock(loc,todayRun)}${today_}${bahn}${thresh}${stravaPendingBlock()}${coach}${tilesRow}${recentFeed()}</div>`;
 }
 
 /* ============ VIEW: WOCHE ============ */
