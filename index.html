@@ -2760,15 +2760,15 @@ function viewStats(){
   const predStr=estNow?hms(Math.round(estNow)):"—";
   let deltaStr="", under=true;
   if(estNow){ const dd=Math.round(estNow)-GOAL; under=dd<=0; const mm=Math.floor(Math.abs(dd)/60),ss=Math.abs(dd)%60; deltaStr=(under?"−":"+")+mm+":"+String(ss).padStart(2,"0")+(under?" ✓":""); }
-  const prog=`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:24px;padding:18px 20px 20px;">
+  const prog=`<div style="background:#ffffff;border:2px solid #16294d;border-radius:16px;padding:18px 20px 20px;">
     <div style="display:flex;justify-content:space-between;align-items:baseline;">
       <span style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;">Marathon-Prognose</span>
       ${trendStr?`<span style="font-family:var(--mono);font-size:10px;color:#e05a1f;">${trendStr}</span>`:""}
     </div>
     <div style="position:relative;height:30px;margin:16px 0 4px;">
-      <div style="position:absolute;top:6px;left:0;right:0;height:1px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 5px,transparent 5px 10px);"></div>
+      <div style="position:absolute;top:6px;left:0;right:0;height:1px;background:repeating-linear-gradient(90deg,rgba(22,41,77,.35) 0 5px,transparent 5px 10px);"></div>
       <div style="position:absolute;top:-7px;right:0;font-family:var(--mono);font-size:9px;color:#93917e;">SUB ${goalStr()}</div>
-      ${dotsArr.map(d=>`<div style="position:absolute;top:${d.glow?"15px":"16px"};left:${xOf(d.e)}%;width:${d.s}px;height:${d.s}px;border-radius:99px;background:${d.c};${d.glow?"":""}transform:translateX(-50%);"></div>`).join("")}
+      ${dotsArr.map(d=>`<div style="position:absolute;top:${d.glow?"12px":"16px"};left:${xOf(d.e)}%;width:${d.glow?16:d.s}px;height:${d.glow?16:d.s}px;border-radius:99px;background:${d.c};${d.glow?"border:3px solid #fff;box-shadow:0 0 0 2px #e05a1f;":""}transform:translateX(-50%);"></div>`).join("")}
     </div>
     <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:6px;">
       <div style="font-size:34px;font-weight:700;letter-spacing:-1.5px;color:#16294d;line-height:1;">${predStr}</div>
@@ -2778,11 +2778,15 @@ function viewStats(){
 
   // 2) Recovery · Garmin (tippbar)
   const d=latestWellness(); const score=d?recoveryScore(d):null; const hv=hrvTrend();
-  const rtile=(v,l,acc)=>`<div style="flex:1;text-align:center;background:#f0e9da;border-radius:12px;padding:11px 6px;"><div style="font-size:16px;font-weight:700;color:${acc?"#e05a1f":"#16294d"};">${v}</div><div style="font-family:var(--mono);font-size:8px;color:#93917e;margin-top:3px;">${l}</div></div>`;
-  const recCard = d ? `<div onclick="openRecoveryDetail()" style="cursor:pointer;background:#ffffff;border:1px solid #e8e1d2;border-radius:24px;padding:18px 20px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <span style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;">Recovery · Garmin</span>
-      <span style="display:flex;align-items:center;gap:8px;"><span style="font-size:26px;font-weight:700;color:#e05a1f;letter-spacing:-1px;">${score}</span><span style="font-family:var(--mono);font-size:9px;color:#93917e;line-height:1.1;">${score>=67?"grünes<br>Licht":score>=34?"gelbes<br>Licht":"rotes<br>Licht"}</span></span>
+  const rtile=(v,l,acc)=>`<div style="flex:1;text-align:center;background:#20355c;border-radius:10px;padding:11px 6px;"><div style="font-family:var(--display);font-size:17px;font-weight:600;color:${acc?"#f0824e":"#faf5ee"};">${v}</div><div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#7d90b3;margin-top:3px;text-transform:uppercase;">${l}</div></div>`;
+  const recCard = d ? `<div onclick="openRecoveryDetail()" style="cursor:pointer;background:#16294d;border-radius:18px;padding:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <span style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;color:#7d90b3;text-transform:uppercase;">Recovery · Garmin</span>
+      <span style="font-size:12px;color:#a8b3c7;">Details ›</span>
+    </div>
+    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px;">
+      <span style="font-family:var(--display);font-size:44px;font-weight:600;color:#f0824e;line-height:1;">${score}</span>
+      <span style="font-size:13px;color:#a8b3c7;">${score>=67?"Gut erholt — grünes Licht.":score>=34?"Mittel — dosiert angehen.":"Beansprucht — heute locker."}</span>
     </div>
     <div style="display:flex;gap:8px;">
       ${rtile(fmtH(d.sleepSeconds),"SCHLAF",false)}
@@ -2801,13 +2805,13 @@ function viewStats(){
     <div style="flex:1;background:#ffffff;border:1px solid #e8e1d2;border-radius:20px;padding:16px 17px;">
       <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:#93917e;text-transform:uppercase;">Pflichtläufe</div>
       <div style="font-size:28px;font-weight:700;color:#16294d;letter-spacing:-1px;margin-top:6px;">${dn}<span style="font-size:16px;color:#93917e;">/${pl}</span></div>
-      <div style="height:4px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:8px;"><div style="width:${cpct}%;height:100%;background:${cCol};border-radius:99px;"></div></div>
+      <div style="height:4px;border-radius:99px;background:#f0e9da;overflow:hidden;margin-top:8px;"><div style="width:${cpct}%;height:100%;background:${cCol};border-radius:99px;"></div></div>
       <div style="font-family:var(--mono);font-size:9px;color:#93917e;margin-top:6px;">Vorwoche · ${cpct}%</div>
     </div>
     <div style="flex:1;background:#ffffff;border:1px solid #e8e1d2;border-radius:20px;padding:16px 17px;">
       <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:#93917e;text-transform:uppercase;">Form · TSB</div>
       <div style="font-size:28px;font-weight:700;color:#e05a1f;letter-spacing:-1px;margin-top:6px;">${tsb>=0?"+":""}${tsb}</div>
-      <div style="height:4px;border-radius:99px;background:rgba(255,255,255,.08);margin-top:8px;position:relative;"><div style="position:absolute;left:${tsbX}%;top:-3px;width:3px;height:10px;background:#e05a1f;"></div></div>
+      <div style="height:4px;border-radius:99px;background:#f0e9da;margin-top:8px;position:relative;"><div style="position:absolute;left:${tsbX}%;top:-3px;width:3px;height:10px;background:#e05a1f;"></div></div>
       <div style="font-family:var(--mono);font-size:9px;color:#e05a1f;margin-top:6px;">${fl.label}</div>
     </div>
   </div>`;
@@ -2816,7 +2820,7 @@ function viewStats(){
 
   return `<div class="wrap" style="display:flex;flex-direction:column;gap:13px;">
     <div>
-      <div class="ln-title"><b>Analyse</b><span class="ln-line"></span></div>
+      <div class="ln-title"><b>Form</b><span class="ln-line"></span></div>
       <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;">Plan vs. Realität</div>
     </div>
     ${prog}${recCard}${half}
@@ -3374,10 +3378,10 @@ function cardCloud(){
 function viewMehr(){
   const garminOn=!!(DB.garmin && DB.garmin.gistId);
   const stravaOn=stravaConnected();
-  const goal=`<div style="background:#ffffff;border:1px solid rgba(224,90,31,.25);border-radius:20px;padding:18px 20px;">
-    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#e05a1f;text-transform:uppercase;">Mein Ziel</div>
-    <div style="font-size:30px;font-weight:700;letter-spacing:-1px;color:#16294d;margin-top:8px;">Sub ${goalShort()}</div>
-    <div style="font-family:var(--mono);font-size:11px;color:#93917e;margin-top:4px;">${raceLabel()} · ${raceDateStr()} · 42,195 km</div>
+  const goal=`<div style="background:#16294d;border-radius:18px;padding:20px 22px;">
+    <div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:2px;color:#f0824e;text-transform:uppercase;">Mein Ziel</div>
+    <div style="font-family:var(--display);font-size:38px;font-weight:600;letter-spacing:.5px;color:#faf5ee;margin-top:6px;">SUB ${goalShort()}</div>
+    <div style="font-size:12px;color:#a8b3c7;margin-top:4px;">${raceLabel()} · ${raceDateStr()} · 42,195 km</div>
   </div>`;
   const connRow=(label,on,last)=>`<div onclick="openSettings()" style="display:flex;align-items:center;gap:13px;padding:14px 16px;${last?"":"border-bottom:1px solid rgba(255,255,255,.05);"}cursor:pointer;">
     <div style="font-size:14px;font-weight:600;color:#16294d;flex:1;">${label}</div>
