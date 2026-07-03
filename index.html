@@ -1974,6 +1974,7 @@ function applyPlanChangesFromText(text){
     const det=(ch.det!=null&&String(ch.det).trim())?String(ch.det).trim():cur.det;
     DB.planEdits[id]={title,det};                 // ändert NUR die Vorgabe — DB.logs bleibt unberührt
     if(ch.day!=null && ch.day>=0 && ch.day<=6) DB.moves[id]=+ch.day;
+    chlog({id,src:"Plan-Editor",text:cur.title+" → "+title,reason:det});
     applied.push(`W${w} ${slot.toUpperCase()}: ${det}`);
   });
   // Eckdaten (Renndatum/Ort/Zielzeit) — verschiebt nur Kalender, Logs hängen an Woche+Slot
@@ -2374,6 +2375,97 @@ function msMove(id,w,slot,day,occId){
   save(); render(); toast("Einheit verschoben ✓");
 }
 
+/* ============ WOCHENREPORT (Port aus V2) ============ */
+function ensureWeekReports(){
+  if(!DB.reports)DB.reports={};
+  const loc=locate(today()); const cur=loc.week||((loc.post)?22:0);
+  for(let w=1;w<cur;w++){ if(!DB.reports[w]) generateWeekReport(w); }
+}
+function generateWeekReport(w){
+  const W=WEEKS[w-1]; if(!W)return;
+  let pl=0,dn=0,sk=0;
+  RUNS.forEach(R=>{ const id=runId(w,R.slot); if(runIsRest(w,R.slot))return; if(DB.skips[id]){sk++;return;} pl++; if(DB.logs[id])dn++; });
+  const km=Math.round(runDoneKm(w)); const comp=pl?Math.round(dn/pl*100):null;
+  const parts=[];
+  if(comp===null)parts.push("Ruhige Woche ohne Pflichtläufe.");
+  else if(comp>=100)parts.push("Volle Woche: alle "+pl+" Läufe absolviert — genau so baut man eine "+W.ph+"-Phase.");
+  else if(comp>=75)parts.push(dn+" von "+pl+" Läufen — solide Basis, der Plan trägt.");
+  else parts.push(dn+" von "+pl+" Läufen. Kein Drama — aber Konstanz ist dein stärkster Hebel.");
+  if(sk)parts.push(sk+" Einheit"+(sk>1?"en":"")+" bewusst ausgelassen — sauber kommuniziert statt still verpasst.");
+  if(km&&W.km)parts.push(km+" von "+W.km+" km gelaufen.");
+  const est=marathonEstimate(predictionSeries(runLogs()));
+  if(est)parts.push("Prognose aktuell "+hms(Math.round(est))+(Math.round(est)<=goalSec()?" — unter der Linie.":" — noch über der Linie, dranbleiben."));
+  DB.reports[w]={w,ph:W.ph,kmPlan:W.km,km,comp,dn,pl,sk,text:parts.join(" "),seen:false,generated:dkey(today())};
+  save();
+}
+function latestUnseenReport(){ const ks=Object.keys(DB.reports||{}).map(Number).sort((a,b)=>b-a); for(const w of ks){ if(!DB.reports[w].seen)return w; } return null; }
+function weekReportBlock(){
+  const w=latestUnseenReport(); if(w===null)return "";
+  const r=DB.reports[w];
+  return `<div style="background:#ffffff;border:2px solid #16294d;border-radius:16px;padding:18px 20px;">
+    <div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;color:#e05a1f;text-transform:uppercase;margin-bottom:8px;">Wochenreport · Runde ${r.w} · ${r.ph}</div>
+    <div style="font-family:var(--display);font-size:22px;font-weight:600;color:#16294d;text-transform:uppercase;">${r.comp!=null?r.comp+" % erfüllt":"Woche "+r.w}</div>
+    <div style="font-size:12.5px;color:#69675c;line-height:1.5;margin:6px 0 13px;">${r.km} von ${r.kmPlan} km · ${r.dn}/${r.pl} Läufe${r.sk?" · "+r.sk+" ausgelassen":""}</div>
+    <div onclick="openWeekReport(${w})" style="display:inline-block;cursor:pointer;background:#e05a1f;color:#faf5ee;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:10px 26px;border-radius:10px;">Report ansehen</div>
+  </div>`;
+}
+function openWeekReport(w){
+  const r=DB.reports[w]; if(!r)return;
+  r.seen=true; save();
+  const tile=(v,l)=>`<div style="flex:1;text-align:center;background:#f0e9da;border-radius:10px;padding:12px 6px;"><div style="font-family:var(--display);font-size:17px;font-weight:600;color:#16294d;">${v}</div><div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#93917e;margin-top:3px;text-transform:uppercase;">${l}</div></div>`;
+  sheet(`
+    <div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;color:#e05a1f;text-transform:uppercase;margin-bottom:6px;">Wochenreport · Runde ${r.w} · ${r.ph}</div>
+    <div style="font-family:var(--display);font-size:30px;font-weight:600;color:#16294d;text-transform:uppercase;margin-bottom:16px;">${r.comp!=null?r.comp+" % erfüllt":"Woche "+r.w}</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">${tile(r.km+"/"+r.kmPlan,"KM")}${tile(r.comp!=null?r.comp+"%":"—","Compliance")}${tile(r.dn+"/"+r.pl,"Läufe")}${tile(r.sk||0,"Skips")}</div>
+    <div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+      <div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;margin-bottom:8px;">Einordnung</div>
+      <div style="font-size:13px;color:#69675c;line-height:1.55;">${r.text}</div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <div onclick="closeModal();openCoachChat()" style="flex:1;cursor:pointer;text-align:center;border:2px solid #16294d;color:#16294d;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:12px 0;border-radius:10px;">Mit Coach besprechen</div>
+      <div onclick="closeModal()" style="flex:1;cursor:pointer;text-align:center;background:#e05a1f;color:#faf5ee;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:14px 0;border-radius:10px;">Fertig</div>
+    </div>`);
+}
+/* ============ ÄNDERUNGS-FEED ============ */
+function openChangeFeed(){
+  const es=DB.changeLog||[];
+  sheet(`
+    <div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;color:#e05a1f;text-transform:uppercase;margin-bottom:6px;">Plan-Änderungen</div>
+    <div style="font-family:var(--display);font-size:24px;font-weight:600;color:#16294d;text-transform:uppercase;margin-bottom:16px;">Was sich geändert hat — und warum</div>
+    ${es.length?es.map(e=>`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:12px;padding:13px 15px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+        <span style="font-size:11px;font-weight:600;color:#93917e;">${e.id||""}${e.date?" · "+e.date:""}</span>
+        <span style="background:#e05a1f;color:#faf5ee;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;border-radius:4px;padding:2px 8px;">${e.src}</span></div>
+      <div style="font-size:13.5px;font-weight:600;color:#16294d;">${e.text}</div>
+      ${e.reason?`<div style="font-size:12px;color:#93917e;line-height:1.45;margin-top:3px;">${e.reason}</div>`:""}
+    </div>`).join(""):`<div style="text-align:center;color:#b6b4a4;font-size:13px;padding:30px 0;">Noch keine Änderungen — dein Plan läuft wie erstellt.</div>`}
+    <div onclick="closeModal()" style="cursor:pointer;text-align:center;border:2px solid #16294d;color:#16294d;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:12px 0;border-radius:10px;margin-top:6px;">Schließen</div>`);
+}
+/* ============ RENNWOCHEN-MODUS ============ */
+function raceWeekBlock(){
+  const dRace=Math.ceil((raceDate()-today())/MS);
+  if(dRace>7||dRace<0)return "";
+  const pace=goalSec()/42.195;
+  const marks=[[10,"KM 10"],[21.1,"HALB"],[30,"KM 30"],[42.195,"ZIEL"]];
+  const tile=(km,l)=>`<div style="flex:1;text-align:center;background:#20355c;border-radius:10px;padding:11px 4px;"><div style="font-family:var(--display);font-size:15px;font-weight:600;color:${l==="ZIEL"?"#f0824e":"#faf5ee"};">${hms(Math.round(km*pace))}</div><div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#7d90b3;margin-top:3px;">${l}</div></div>`;
+  const check=[
+    "Ab 3 Tage vorher: Kohlenhydrate rauf, Ballaststoffe runter",
+    "Nichts Neues am Renntag — Schuhe, Gels, Frühstück: alles erprobt",
+    "Startunterlagen und Outfit am Vorabend richten",
+    dRace<=1?"Beine hoch, früh ins Bett — Schlaf ist jetzt dein Training":"Kurz und locker bleiben — Frische schlägt Umfang"
+  ];
+  return `<div style="background:#16294d;border-radius:18px;padding:20px 22px;">
+    <div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:2px;color:#f0824e;text-transform:uppercase;margin-bottom:6px;">Rennwoche · ${dRace===0?"Heute ist Renntag":"noch "+dRace+" Tag"+(dRace>1?"e":"")}</div>
+    <div style="font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:.5px;color:#faf5ee;text-transform:uppercase;">${raceLabel()}</div>
+    <div style="display:flex;gap:8px;margin-top:14px;">${marks.map(([km,l])=>tile(km,l)).join("")}</div>
+    <div style="font-size:11px;color:#a8b3c7;margin-top:9px;">Ziel-Pace ${pace5(pace)} /km — die ersten Kilometer bewusst nicht schneller.</div>
+    <div style="margin-top:12px;border-top:1px solid #233a63;padding-top:8px;">
+      ${check.map(c=>`<div style="display:flex;gap:9px;padding:6px 0;font-size:12.5px;color:#a8b3c7;line-height:1.4;"><span style="color:#f0824e;flex:none;">✓</span>${c}</div>`).join("")}
+    </div>
+  </div>`;
+}
+function pace5(sec){ const m=Math.floor(sec/60),s=Math.round(sec%60); return m+":"+String(s).padStart(2,"0"); }
+
 function viewHeute(){
   const td=today(), loc=locate(td);
   if(loc.pre){ return `<div class="wrap"><div class="card center"><div style="font-size:30px;font-weight:700;letter-spacing:-1.5px;color:var(--txt)">Noch ${Math.ceil((planStart()-td)/MS)} Tage</div><div class="eyebrow" style="margin-top:8px">bis Trainingsstart ${dmShort(planStart())}${planStart().getFullYear()}</div></div></div>`; }
@@ -2399,7 +2491,7 @@ function viewHeute(){
   const rec=recoveryScore(latestWellness());
   const todayRun=RUNS.find(R=>effDay(loc.week,R.slot)===loc.dayIdx && !runIsRest(loc.week,R.slot) && !DB.skips[runId(loc.week,R.slot)]);
   const KL={quality:"QUALITÄT",easy:"GA1",recovery:"RECOVERY",long:"LONG RUN"};
-  ensureMorningCheck();
+  ensureMorningCheck(); ensureWeekReports();
 
   const brand=`<div style="display:flex;align-items:center;justify-content:space-between;">
     <div style="display:flex;align-items:center;gap:10px;">
@@ -2494,7 +2586,7 @@ function viewHeute(){
     <div style="font-size:14px;color:#69675c;line-height:1.55;">${read}</div>
   </div>`;
 
-  return `<div class="wrap" style="display:flex;flex-direction:column;gap:16px;">${brand}${hero}${missedBlock()}${morningCheckBlock(loc,todayRun)}${today_}${bahn}${thresh}${stravaPendingBlock()}${coach}${tilesRow}${recentFeed()}</div>`;
+  return `<div class="wrap" style="display:flex;flex-direction:column;gap:16px;">${brand}${hero}${raceWeekBlock()}${weekReportBlock()}${missedBlock()}${morningCheckBlock(loc,todayRun)}${today_}${bahn}${thresh}${stravaPendingBlock()}${coach}${tilesRow}${recentFeed()}</div>`;
 }
 
 /* ============ VIEW: WOCHE ============ */
@@ -3547,6 +3639,12 @@ function viewMehr(){
       <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:#16294d;">Trainingsplan bearbeiten</div><div style="font-family:var(--mono);font-size:10px;color:#93917e;margin-top:2px;">Per Chat anpassen — absolvierte Einheiten bleiben</div></div>
       <span style="color:#b6b4a4;flex:none;">›</span>
     </div>
+    <div style="height:10px"></div>
+    <div onclick="openChangeFeed()" style="cursor:pointer;background:#ffffff;border:1px solid #e8e1d2;border-radius:16px;padding:15px 16px;display:flex;align-items:center;gap:13px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e05a1f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:#16294d;">Plan-Änderungen</div><div style="font-family:var(--mono);font-size:10px;color:#93917e;margin-top:2px;">${(DB.changeLog||[]).length?(DB.changeLog.length+" Anpassungen — was & warum"):"Verlauf aller Anpassungen"}</div></div>
+      <span style="color:#b6b4a4;flex:none;">›</span>
+    </div>
     ${hasRaceOverride()?`<div onclick="resetRaceConfig()" style="cursor:pointer;text-align:center;margin-top:10px;font-family:var(--mono);font-size:10px;letter-spacing:.5px;color:#93917e;">Eckdaten auf Original (München · 11.10.2026) zurücksetzen ›</div>`:""}
     <div style="height:18px"></div>
     ${conn}
@@ -4015,10 +4113,11 @@ function openRunAnalysis(w,slot){
 
   sheet(`<h2>${c.title}</h2>
     <div class="sub" style="margin:-6px 0 14px">${fmtD(dt)} · W${w} · ${c.det}</div>
-    <div class="card" style="background:var(--accent);color:#fff;margin:0 0 6px">
-      <h3 style="font-size:.78rem;margin:0 0 6px;color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:1px">Coach-Verdict</h3>
+    <div class="card" style="background:var(--navy);color:#faf5ee;margin:0 0 6px">
+      <h3 style="font-size:.78rem;margin:0 0 6px;color:#7d90b3;text-transform:uppercase;letter-spacing:1px">Coach-Verdict</h3>
       ${verdict.map(l=>`<div style="font-size:.88rem;margin:4px 0;line-height:1.4">• ${l}</div>`).join("")}
     </div>
+    <div id="aiVerdictBox">${L.aiVerdict?aiVerdictCard(L.aiVerdict):((DB.coach&&DB.coach.workerUrl)?`<div class="card" style="background:#ffffff;border:1px solid rgba(224,90,31,.3);margin:0 0 6px"><h3 style="font-size:.78rem;margin:0 0 6px;color:#e05a1f;text-transform:uppercase;letter-spacing:1px">KI-Coach</h3><div class="sub">analysiert deinen Lauf…</div></div>`:"")}</div>
     ${tempoHtml}
     ${hrHtml}
     ${planHtml}
@@ -4026,6 +4125,28 @@ function openRunAnalysis(w,slot){
     ${splitsHtml}
     ${!det?`<div class="card" style="margin-top:16px;background:var(--card2)"><div class="sub">Charts, Zonen und Splits erscheinen automatisch, wenn der Lauf über Strava („Übernehmen") oder eine GPX/TCX-Datei importiert wurde.</div></div>`:""}
     <div class="acts" style="margin-top:20px"><button class="btn-p" style="flex:1" onclick="closeModal()">Schließen</button></div>`);
+  if(!L.aiVerdict && DB.coach && DB.coach.workerUrl) fetchRunVerdictAI(w,slot,L);
+}
+function aiVerdictCard(text){
+  return `<div class="card" style="background:#ffffff;border:1px solid rgba(224,90,31,.3);margin:0 0 6px">
+    <h3 style="font-size:.78rem;margin:0 0 6px;color:#e05a1f;text-transform:uppercase;letter-spacing:1px">KI-Coach</h3>
+    <div style="font-size:.88rem;line-height:1.5;color:#69675c">${text.replace(/^#{1,6}\s*/gm,"").replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\n/g,"<br>")}</div></div>`;
+}
+async function fetchRunVerdictAI(w,slot,L){
+  try{
+    const c=runContent(w,slot); const pace=L.sec&&L.dist?paceFmt(Math.round(L.sec/L.dist)):null;
+    const q="Analysiere kurz diesen absolvierten Lauf (3-4 Sätze, sprich mich direkt an, keine Aufzählung, keine Emojis): "+
+      c.title+" in W"+w+". Soll: "+(c.det||"—")+". Ist: "+L.dist+" km in "+hms(L.sec)+(pace?" ("+pace+" /km)":"")+
+      (L.hr?", Puls Ø "+L.hr:"")+(L.rpe?", RPE "+L.rpe:"")+(L.feel?", Gefühl: "+L.feel:"")+(L.pain?", Schmerz gemeldet!":"")+".";
+    const r=await fetch(DB.coach.workerUrl.replace(/\/$/,"")+"/coach",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({messages:[{role:"user",content:q}],context:(typeof buildCoachContext==="function"?buildCoachContext():"")})});
+    const j=await r.json();
+    if(j.text){
+      const id=runId(w,slot);
+      if(DB.logs[id]){ DB.logs[id].aiVerdict=j.text; save(); }
+      const el=document.getElementById("aiVerdictBox"); if(el) el.innerHTML=aiVerdictCard(j.text);
+    } else { const el=document.getElementById("aiVerdictBox"); if(el) el.innerHTML=""; }
+  }catch(e){ const el=document.getElementById("aiVerdictBox"); if(el) el.innerHTML=""; }
 }
 function parsePaceFromText(txt){
   if(!txt) return null;

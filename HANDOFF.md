@@ -1,7 +1,18 @@
-# SUB4 — „THE LINE" · Handoff / Session-Kontext
+# SUB4/TEMPO · Handoff / Session-Kontext
 
 > Diese Datei enthält alles, um in einer **neuen Session** sofort weiterarbeiten zu können.
-> Stand: nach Commit `bfb2c23`. Sprache der App: **Deutsch**. Alles Persönliche für **einen** Nutzer.
+> Sprache der App: **Deutsch**. Alles Persönliche für **einen** Nutzer.
+>
+> **UPDATE 03.07.2026 — TEMPO-Rebrand + adaptive Features:** Das Design-System „THE LINE"
+> wurde vollständig durch **TEMPO** ersetzt (Bahn-Orange #e05a1f auf Navy #16294d, Creme-BG
+> #faf5ee, Oswald/Archivo, kein Glow, Nav rein typografisch HEUTE·WOCHEN·TRACKEN·FORM·MEHR,
+> Wortmarke **TEMPO**) — Spezifikation: `design/TEMPO-HANDOFF.md` (ersetzt design/README.md).
+> Zusätzlich aus V2 portiert: **Morgen-Check** (Garmin-Recovery/Gefühl → Einheit anpassen,
+> DB.checkins), **Verpasst-Logik** (Skip mit reason / Verschieben via DB.moves), **Wochenreport**
+> (DB.reports, Karte auf Heute + Sheet), **Änderungs-Feed** (DB.changeLog, Mehr → Plan-Änderungen),
+> **KI-Coach-Verdict** in der Einzel-Lauf-Analyse (L.aiVerdict, Worker /coach), **Rennwochen-Karte**
+> (≤7 Tage: Splits + Checkliste). Farb-Referenzen unten (Teal/near-black) sind veraltet.
+> Backup des LINE-Stands: `.claude/index.line-backup.html`. Die V2-App (`v2/`) ist davon getrennt.
 
 ---
 
