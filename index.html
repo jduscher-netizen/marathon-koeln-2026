@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0a0b0d">
+<meta name="theme-color" content="#faf5ee">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>SUB4 — Marathon München 2026</title>
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>TEMPO — Marathon München 2026</title>
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
@@ -14,37 +14,42 @@
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    /* ===== THE LINE — Dark Identity ===== */
-    --bg:#0a0b0d;                 /* App-Hintergrund (near-black) */
-    --surface:#14171b;            /* Cards, Sheets */
-    --surface-2:#0f1216;          /* Inset-Felder, Metric-Tiles */
-    --surface-nav:#101317;        /* Bottom-Nav / Bars */
-    --line:rgba(255,255,255,.06); /* Card-Border, Hairlines */
-    --line-strong:rgba(255,255,255,.10);
-    --txt:#f2f3f4;                /* Primärtext & große Ziffern */
-    --text-2:#cfd2d6;             /* Sekundärtext */
-    --mut:#7e848c;                /* Labels, Mono-Eyebrows, Meta */
-    --dim:#565c64;                /* inaktive Nav, leere Zeilen */
-    --node-future:#2a2e34;        /* zukünftige Timeline-Nodes (Fill) */
-    --node-future-bd:#3a3f46;     /* … Border */
-    --accent:#4ee0c7;             /* DIE LINIE, aktiv, positiv, CTA */
-    --accent-d:#39c8b0;
-    --accent-glow:rgba(78,224,199,.7);
-    --accent-soft:rgba(78,224,199,.08);
-    --accent-soft-bd:rgba(78,224,199,.25);
-    --warn:#e0a53b;               /* Compliance <100%, Vorsicht */
+    /* ===== TEMPO — Track-Club Identity ===== */
+    --bg:#faf5ee;                 /* App-Hintergrund (warmes Cremeweiß) */
+    --surface:#ffffff;            /* Karten */
+    --surface-2:#f0e9da;          /* Bar-Tracks, Inset-Flächen */
+    --surface-nav:#faf5ee;        /* Bottom-Nav */
+    --line:#e8e1d2;               /* Karten-Borders, Hairlines (2px) */
+    --line-strong:#d5cfc0;
+    --txt:#16294d;                /* Navy: Primärtext & große Ziffern */
+    --text-2:#69675c;             /* Sekundärtext */
+    --mut:#93917e;                /* Labels, Eyebrows, Meta */
+    --dim:#b6b4a4;                /* faint: Meta, inaktive Labels */
+    --navy:#16294d; --navy-2:#20355c; --navy-3:#233a63;
+    --navy-muted:#a8b3c7; --navy-dim:#465b85; --navy-label:#7d90b3;
+    --orange-on-navy:#f0824e;
+    --node-future:#e8e1d2;        /* Beige-Blöcke (Zukunft) */
+    --node-future-bd:#d5cfc0;
+    --dot-idle:#d5cfc0;
+    --accent:#e05a1f;             /* Bahn-Orange: CTAs, aktiv, Bahn-Füllung */
+    --accent-d:#c94e18;
+    --accent-glow:transparent;    /* TEMPO: kein Glow */
+    --accent-soft:rgba(224,90,31,.12);
+    --accent-soft-bd:rgba(224,90,31,.3);
+    --warn:#c98f14;
     --good:#1f9d63;
     --bad:#e0584f;
-    --font:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
-    --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
-    --r:24px;
-    /* Aliases für noch nicht umgebaute Screens (Schritt 2–7 ersetzen sie) */
-    --bg2:#0f1216; --card:#14171b; --card-solid:#14171b; --card2:#0f1216;
-    --line2:rgba(255,255,255,.10); --mut2:#565c64;
-    --accent2:#4ee0c7; --orange:#e0a53b; --gold:#e0a53b; --blue:#4ee0c7;
+    --font:'Archivo',-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
+    --mono:'Oswald','Archivo',sans-serif;   /* Labels/Eyebrows/Nav (laut) */
+    --display:'Oswald','Archivo',sans-serif;/* Headlines & große Zahlen */
+    --r:16px;
+    /* Aliases für Altbestand */
+    --bg2:#f0e9da; --card:#ffffff; --card-solid:#ffffff; --card2:#f0e9da;
+    --line2:#d5cfc0; --mut2:#b6b4a4;
+    --accent2:#e05a1f; --orange:#c98f14; --gold:#c98f14; --blue:#e05a1f;
     --glassblur:none; --shadow:none; --shadow-sm:none;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -55,15 +60,17 @@
   input,textarea{-webkit-user-select:text;user-select:text}
   body{padding-bottom:calc(60px + env(safe-area-inset-bottom))}
   .wrap{max-width:440px;margin:0 auto;padding:calc(8px + env(safe-area-inset-top)) 22px 22px}
-  /* ===== THE LINE — Primitives (für alle Screens) ===== */
-  .eyebrow{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:1.5px;color:var(--mut);text-transform:uppercase}
-  .mono{font-family:var(--mono)}
-  .ln-line{display:inline-block;width:30px;height:2px;background:var(--accent);box-shadow:0 0 8px var(--accent-glow)}
+  /* ===== TEMPO — Primitives (für alle Screens) ===== */
+  .eyebrow{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;color:var(--mut);text-transform:uppercase}
+  .mono{font-family:var(--mono);letter-spacing:.5px}
+  /* TEMPO: zwei Bahn-Striche als Marke */
+  .ln-line{display:inline-block;width:26px;height:4px;border-radius:99px;background:var(--accent);position:relative}
+  .ln-line::after{content:"";position:absolute;left:0;top:7px;width:18px;height:4px;border-radius:99px;background:var(--accent)}
   .ln-title{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px}
-  .ln-title b{font-size:22px;font-weight:700;letter-spacing:-.5px;color:var(--txt)}
-  .ln-title .ln-line{width:26px;box-shadow:0 0 8px rgba(78,224,199,.6)}
-  .ln-card{background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:18px 20px 20px}
-  h1{font-size:1.7rem;font-weight:800;letter-spacing:-.8px;color:var(--txt)}
+  .ln-title b{font-family:var(--display);font-size:32px;font-weight:600;letter-spacing:.5px;color:var(--txt);text-transform:uppercase}
+  .ln-title .ln-line{width:26px}
+  .ln-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 20px 20px}
+  h1{font-family:var(--display);font-size:1.9rem;font-weight:600;letter-spacing:.5px;color:var(--txt);text-transform:uppercase}
   h1 .sub{font-size:.78rem;font-weight:500;display:block;margin-top:3px;color:var(--mut);letter-spacing:0}
   h2{font-size:1.15rem;font-weight:700;margin:0 0 10px;letter-spacing:-.3px;color:var(--txt)}
   .sub{color:var(--mut);font-size:.82rem}
@@ -117,7 +124,7 @@
   .cd span{font-size:.6rem;color:var(--mut);text-transform:uppercase;letter-spacing:.7px;font-weight:700}
   .day{background:var(--card-solid);border:1px solid var(--line);border-radius:18px;padding:15px 16px;margin-bottom:10px;transition:.18s ease;box-shadow:var(--shadow-sm)}
   .day:active{transform:scale(.99)}
-  .day.today{border-color:var(--accent-soft-bd);box-shadow:0 0 24px -10px rgba(78,224,199,.4)}
+  .day.today{border-color:var(--accent-soft-bd);}
   .day .dn{font-weight:700;font-size:.95rem;color:var(--txt)}
   .day .dd{color:var(--mut);font-size:.74rem}
   .day .ds{margin-top:8px;font-size:.86rem;color:#5d554c}
@@ -125,7 +132,7 @@
   .acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
   button,.btn{font:inherit;font-family:inherit;cursor:pointer;border:none;border-radius:999px;padding:11px 18px;font-size:.85rem;font-weight:600;background:var(--card2);color:var(--txt);border:1px solid var(--line)}
   button:active{transform:scale(.97)}
-  .btn-p{background:var(--accent);color:#0a0b0d;border-color:var(--accent);box-shadow:none;font-weight:700}
+  .btn-p{background:var(--accent);color:#faf5ee;border-color:var(--accent);box-shadow:none;font-weight:700}
   .btn-p:hover{background:var(--accent-d);border-color:var(--accent-d)}
   .btn-sm{padding:7px 12px;font-size:.78rem}
   .btn-gh{background:transparent;border-color:transparent;color:var(--mut)}
@@ -137,20 +144,20 @@
   label{display:block;font-size:.74rem;color:var(--mut);margin:14px 0 6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
   input,select,textarea{width:100%;background:var(--card2);border:1px solid var(--line);color:var(--txt);border-radius:13px;padding:12px 14px;font:inherit;font-family:inherit;font-size:.95rem}
   textarea{resize:vertical;min-height:70px}
-  input::placeholder,textarea::placeholder{color:#565c64}
-  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(78,224,199,.16)}
+  input::placeholder,textarea::placeholder{color:#b6b4a4}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(224,90,31,.16)}
   .seg{display:flex;gap:6px;flex-wrap:wrap}
   .seg button{flex:1;min-width:auto;background:var(--card2);border-color:transparent}
-  .seg button.on{background:var(--accent);color:#0a0b0d;border-color:var(--accent)}
+  .seg button.on{background:var(--accent);color:#faf5ee;border-color:var(--accent)}
   input,select,textarea{border-radius:14px}
   .seg button{border-radius:999px}
   .ico{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex:0 0 auto}
-  .nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface-nav);border-top:1px solid var(--line);display:flex;align-items:center;padding:9px 8px calc(9px + env(safe-area-inset-bottom));z-index:50}
-  .nav a{flex:1;color:var(--dim);text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;font-weight:400;letter-spacing:.3px;transition:color .15s}
-  .nav a .ni{line-height:0;display:flex}
+  .nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface-nav);border-top:2px solid var(--navy);display:flex;align-items:center;padding:14px 10px calc(14px + env(safe-area-inset-bottom));z-index:50}
+  .nav a{flex:1;color:var(--mut);text-decoration:none;display:flex;flex-direction:column;align-items:center;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;transition:color .15s}
+  .nav a .ni{display:none}
   .nav a.on{color:var(--accent)}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:100;overscroll-behavior:contain}
-  .sheet{position:relative;background:var(--surface);border-radius:28px 28px 0 0;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;padding:10px 22px calc(26px + env(safe-area-inset-bottom));border-top:1px solid var(--line-strong);touch-action:pan-y;will-change:transform;box-shadow:0 -24px 60px -20px rgba(0,0,0,.7)}
+  .sheet{position:relative;background:var(--surface);border-radius:28px 28px 0 0;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;padding:10px 22px calc(26px + env(safe-area-inset-bottom));border-top:1px solid var(--line-strong);touch-action:pan-y;will-change:transform;border-top:3px solid var(--accent);box-shadow:0 -18px 44px -24px rgba(22,41,77,.35)}
   .sheet-close{position:absolute;top:10px;right:12px;width:36px;height:36px;border-radius:50%;background:var(--card2);color:var(--mut);border:none;font-size:1.4rem;font-weight:300;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;z-index:5;cursor:pointer}
   .sheet-close:active{background:var(--line);color:var(--txt)}
   body.locked{position:fixed;width:100%;overflow:hidden}
@@ -177,7 +184,7 @@
   .sp{height:6px}
   .center{text-align:center}
   ::-webkit-scrollbar{width:0;height:0}
-  .toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:#22232b;color:#fff;padding:13px 24px;border-radius:999px;font-size:.86rem;font-weight:600;z-index:200;opacity:0;transition:.25s;pointer-events:none;box-shadow:var(--shadow);border:1px solid var(--line)}
+  .toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:var(--navy);color:#faf5ee;padding:13px 24px;border-radius:999px;font-size:.86rem;font-weight:600;z-index:200;opacity:0;transition:.25s;pointer-events:none;box-shadow:var(--shadow);border:1px solid var(--line)}
   .toast.show{opacity:1}
   .act{display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--line)}
   .act:last-child{border-bottom:none}
@@ -195,7 +202,7 @@
   .step button.acc{background:var(--accent);color:#fff}
   .dotline{display:flex;gap:4px;margin-top:6px}
   .dotline i{width:9px;height:9px;border-radius:50%;background:var(--card2);border:1px solid var(--line)}
-  .dotline i.f{background:var(--good);border-color:var(--good);box-shadow:0 0 8px rgba(58,215,154,.5)}
+  .dotline i.f{background:var(--good);border-color:var(--good);}
   a.lnk{color:var(--accent);text-decoration:none;font-weight:600}
   details{background:var(--card);border:1px solid var(--line);border-radius:18px;margin-bottom:12px;overflow:hidden}
   details summary{list-style:none;cursor:pointer;padding:16px 18px;font-weight:800;font-size:.95rem;display:flex;align-items:center;justify-content:space-between;color:var(--txt)}
@@ -223,7 +230,7 @@
   .wk-km{font-size:.78rem;font-weight:600}
   .wk-km b{font-size:1.05rem;font-weight:800}
   .wk-pct{font-size:.7rem;color:var(--mut);margin-top:1px}
-  .wk.cur{border-color:var(--accent);box-shadow:0 0 0 1px rgba(242,98,10,.25),0 14px 30px -18px rgba(242,98,10,.35)}
+  .wk.cur{border-color:var(--accent);}
   .wk.cur .wk-num{color:var(--accent)}
   .wk.past{opacity:.7}
   .wk.future{opacity:.45}
@@ -234,27 +241,27 @@
   #syncBadge.show{display:flex}
   @keyframes spin{to{transform:rotate(360deg)}}
   #syncBadge.spin span{display:inline-block;animation:spin 1s linear infinite}
-  .sbtn{cursor:pointer;width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#7e848c;border:1px solid rgba(255,255,255,.08);background:#14171b;flex:none}
+  .sbtn{cursor:pointer;width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#93917e;border:1px solid rgba(255,255,255,.08);background:#ffffff;flex:none}
   .sbtn.spin svg{animation:spin .9s linear infinite}
   /* ===== Coach-Chat Vollbild ===== */
   .cv{position:fixed;inset:0;z-index:120;background:var(--bg);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1)}
   .cv.show{transform:translateY(0)}
   .cv-head{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;border-bottom:1px solid var(--line);background:var(--surface-nav)}
   .cv-back{width:36px;height:36px;border-radius:50%;background:var(--surface-2);border:none;color:var(--txt);display:flex;align-items:center;justify-content:center;font-size:1.3rem;cursor:pointer;flex:0 0 auto;padding:0}
-  .cv-av{width:38px;height:38px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#0a0b0d;flex:0 0 auto}
+  .cv-av{width:38px;height:38px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#faf5ee;flex:0 0 auto}
   .cv-ti{flex:1;min-width:0}
   .cv-ti b{font-size:1rem;display:block;line-height:1.1;color:var(--txt)}
   .cv-ti span{font-family:var(--mono);font-size:.66rem;letter-spacing:.5px;color:var(--accent);display:flex;align-items:center;gap:5px}
-  .cv-ti span i{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;box-shadow:0 0 6px var(--accent)}
+  .cv-ti span i{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;}
   .cv-msgs{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:16px 14px 8px;display:flex;flex-direction:column;gap:3px}
   .cv-input{flex:0 0 auto;display:flex;align-items:flex-end;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--surface-nav)}
   .cv-foot{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:7px 12px calc(7px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--surface-nav)}
   .cv-foot button{padding:10px 16px}
   .cv-input textarea{flex:1;min-height:44px;max-height:130px;border-radius:22px;padding:11px 16px;resize:none;background:var(--surface-2);border:1px solid var(--line)}
-  .cv-send{width:44px;height:44px;border-radius:50%;background:var(--accent);border:none;color:#0a0b0d;display:flex;align-items:center;justify-content:center;flex:0 0 auto;cursor:pointer;box-shadow:0 0 12px rgba(78,224,199,.4);transition:.15s}
+  .cv-send{width:44px;height:44px;border-radius:50%;background:var(--accent);border:none;color:#faf5ee;display:flex;align-items:center;justify-content:center;flex:0 0 auto;cursor:pointer;transition:.15s}
   .cv-send:disabled{opacity:.4;box-shadow:none}
   .bub{max-width:84%;padding:11px 15px;font-size:.92rem;line-height:1.5;animation:bubIn .26s cubic-bezier(.2,.7,.3,1)}
-  .bub.u{align-self:flex-end;background:var(--accent);color:#0a0b0d;border-radius:20px 20px 6px 20px}
+  .bub.u{align-self:flex-end;background:var(--accent);color:#faf5ee;border-radius:20px 20px 6px 20px}
   .bub.a{align-self:flex-start;background:var(--surface);color:var(--text-2);border-radius:20px 20px 20px 6px}
   .bub.a.err{background:rgba(224,88,79,.14);color:#f0a09a}
   .bub-time{font-size:.6rem;color:var(--mut);margin:1px 6px 8px;align-self:flex-end}
@@ -806,18 +813,18 @@ function stravaPendingBlock(){
   const rows = p.map((a,i)=>{ const k=stravaKind(a.type); const dist=(a.distance||0)/1000;
     const head = k==="other" ? actLabel(a.type) : dist.toFixed(1)+" km";
     const last = i===p.length-1;
-    return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;${last?"":"border-bottom:1px solid rgba(255,255,255,.06);"}">
+    return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;${last?"":"border-bottom:1px solid #e8e1d2;"}">
       <div style="flex:1;min-width:0;">
-        <div style="font-size:14px;font-weight:600;color:#f2f3f4;display:flex;align-items:center;gap:7px;">${ic(actIcon(a.type),14)} ${head}</div>
-        <div style="font-family:var(--mono);font-size:10px;color:#7e848c;margin-top:3px;">${fmt(a.start_date)} · ${hms(a.moving_time||a.elapsed_time)}${a.average_heartrate?" · "+Math.round(a.average_heartrate)+" bpm":""}${a.total_elevation_gain?" · "+Math.round(a.total_elevation_gain)+" hm":""}${k==="other"&&a.name?" · "+a.name:""}</div>
+        <div style="font-size:14px;font-weight:600;color:#16294d;display:flex;align-items:center;gap:7px;">${ic(actIcon(a.type),14)} ${head}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:#93917e;margin-top:3px;">${fmt(a.start_date)} · ${hms(a.moving_time||a.elapsed_time)}${a.average_heartrate?" · "+Math.round(a.average_heartrate)+" bpm":""}${a.total_elevation_gain?" · "+Math.round(a.total_elevation_gain)+" hm":""}${k==="other"&&a.name?" · "+a.name:""}</div>
       </div>
-      <div onclick="stravaImport(${a.id})" style="cursor:pointer;font-size:12px;font-weight:600;color:#0a0b0d;background:#4ee0c7;padding:7px 13px;border-radius:99px;flex:none;">Übernehmen</div>
-      <div onclick="stravaDismiss(${a.id})" title="Vorschlag entfernen" style="cursor:pointer;color:#565c64;padding:4px 4px;flex:none;font-size:15px;line-height:1;">✕</div>
+      <div onclick="stravaImport(${a.id})" style="cursor:pointer;font-size:12px;font-weight:600;color:#faf5ee;background:#e05a1f;padding:7px 13px;border-radius:99px;flex:none;">Übernehmen</div>
+      <div onclick="stravaDismiss(${a.id})" title="Vorschlag entfernen" style="cursor:pointer;color:#b6b4a4;padding:4px 4px;flex:none;font-size:15px;line-height:1;">✕</div>
     </div>`;}).join("");
-  return `<div style="background:#14171b;border:1px solid rgba(78,224,199,.25);border-radius:20px;padding:16px 18px;">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;"><span style="width:7px;height:7px;border-radius:99px;background:#4ee0c7;box-shadow:0 0 8px #4ee0c7;"></span>Neue Strava-Aktivitäten · ${p.length}</div>
+  return `<div style="background:#ffffff;border:1px solid rgba(224,90,31,.25);border-radius:20px;padding:16px 18px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#e05a1f;text-transform:uppercase;"><span style="width:7px;height:7px;border-radius:99px;background:#e05a1f;"></span>Neue Strava-Aktivitäten · ${p.length}</div>
     ${rows}
-    ${p.length>1?`<div style="display:flex;gap:8px;margin-top:12px;"><div onclick="stravaImportAll()" style="cursor:pointer;flex:1;text-align:center;font-family:var(--mono);font-size:11px;font-weight:600;color:#4ee0c7;border:1px solid rgba(78,224,199,.4);border-radius:99px;padding:8px;">Alle übernehmen</div><div onclick="stravaDismissAll()" style="cursor:pointer;text-align:center;font-family:var(--mono);font-size:11px;color:#7e848c;border:1px solid rgba(255,255,255,.1);border-radius:99px;padding:8px 14px;">Alle entfernen</div></div>`:""}
+    ${p.length>1?`<div style="display:flex;gap:8px;margin-top:12px;"><div onclick="stravaImportAll()" style="cursor:pointer;flex:1;text-align:center;font-family:var(--mono);font-size:11px;font-weight:600;color:#e05a1f;border:1px solid rgba(224,90,31,.4);border-radius:99px;padding:8px;">Alle übernehmen</div><div onclick="stravaDismissAll()" style="cursor:pointer;text-align:center;font-family:var(--mono);font-size:11px;color:#93917e;border:1px solid rgba(255,255,255,.1);border-radius:99px;padding:8px 14px;">Alle entfernen</div></div>`:""}
   </div>`;
 }
 function cardRestore(){
@@ -1497,7 +1504,7 @@ function matchRunSlot(date){
 
 /* ============ ROUTER ============ */
 let route="heute";
-const NAV=[{k:"heute",t:"Heute",i:"home"},{k:"woche",t:"Woche",i:"calendar"},{k:"track",t:"Tracken",i:"edit"},{k:"stats",t:"Analyse",i:"chart"},{k:"mehr",t:"Mehr",i:"menu"}];
+const NAV=[{k:"heute",t:"Heute",i:"home"},{k:"woche",t:"Wochen",i:"calendar"},{k:"track",t:"Tracken",i:"edit"},{k:"stats",t:"Form",i:"chart"},{k:"mehr",t:"Mehr",i:"menu"}];
 function go(k){ route=k; render(); window.scrollTo(0,0); }
 function renderNav(){ document.getElementById("nav").innerHTML=NAV.map(n=>`<a href="#" onclick="go('${n.k}');return false" class="${route===n.k?'on':''}"><span class="ni">${ic(n.i,22)}</span>${n.t}</a>`).join(""); }
 
@@ -1567,23 +1574,23 @@ function actPanelLine(w){
   const items = DB.activities.map((a,i)=>{ const c=actCount(w,a.id); const tgt=a.target||0;
     const done=a.type!=="ride"&&tgt>0&&c>=tgt; return {a,c,tgt,done,i}; })
     .sort((x,y)=>(x.done?1:0)-(y.done?1:0)||x.i-y.i);
-  const stepBtn=(sym,onc,acc)=>`<div onclick="${onc}" style="cursor:pointer;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;line-height:1;background:${acc?"#4ee0c7":"#0f1216"};color:${acc?"#0a0b0d":"#cfd2d6"};border:1px solid ${acc?"#4ee0c7":"rgba(255,255,255,.08)"};flex:none;">${sym}</div>`;
+  const stepBtn=(sym,onc,acc)=>`<div onclick="${onc}" style="cursor:pointer;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;line-height:1;background:${acc?"#e05a1f":"#f0e9da"};color:${acc?"#faf5ee":"#69675c"};border:1px solid ${acc?"#e05a1f":"rgba(255,255,255,.08)"};flex:none;">${sym}</div>`;
   const rows = items.map(({a,c,tgt,done},idx)=>{
     const last = idx===items.length-1;
     const sub = a.type==="ride" ? `${c} Fahrt(en) diese Woche` : (tgt>0?`${c}/${tgt} diese Woche${c>tgt?" · drüber!":""}`:`${c}× erledigt`);
     const ctrl = a.type==="ride"
-      ? `<div onclick="openRide(${w},'${a.id}')" style="cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:600;color:#4ee0c7;border:1px solid rgba(78,224,199,.4);border-radius:99px;padding:7px 12px;flex:none;">+ Fahrt</div>`
-      : `<div style="display:flex;align-items:center;gap:9px;flex:none;">${stepBtn("−",`actInc(${w},'${a.id}',-1)`,false)}<span style="font-family:var(--mono);font-size:15px;font-weight:600;color:${done?"#4ee0c7":"#f2f3f4"};min-width:16px;text-align:center;">${c}</span>${stepBtn("+",`actInc(${w},'${a.id}',1)`,!done)}</div>`;
-    return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;${last?"":"border-bottom:1px solid rgba(255,255,255,.06);"}">
+      ? `<div onclick="openRide(${w},'${a.id}')" style="cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:600;color:#e05a1f;border:1px solid rgba(224,90,31,.4);border-radius:99px;padding:7px 12px;flex:none;">+ Fahrt</div>`
+      : `<div style="display:flex;align-items:center;gap:9px;flex:none;">${stepBtn("−",`actInc(${w},'${a.id}',-1)`,false)}<span style="font-family:var(--mono);font-size:15px;font-weight:600;color:${done?"#e05a1f":"#16294d"};min-width:16px;text-align:center;">${c}</span>${stepBtn("+",`actInc(${w},'${a.id}',1)`,!done)}</div>`;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;${last?"":"border-bottom:1px solid #e8e1d2;"}">
       <div style="flex:1;min-width:0;">
-        <div style="font-size:14px;font-weight:600;color:${done?"#cfd2d6":"#f2f3f4"};">${a.name}${done?' <span style="color:#4ee0c7">✓</span>':""}${a.optional?' <span style="font-family:var(--mono);font-size:9px;color:#565c64;">optional</span>':""}</div>
-        <div style="font-family:var(--mono);font-size:10px;color:#7e848c;margin-top:2px;">${sub}</div>
+        <div style="font-size:14px;font-weight:600;color:${done?"#69675c":"#16294d"};">${a.name}${done?' <span style="color:#e05a1f">✓</span>':""}${a.optional?' <span style="font-family:var(--mono);font-size:9px;color:#b6b4a4;">optional</span>':""}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:#93917e;margin-top:2px;">${sub}</div>
       </div>${ctrl}</div>`;
   }).join("");
-  return `<div style="margin-top:14px;border-top:1px solid rgba(255,255,255,.06);padding-top:12px;">
+  return `<div style="margin-top:14px;border-top:1px solid #e8e1d2;padding-top:12px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-      <span style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;">Freie Einheiten</span>
-      <span onclick="go('mehr')" style="cursor:pointer;font-family:var(--mono);font-size:10px;color:#565c64;">verwalten ›</span>
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;">Freie Einheiten</span>
+      <span onclick="go('mehr')" style="cursor:pointer;font-family:var(--mono);font-size:10px;color:#b6b4a4;">verwalten ›</span>
     </div>${rows}</div>`;
 }
 
@@ -1754,27 +1761,27 @@ function openRecoveryDetail(){
   const battery = d.bodyBatteryLast!=null?d.bodyBatteryLast:0;
   const hrvDiff = hv?Math.round(hv.diff):null;
   const hrvPct = hv?Math.max(8,Math.min(100,65+hv.diff*3)):60;
-  const bar=(label,val,pct,acc)=>`<div><div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:#7e848c;margin-bottom:5px;"><span>${label}</span><span style="color:${acc?"#4ee0c7":"#f2f3f4"};">${val}</span></div><div style="height:5px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;"><div style="width:${pct}%;height:100%;background:${acc?"#4ee0c7":"#7e848c"};border-radius:99px;"></div></div></div>`;
-  const rtile=(v,l,acc)=>`<div style="flex:1;text-align:center;background:#0f1216;border-radius:12px;padding:12px 6px;"><div style="font-size:16px;font-weight:700;color:${acc?"#4ee0c7":"#f2f3f4"};">${v}</div><div style="font-family:var(--mono);font-size:8px;color:#7e848c;margin-top:3px;">${l}</div></div>`;
+  const bar=(label,val,pct,acc)=>`<div><div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:#93917e;margin-bottom:5px;"><span>${label}</span><span style="color:${acc?"#e05a1f":"#16294d"};">${val}</span></div><div style="height:5px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;"><div style="width:${pct}%;height:100%;background:${acc?"#e05a1f":"#93917e"};border-radius:99px;"></div></div></div>`;
+  const rtile=(v,l,acc)=>`<div style="flex:1;text-align:center;background:#f0e9da;border-radius:12px;padding:12px 6px;"><div style="font-size:16px;font-weight:700;color:${acc?"#e05a1f":"#16294d"};">${v}</div><div style="font-family:var(--mono);font-size:8px;color:#93917e;margin-top:3px;">${l}</div></div>`;
   sheet(`
-    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;">Recovery · Garmin · Stand ${d.date}</div>
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#e05a1f;text-transform:uppercase;">Recovery · Garmin · Stand ${d.date}</div>
     <div style="display:flex;align-items:flex-end;gap:12px;margin-top:10px;margin-bottom:18px;">
-      <span style="font-size:56px;font-weight:700;color:#4ee0c7;letter-spacing:-2px;line-height:.85;">${score}</span>
-      <div style="padding-bottom:6px;"><div style="font-size:17px;font-weight:600;color:#f2f3f4;">${lab}</div><div style="font-family:var(--mono);font-size:11px;color:#7e848c;">${sub}</div></div>
+      <span style="font-size:56px;font-weight:700;color:#e05a1f;letter-spacing:-2px;line-height:.85;">${score}</span>
+      <div style="padding-bottom:6px;"><div style="font-size:17px;font-weight:600;color:#16294d;">${lab}</div><div style="font-family:var(--mono);font-size:11px;color:#93917e;">${sub}</div></div>
     </div>
     <div style="display:flex;flex-direction:column;gap:11px;margin-bottom:18px;">
       ${bar("SCHLAF-SCORE", sleepScore!=null?sleepScore+" / 100":fmtH(d.sleepSeconds), sleepPct, true)}
       ${bar("HRV vs. 7-TAGE-Ø", hrvDiff!=null?(hrvDiff>=0?"+":"")+hrvDiff+" ms":(d.hrvLastNight?d.hrvLastNight+" ms":"—"), hrvPct, true)}
       ${bar("BODY BATTERY", battery+" / 100", battery, false)}
     </div>
-    <div style="background:#0f1216;border-radius:14px;padding:14px 16px;font-size:13px;color:#cfd2d6;line-height:1.5;margin-bottom:18px;">${adv}</div>
+    <div style="background:#f0e9da;border-radius:14px;padding:14px 16px;font-size:13px;color:#69675c;line-height:1.5;margin-bottom:18px;">${adv}</div>
     <div style="display:flex;gap:8px;margin-bottom:22px;">
       ${rtile(fmtH(d.sleepSeconds),"SCHLAF",false)}
       ${rtile(d.hrvLastNight||"–","HRV ms",true)}
       ${rtile(d.restingHr||"–","RHR bpm",false)}
       ${rtile(d.bodyBatteryLast!=null?d.bodyBatteryLast:"–","BATTERY",false)}
     </div>
-    <div onclick="closeModal()" style="cursor:pointer;text-align:center;background:#0f1216;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:15px;font-size:15px;font-weight:700;color:#f2f3f4;">Schließen</div>`);
+    <div onclick="closeModal()" style="cursor:pointer;text-align:center;background:#f0e9da;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:15px;font-size:15px;font-weight:700;color:#16294d;">Schließen</div>`);
 }
 
 /* ============ COACH-CHAT (Claude API via Worker) ============ */
@@ -2221,12 +2228,12 @@ function recentFeed(){
   items.sort((a,b)=>b.date-a.date);
   const top=items.slice(0,5);
   const iconFor=k=>k==="run"?"activity":k==="gym"?"dumbbell":k==="ride"?"bike":"target";
-  const rows=top.map((it,i)=>`<div ${it.onc?`onclick="${it.onc}"`:""} style="display:flex;align-items:center;gap:12px;padding:11px 0;${i===top.length-1?"":"border-bottom:1px solid rgba(255,255,255,.06);"}${it.onc?"cursor:pointer;":""}">
-    <span style="color:#7e848c;display:flex;flex:none;">${ic(iconFor(it.kind),16)}</span>
-    <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:#f2f3f4;">${it.label}</div><div style="font-family:var(--mono);font-size:10px;color:#7e848c;margin-top:2px;">${fmtD(new Date(it.date))} · ${it.meta}</div></div>
-    ${it.onc?`<span style="color:#565c64;flex:none;">›</span>`:""}</div>`).join("");
-  return `<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:16px 18px;">
-    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:2px;">Zuletzt absolviert</div>
+  const rows=top.map((it,i)=>`<div ${it.onc?`onclick="${it.onc}"`:""} style="display:flex;align-items:center;gap:12px;padding:11px 0;${i===top.length-1?"":"border-bottom:1px solid #e8e1d2;"}${it.onc?"cursor:pointer;":""}">
+    <span style="color:#93917e;display:flex;flex:none;">${ic(iconFor(it.kind),16)}</span>
+    <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:#16294d;">${it.label}</div><div style="font-family:var(--mono);font-size:10px;color:#93917e;margin-top:2px;">${fmtD(new Date(it.date))} · ${it.meta}</div></div>
+    ${it.onc?`<span style="color:#b6b4a4;flex:none;">›</span>`:""}</div>`).join("");
+  return `<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:20px;padding:16px 18px;">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;margin-bottom:2px;">Zuletzt absolviert</div>
     ${rows}</div>`;
 }
 function viewHeute(){
@@ -2249,7 +2256,7 @@ function viewHeute(){
     const mm=Math.floor(Math.abs(delta)/60), ss=Math.abs(delta)%60;
     deltaStr=(under?"−":"+")+mm+":"+String(ss).padStart(2,"0");
     dotX=Math.max(8,Math.min(92, 50 + (delta/900)*40)); }
-  const dCol=under?"#4ee0c7":"#e0a53b";
+  const dCol=under?"#e05a1f":"#c98f14";
 
   const rec=recoveryScore(latestWellness());
   const todayRun=RUNS.find(R=>effDay(loc.week,R.slot)===loc.dayIdx && !runIsRest(loc.week,R.slot));
@@ -2258,89 +2265,89 @@ function viewHeute(){
   // ----- THE BUILD LINE: Stations (accent sobald erreicht) -----
   const STN=[{n:"BASE",x:4},{n:"BUILD",x:46},{n:"PEAK",x:72},{n:"TAPER",x:88}];
   const stations=STN.map(s=>{ const on=s.x<=fillPct;
-    return `<div style="position:absolute;top:${on?"25px":"26px"};left:${s.x}%;width:${on?"8px":"6px"};height:${on?"8px":"6px"};border-radius:99px;background:${on?"#4ee0c7":"#3a3f46"};transform:translate(-50%,0);"></div>
-    <div style="position:absolute;top:0;left:${s.x}%;transform:translateX(-50%);font-family:var(--mono);font-size:8px;color:${on?"#7e848c":"#565c64"};white-space:nowrap;">${s.n}</div>`;
+    return `<div style="position:absolute;top:${on?"25px":"26px"};left:${s.x}%;width:${on?"8px":"6px"};height:${on?"8px":"6px"};border-radius:99px;background:${on?"#e05a1f":"#d5cfc0"};transform:translate(-50%,0);"></div>
+    <div style="position:absolute;top:0;left:${s.x}%;transform:translateX(-50%);font-family:var(--mono);font-size:8px;color:${on?"#93917e":"#b6b4a4"};white-space:nowrap;">${s.n}</div>`;
   }).join("");
 
   const brand=`<div style="display:flex;align-items:center;justify-content:space-between;">
     <div style="display:flex;align-items:center;gap:10px;">
-      <span style="font-weight:700;font-size:20px;letter-spacing:.5px;color:#f2f3f4;">SUB4</span>
-      <span style="width:30px;height:2px;background:#4ee0c7;box-shadow:0 0 8px rgba(78,224,199,.7);"></span>
+      <span style="font-family:var(--display);font-weight:600;font-size:22px;letter-spacing:1px;color:#16294d;">TEMPO</span>
+      <span class="ln-line" style="margin-top:-8px"></span>
     </div>
     <div style="display:flex;align-items:center;gap:12px;">
       <div class="sbtn" onclick="syncNow(this)" title="Strava & Garmin synchronisieren"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></div>
-      <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;">${raceCity().toUpperCase()} MARATHON ’${String(raceDate().getFullYear()).slice(-2)}</div>
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;">${raceCity().toUpperCase()} MARATHON ’${String(raceDate().getFullYear()).slice(-2)}</div>
     </div>
   </div>`;
 
-  const hero=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:20px 20px 22px;">
+  const hero=`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:24px;padding:20px 20px 22px;">
     <div style="display:flex;align-items:flex-end;justify-content:space-between;">
       <div>
-        <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:#7e848c;text-transform:uppercase;">Noch</div>
-        <div style="display:flex;align-items:flex-end;gap:8px;"><span style="font-weight:700;font-size:64px;line-height:.85;letter-spacing:-2px;color:#f2f3f4;">${dRace}</span><span style="font-weight:600;font-size:15px;color:#4ee0c7;padding-bottom:8px;">Tage</span></div>
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:#93917e;text-transform:uppercase;">Noch</div>
+        <div style="display:flex;align-items:flex-end;gap:8px;"><span style="font-weight:700;font-size:64px;line-height:.85;letter-spacing:-2px;color:#16294d;">${dRace}</span><span style="font-weight:600;font-size:15px;color:#e05a1f;padding-bottom:8px;">Tage</span></div>
       </div>
-      <div style="text-align:right;font-family:var(--mono);font-size:10px;color:#7e848c;line-height:1.5;">${raceStr}<br><span style="color:#f2f3f4;">42,195 km</span></div>
+      <div style="text-align:right;font-family:var(--mono);font-size:10px;color:#93917e;line-height:1.5;">${raceStr}<br><span style="color:#16294d;">42,195 km</span></div>
     </div>
     <div style="position:relative;height:58px;margin-top:18px;">
       <div style="position:absolute;top:28px;left:0;right:0;height:2px;background:rgba(255,255,255,.1);"></div>
-      <div style="position:absolute;top:28px;left:0;width:${fillPct}%;height:2px;background:#4ee0c7;box-shadow:0 0 8px rgba(78,224,199,.6);"></div>
+      <div style="position:absolute;top:28px;left:0;width:${fillPct}%;height:2px;background:#e05a1f;"></div>
       ${stations}
-      <div style="position:absolute;top:21px;right:0;width:2px;height:16px;background:#f2f3f4;"></div>
-      <div style="position:absolute;top:42px;right:0;font-family:var(--mono);font-size:8px;color:#f2f3f4;">${raceCity().toUpperCase()}</div>
-      <div style="position:absolute;top:22px;left:${fillPct}%;width:14px;height:14px;border-radius:99px;background:#4ee0c7;box-shadow:0 0 0 5px rgba(78,224,199,.18),0 0 14px rgba(78,224,199,.7);transform:translateX(-50%);"></div>
-      <div style="position:absolute;top:44px;left:${fillPct}%;transform:translateX(-50%);font-family:var(--mono);font-size:8px;color:#4ee0c7;white-space:nowrap;">W${String(loc.week).padStart(2,"0")} · ${phase.toUpperCase()}</div>
+      <div style="position:absolute;top:21px;right:0;width:2px;height:16px;background:#16294d;"></div>
+      <div style="position:absolute;top:42px;right:0;font-family:var(--mono);font-size:8px;color:#16294d;">${raceCity().toUpperCase()}</div>
+      <div style="position:absolute;top:22px;left:${fillPct}%;width:14px;height:14px;border-radius:99px;background:#e05a1f;transform:translateX(-50%);"></div>
+      <div style="position:absolute;top:44px;left:${fillPct}%;transform:translateX(-50%);font-family:var(--mono);font-size:8px;color:#e05a1f;white-space:nowrap;">W${String(loc.week).padStart(2,"0")} · ${phase.toUpperCase()}</div>
     </div>
   </div>`;
 
-  const thresh=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:18px 20px 20px;">
+  const thresh=`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:24px;padding:18px 20px 20px;">
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">
-      <span style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;">Prognose · ${hasPred?(under?"unter der Linie":"über der Linie"):"noch offen"}</span>
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;">Prognose · ${hasPred?(under?"unter der Linie":"über der Linie"):"noch offen"}</span>
       ${hasPred?`<span style="font-family:var(--mono);font-size:10px;color:${dCol};">${deltaStr}</span>`:""}
     </div>
     <div style="position:relative;height:34px;margin:14px 0 6px;">
       <div style="position:absolute;top:6px;left:0;right:0;height:1px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 5px,transparent 5px 10px);"></div>
-      <div style="position:absolute;top:-7px;right:0;font-family:var(--mono);font-size:9px;color:#7e848c;">SUB ${goalStr()}</div>
-      ${hasPred?`<div style="position:absolute;top:18px;left:${dotX}%;width:11px;height:11px;border-radius:99px;background:#4ee0c7;box-shadow:0 0 10px rgba(78,224,199,.7);transform:translateX(-50%);"></div>
-      <div style="position:absolute;top:6px;left:${dotX}%;width:1px;height:12px;background:rgba(78,224,199,.5);transform:translateX(-50%);"></div>`:""}
+      <div style="position:absolute;top:-7px;right:0;font-family:var(--mono);font-size:9px;color:#93917e;">SUB ${goalStr()}</div>
+      ${hasPred?`<div style="position:absolute;top:18px;left:${dotX}%;width:11px;height:11px;border-radius:99px;background:#e05a1f;transform:translateX(-50%);"></div>
+      <div style="position:absolute;top:6px;left:${dotX}%;width:1px;height:12px;background:rgba(224,90,31,.5);transform:translateX(-50%);"></div>`:""}
     </div>
-    <div style="font-size:38px;font-weight:700;letter-spacing:-1.5px;color:#f2f3f4;line-height:1;">${predStr}</div>
+    <div style="font-size:38px;font-weight:700;letter-spacing:-1.5px;color:#16294d;line-height:1;">${predStr}</div>
   </div>`;
 
   let today_;
   if(todayRun){ const c=runContent(loc.week,todayRun.slot); const TL=DB.logs[runId(loc.week,todayRun.slot)];
     if(TL && TL.dist){
-      today_=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:17px 20px;display:flex;gap:15px;align-items:center;">
-        <div style="width:3px;align-self:stretch;border-radius:99px;background:#4ee0c7;box-shadow:0 0 8px rgba(78,224,199,.5);"></div>
+      today_=`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:24px;padding:17px 20px;display:flex;gap:15px;align-items:center;">
+        <div style="width:3px;align-self:stretch;border-radius:99px;background:#e05a1f;"></div>
         <div style="flex:1;min-width:0;">
-          <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;">Heute · ${DOWL[loc.dayIdx]} · ${KL[todayRun.kind]||""} · ✓ erledigt</div>
-          <div style="font-size:17px;font-weight:600;color:#f2f3f4;margin-top:5px;">${c.title}</div>
-          <div style="font-family:var(--mono);font-size:12px;color:#7e848c;margin-top:2px;">${TL.dist} km · ${hms(TL.sec)} · ${pace(TL.sec/TL.dist)}/km${TL.hr?" · "+TL.hr+" bpm":""}</div>
+          <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#e05a1f;text-transform:uppercase;">Heute · ${DOWL[loc.dayIdx]} · ${KL[todayRun.kind]||""} · ✓ erledigt</div>
+          <div style="font-size:17px;font-weight:600;color:#16294d;margin-top:5px;">${c.title}</div>
+          <div style="font-family:var(--mono);font-size:12px;color:#93917e;margin-top:2px;">${TL.dist} km · ${hms(TL.sec)} · ${pace(TL.sec/TL.dist)}/km${TL.hr?" · "+TL.hr+" bpm":""}</div>
         </div>
-        <div onclick="openRunAnalysis(${loc.week},'${todayRun.slot}')" style="cursor:pointer;font-size:13px;font-weight:600;color:#4ee0c7;border:1px solid rgba(78,224,199,.4);padding:9px 14px;border-radius:99px;flex:none;">Analyse</div>
+        <div onclick="openRunAnalysis(${loc.week},'${todayRun.slot}')" style="cursor:pointer;font-size:13px;font-weight:600;color:#e05a1f;border:1px solid rgba(224,90,31,.4);padding:9px 14px;border-radius:99px;flex:none;">Analyse</div>
       </div>`;
     } else {
-      today_=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:17px 20px;display:flex;gap:15px;align-items:center;">
-        <div style="width:3px;align-self:stretch;border-radius:99px;background:#4ee0c7;box-shadow:0 0 8px rgba(78,224,199,.5);"></div>
+      today_=`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:24px;padding:17px 20px;display:flex;gap:15px;align-items:center;">
+        <div style="width:3px;align-self:stretch;border-radius:99px;background:#e05a1f;"></div>
         <div style="flex:1;min-width:0;">
-          <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;">Heute · ${DOWL[loc.dayIdx]} · ${KL[todayRun.kind]||""}</div>
-          <div style="font-size:17px;font-weight:600;color:#f2f3f4;margin-top:5px;">${c.title}</div>
-          <div style="font-family:var(--mono);font-size:12px;color:#7e848c;margin-top:2px;">${c.det}</div>
+          <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#e05a1f;text-transform:uppercase;">Heute · ${DOWL[loc.dayIdx]} · ${KL[todayRun.kind]||""}</div>
+          <div style="font-size:17px;font-weight:600;color:#16294d;margin-top:5px;">${c.title}</div>
+          <div style="font-family:var(--mono);font-size:12px;color:#93917e;margin-top:2px;">${c.det}</div>
         </div>
-        <div onclick="openLog(${loc.week},'${todayRun.slot}')" style="cursor:pointer;font-size:13px;font-weight:600;color:#0a0b0d;background:#4ee0c7;padding:10px 16px;border-radius:10px;flex:none;">Start</div>
+        <div onclick="openLog(${loc.week},'${todayRun.slot}')" style="cursor:pointer;font-size:13px;font-weight:600;color:#faf5ee;background:#e05a1f;padding:10px 16px;border-radius:10px;flex:none;">Start</div>
       </div>`;
     }
   } else {
-    today_=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:17px 20px;display:flex;gap:15px;align-items:center;">
-      <div style="width:3px;align-self:stretch;border-radius:99px;background:#565c64;"></div>
+    today_=`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:24px;padding:17px 20px;display:flex;gap:15px;align-items:center;">
+      <div style="width:3px;align-self:stretch;border-radius:99px;background:#b6b4a4;"></div>
       <div style="flex:1;min-width:0;">
-        <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;">Heute · ${DOWL[loc.dayIdx]} · Frei</div>
-        <div style="font-size:17px;font-weight:600;color:#f2f3f4;margin-top:5px;">Kein fixer Lauf</div>
-        <div style="font-family:var(--mono);font-size:12px;color:#7e848c;margin-top:2px;">Freie Einheit nach Lust</div>
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;">Heute · ${DOWL[loc.dayIdx]} · Frei</div>
+        <div style="font-size:17px;font-weight:600;color:#16294d;margin-top:5px;">Kein fixer Lauf</div>
+        <div style="font-family:var(--mono);font-size:12px;color:#93917e;margin-top:2px;">Freie Einheit nach Lust</div>
       </div>
     </div>`;
   }
 
-  const tile=(v,l,acc,click)=>`<div ${click?`onclick="${click}" `:""}style="flex:1;background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:13px 12px;${click?"cursor:pointer;":""}"><div style="font-size:21px;font-weight:700;color:${acc?"#4ee0c7":"#f2f3f4"};letter-spacing:-.5px;">${v}</div><div style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#7e848c;margin-top:2px;">${l}</div></div>`;
+  const tile=(v,l,acc,click)=>`<div ${click?`onclick="${click}" `:""}style="flex:1;background:#ffffff;border:1px solid #e8e1d2;border-radius:16px;padding:13px 12px;${click?"cursor:pointer;":""}"><div style="font-size:21px;font-weight:700;color:${acc?"#e05a1f":"#16294d"};letter-spacing:-.5px;">${v}</div><div style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#93917e;margin-top:2px;">${l}</div></div>`;
   const tilesRow=`<div style="display:flex;gap:9px;">
     ${tile(W.km,"KM PLAN",false)}
     ${tile(Math.round(done),"GELAUFEN",false)}
@@ -2351,12 +2358,12 @@ function viewHeute(){
   // ----- Coach (Daily Read + Einstieg in den Chat) -----
   const c2=todayRun?runContent(loc.week,todayRun.slot):null;
   const read=homeSummary(!!todayRun, c2, todayRun?todayRun.kind:null, currentForm(), rec);
-  const coach=`<div onclick="openCoachChat()" style="background:#14171b;border:1px solid rgba(78,224,199,.25);border-radius:20px;padding:16px 18px;cursor:pointer;">
+  const coach=`<div onclick="openCoachChat()" style="background:#ffffff;border:1px solid rgba(224,90,31,.25);border-radius:20px;padding:16px 18px;cursor:pointer;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
-      <span style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;"><span style="width:7px;height:7px;border-radius:99px;background:#4ee0c7;box-shadow:0 0 8px #4ee0c7;"></span>Coach · Heute</span>
-      <span style="font-family:var(--mono);font-size:11px;color:#7e848c;">fragen ›</span>
+      <span style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#e05a1f;text-transform:uppercase;"><span style="width:7px;height:7px;border-radius:99px;background:#e05a1f;"></span>Coach · Heute</span>
+      <span style="font-family:var(--mono);font-size:11px;color:#93917e;">fragen ›</span>
     </div>
-    <div style="font-size:14px;color:#cfd2d6;line-height:1.55;">${read}</div>
+    <div style="font-size:14px;color:#69675c;line-height:1.55;">${read}</div>
   </div>`;
 
   return `<div class="wrap" style="display:flex;flex-direction:column;gap:15px;">${brand}${hero}${thresh}${today_}${stravaPendingBlock()}${coach}${tilesRow}${recentFeed()}</div>`;
@@ -2395,21 +2402,21 @@ function viewWoche(){
       const rs=RUNS.filter(R=>effDay(w,R.slot)===d && !runIsRest(w,R.slot));
       const isToday=(w===curW && d===loc.dayIdx);
       const dayLabel=`${DOWS[d]} ${dt.getDate()}.`;
-      let txt, col="#cfd2d6", weight="400";
+      let txt, col="#69675c", weight="400";
       if(rs.length){ const R=rs[0], c=runContent(w,R.slot), L=DB.logs[runId(w,R.slot)];
         const short=c.title.replace(/^Lauf · /,"");
         const detShort=(c.det||"").split(/[:(]/)[0].trim();
-        txt=`${short}${detShort&&detShort!=="–"?" · "+detShort:""}${L?' <span style="color:#4ee0c7">✓</span>':""}`;
+        txt=`${short}${detShort&&detShort!=="–"?" · "+detShort:""}${L?' <span style="color:#e05a1f">✓</span>':""}`;
         if(R.kind==="long") weight="600";
-      } else { txt="— frei —"; col="#565c64"; }
+      } else { txt="— frei —"; col="#b6b4a4"; }
       if(isToday){
-        out+=`<div onclick="${rs.length?`openRun(${w},'${rs[0].slot}')`:""}" style="display:flex;align-items:center;gap:10px;background:rgba(78,224,199,.08);border-radius:9px;padding:8px 10px;margin:0 -4px;${rs.length?"cursor:pointer;":""}">
-          <span style="font-family:var(--mono);font-size:10px;color:#4ee0c7;width:44px;">${dayLabel}</span>
-          <span style="font-size:12px;color:#f2f3f4;font-weight:600;">${rs.length?txt:"— frei —"}</span>
-          <span style="margin-left:auto;font-family:var(--mono);font-size:8px;color:#4ee0c7;border:1px solid rgba(78,224,199,.4);padding:2px 6px;border-radius:5px;">HEUTE</span></div>`;
+        out+=`<div onclick="${rs.length?`openRun(${w},'${rs[0].slot}')`:""}" style="display:flex;align-items:center;gap:10px;background:rgba(224,90,31,.08);border-radius:9px;padding:8px 10px;margin:0 -4px;${rs.length?"cursor:pointer;":""}">
+          <span style="font-family:var(--mono);font-size:10px;color:#e05a1f;width:44px;">${dayLabel}</span>
+          <span style="font-size:12px;color:#16294d;font-weight:600;">${rs.length?txt:"— frei —"}</span>
+          <span style="margin-left:auto;font-family:var(--mono);font-size:8px;color:#e05a1f;border:1px solid rgba(224,90,31,.4);padding:2px 6px;border-radius:5px;">HEUTE</span></div>`;
       } else {
         out+=`<div onclick="${rs.length?`openRun(${w},'${rs[0].slot}')`:""}" style="display:flex;align-items:center;gap:10px;${rs.length?"cursor:pointer;":""}">
-          <span style="font-family:var(--mono);font-size:10px;color:${rs.length?"#7e848c":"#565c64"};width:48px;">${dayLabel}</span>
+          <span style="font-family:var(--mono);font-size:10px;color:${rs.length?"#93917e":"#b6b4a4"};width:48px;">${dayLabel}</span>
           <span style="font-size:12px;color:${col};font-weight:${weight};">${txt}</span></div>`;
       }
     }
@@ -2424,38 +2431,38 @@ function viewWoche(){
     let pl=0, dn=0; RUNS.forEach(R=>{ if(runIsRest(w,R.slot)) return; pl++; if(DB.logs[runId(w,R.slot)]) dn++; });
     const isCur=w===curW, isPast=w<curW, open=(w===wocheOpen);
     const node = isCur
-      ? `<div id="wkCurNode" style="position:absolute;left:-25px;top:20px;width:13px;height:13px;border-radius:99px;background:#4ee0c7;box-shadow:0 0 0 4px rgba(78,224,199,.16),0 0 12px rgba(78,224,199,.6);transform:translateX(-50%);"></div>`
+      ? `<div id="wkCurNode" style="position:absolute;left:-25px;top:20px;width:13px;height:13px;border-radius:99px;background:#e05a1f;transform:translateX(-50%);"></div>`
       : isPast
-      ? `<div style="position:absolute;left:-25px;top:18px;width:8px;height:8px;border-radius:99px;background:#565c64;transform:translateX(-50%);"></div>`
-      : `<div style="position:absolute;left:-25px;top:18px;width:8px;height:8px;border-radius:99px;background:#2a2e34;border:1px solid #3a3f46;transform:translateX(-50%);"></div>`;
-    const chev=`<span style="color:#565c64;font-size:12px;line-height:1;flex:none;">${open?"▾":"▸"}</span>`;
-    const barCol=isCur?"#4ee0c7":(pct>=100?"#4ee0c7":"#e0a53b");
+      ? `<div style="position:absolute;left:-25px;top:18px;width:8px;height:8px;border-radius:99px;background:#b6b4a4;transform:translateX(-50%);"></div>`
+      : `<div style="position:absolute;left:-25px;top:18px;width:8px;height:8px;border-radius:99px;background:#e8e1d2;border:1px solid #d5cfc0;transform:translateX(-50%);"></div>`;
+    const chev=`<span style="color:#b6b4a4;font-size:12px;line-height:1;flex:none;">${open?"▾":"▸"}</span>`;
+    const barCol=isCur?"#e05a1f":(pct>=100?"#e05a1f":"#c98f14");
     const content = open
       ? `${(isCur||isPast)?`<div style="height:4px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:10px;"><div style="width:${pct}%;height:100%;background:${barCol};border-radius:99px;"></div></div>`:""}${dayList(w)}${actPanelLine(w)}`
       : "";
 
     if(isCur){
       rows += `<div id="wk${w}" style="position:relative;margin-bottom:12px;">${node}
-        <div style="background:#14171b;border:1px solid rgba(78,224,199,.35);border-radius:18px;padding:16px 16px 14px;box-shadow:0 0 24px -10px rgba(78,224,199,.4);">
+        <div style="background:#ffffff;border:1px solid rgba(224,90,31,.35);border-radius:18px;padding:16px 16px 14px;">
           <div onclick="wocheToggle(${w})" style="cursor:pointer;">
-            <div style="display:flex;align-items:center;gap:6px;"><span style="font-family:var(--mono);font-size:11px;color:#4ee0c7;">W${String(w).padStart(2,"0")}</span><span style="font-size:15px;font-weight:700;color:#f2f3f4;">${W.ph}</span><span style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#0a0b0d;background:#4ee0c7;padding:2px 7px;border-radius:5px;">AKTUELL</span><span style="margin-left:auto;color:#565c64;font-size:12px;line-height:1;">${open?"▾":"▸"}</span></div>
+            <div style="display:flex;align-items:center;gap:6px;"><span style="font-family:var(--mono);font-size:11px;color:#e05a1f;">W${String(w).padStart(2,"0")}</span><span style="font-size:15px;font-weight:700;color:#16294d;">${W.ph}</span><span style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#faf5ee;background:#e05a1f;padding:2px 7px;border-radius:5px;">AKTUELL</span><span style="margin-left:auto;color:#b6b4a4;font-size:12px;line-height:1;">${open?"▾":"▸"}</span></div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-              <span style="font-family:var(--mono);font-size:9px;color:#7e848c;">${weekRange(w)} · ${Math.round(done)}/${W.km} km · LR ${W.lr}</span>
-              <span style="font-family:var(--mono);font-size:11px;color:#4ee0c7;">${pct}%</span>
+              <span style="font-family:var(--mono);font-size:9px;color:#93917e;">${weekRange(w)} · ${Math.round(done)}/${W.km} km · LR ${W.lr}</span>
+              <span style="font-family:var(--mono);font-size:11px;color:#e05a1f;">${pct}%</span>
             </div>
           </div>
           ${content}
         </div></div>`;
     } else {
-      const pctCol = isPast ? (pct>=100?"#4ee0c7":"#e0a53b") : "#565c64";
+      const pctCol = isPast ? (pct>=100?"#e05a1f":"#c98f14") : "#b6b4a4";
       rows += `<div id="wk${w}" style="position:relative;margin-bottom:12px;">${node}
-        <div style="background:#101317;border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:13px 15px;${isPast&&!open?"opacity:.6;":""}">
+        <div style="background:#faf5ee;border:1px solid rgba(255,255,255,.05);border-radius:16px;padding:13px 15px;${isPast&&!open?"opacity:.6;":""}">
           <div onclick="wocheToggle(${w})" style="cursor:pointer;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
-              <div style="display:flex;align-items:center;gap:5px;min-width:0;"><span style="font-family:var(--mono);font-size:11px;color:#7e848c;">W${String(w).padStart(2,"0")}</span><span style="font-size:13px;font-weight:600;color:#cfd2d6;white-space:nowrap;">${W.ph}</span></div>
+              <div style="display:flex;align-items:center;gap:5px;min-width:0;"><span style="font-family:var(--mono);font-size:11px;color:#93917e;">W${String(w).padStart(2,"0")}</span><span style="font-size:13px;font-weight:600;color:#69675c;white-space:nowrap;">${W.ph}</span></div>
               <div style="display:flex;align-items:center;gap:9px;flex:none;"><span style="font-family:var(--mono);font-size:11px;color:${pctCol};">${isPast?pct+"%":"—"}</span>${chev}</div>
             </div>
-            <div style="font-family:var(--mono);font-size:9px;color:#565c64;margin-top:4px;">${weekRange(w)} · ${isPast?dn+"/"+pl+" Läufe · ":W.km+" km · "}LR ${W.lr} km</div>
+            <div style="font-family:var(--mono);font-size:9px;color:#b6b4a4;margin-top:4px;">${weekRange(w)} · ${isPast?dn+"/"+pl+" Läufe · ":W.km+" km · "}LR ${W.lr} km</div>
           </div>
           ${content}
         </div></div>`;
@@ -2470,10 +2477,10 @@ function viewWoche(){
 
   return `<div class="wrap">
     <div class="ln-title"><b>Wochen</b><span class="ln-line"></span></div>
-    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:18px;">21 Wochen · ${raceCity()} ${String(raceDate().getDate()).padStart(2,"0")}.${String(raceDate().getMonth()+1).padStart(2,"0")}</div>
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;margin-bottom:18px;">21 Wochen · ${raceCity()} ${String(raceDate().getDate()).padStart(2,"0")}.${String(raceDate().getMonth()+1).padStart(2,"0")}</div>
     <div id="wkTimeline" style="position:relative;padding-left:26px;">
       <div style="position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:rgba(255,255,255,.08);"></div>
-      <div id="wkSpineFill" style="position:absolute;left:5px;top:6px;width:2px;height:0;background:#4ee0c7;box-shadow:0 0 8px rgba(78,224,199,.4);"></div>
+      <div id="wkSpineFill" style="position:absolute;left:5px;top:6px;width:2px;height:0;background:#e05a1f;"></div>
       ${rows}
     </div>
   </div>`;
@@ -2504,45 +2511,45 @@ function viewTrack(){
   ].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
 
   const primary = open[0] || {w:cur, slot:(RUNS.find(R=>effDay(cur,R.slot)===loc.dayIdx)||RUNS[0]).slot};
-  const eyebrow=(t)=>`<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:11px;">${t}</div>`;
+  const eyebrow=(t)=>`<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;margin-bottom:11px;">${t}</div>`;
   const openRow=(it)=>{ const pm=(it.c.det||"").match(/\((\d:\d\d)\)/); const pc=pm?pm[1]:null;
-    return `<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;">
-      <div style="width:10px;height:10px;border-radius:99px;border:2px solid #4ee0c7;flex:none;"></div>
-      <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:#f2f3f4;">${it.c.title.replace(/^Lauf · /,"")}</div><div style="font-family:var(--mono);font-size:10px;color:#7e848c;margin-top:2px;">${fmtD(it.dt)} · W${it.w}${pc?` · @ ${pc}`:""}</div></div>
-      <div onclick="openLog(${it.w},'${it.slot}')" style="cursor:pointer;font-size:12px;font-weight:600;color:#4ee0c7;border:1px solid rgba(78,224,199,.4);padding:7px 13px;border-radius:99px;flex:none;">Eintragen</div>
+    return `<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;">
+      <div style="width:10px;height:10px;border-radius:99px;border:2px solid #e05a1f;flex:none;"></div>
+      <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:#16294d;">${it.c.title.replace(/^Lauf · /,"")}</div><div style="font-family:var(--mono);font-size:10px;color:#93917e;margin-top:2px;">${fmtD(it.dt)} · W${it.w}${pc?` · @ ${pc}`:""}</div></div>
+      <div onclick="openLog(${it.w},'${it.slot}')" style="cursor:pointer;font-size:12px;font-weight:600;color:#e05a1f;border:1px solid rgba(224,90,31,.4);padding:7px 13px;border-radius:99px;flex:none;">Eintragen</div>
     </div>`; };
 
   return `<div class="wrap">
     <div class="ln-title"><b>Tracken</b><span class="ln-line"></span></div>
-    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:18px;">Offene Einheiten eintragen</div>
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;margin-bottom:18px;">Offene Einheiten eintragen</div>
 
-    <div onclick="openLog(${primary.w},'${primary.slot}')" style="cursor:pointer;background:#4ee0c7;border-radius:18px;padding:16px 18px;display:flex;align-items:center;gap:14px;margin-bottom:18px;">
-      <div style="font-family:var(--mono);font-size:26px;color:#0a0b0d;line-height:.8;">+</div>
-      <div style="flex:1;"><div style="font-size:15px;font-weight:700;color:#0a0b0d;">Lauf manuell eintragen</div><div style="font-size:11px;color:rgba(10,11,13,.7);">Distanz, Zeit & Pace erfassen</div></div>
+    <div onclick="openLog(${primary.w},'${primary.slot}')" style="cursor:pointer;background:#e05a1f;border-radius:18px;padding:16px 18px;display:flex;align-items:center;gap:14px;margin-bottom:18px;">
+      <div style="font-family:var(--mono);font-size:26px;color:#faf5ee;line-height:.8;">+</div>
+      <div style="flex:1;"><div style="font-size:15px;font-weight:700;color:#faf5ee;">Lauf manuell eintragen</div><div style="font-size:11px;color:rgba(10,11,13,.7);">Distanz, Zeit & Pace erfassen</div></div>
     </div>
 
     ${eyebrow(`Offene Läufe${open.length?" · "+open.length:""}`)}
     ${open.length? open.slice(0,8).map(openRow).join("")
-      : `<div style="background:#14171b;border:1px solid rgba(78,224,199,.25);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:8px;"><span style="color:#4ee0c7;">✓</span><div style="font-size:13px;color:#cfd2d6;">Alle Läufe bis heute erfasst. Stark.</div></div>`}
+      : `<div style="background:#ffffff;border:1px solid rgba(224,90,31,.25);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:8px;"><span style="color:#e05a1f;">✓</span><div style="font-size:13px;color:#69675c;">Alle Läufe bis heute erfasst. Stark.</div></div>`}
 
     <div style="height:18px"></div>
     ${eyebrow("Kraft & Mobilität")}
-    <div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:15px 16px;display:flex;align-items:center;gap:14px;">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4ee0c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7v10M18 7v10M4 9v6M20 9v6M6 12h12"/></svg>
-      <div style="flex:1;"><div style="font-size:14px;font-weight:600;color:#f2f3f4;">Krafttraining live mitschreiben</div><div style="font-family:var(--mono);font-size:10px;color:#7e848c;margin-top:2px;">Sätze & Gewichte in Echtzeit</div></div>
+    <div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:16px;padding:15px 16px;display:flex;align-items:center;gap:14px;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e05a1f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7v10M18 7v10M4 9v6M20 9v6M6 12h12"/></svg>
+      <div style="flex:1;"><div style="font-size:14px;font-weight:600;color:#16294d;">Krafttraining live mitschreiben</div><div style="font-family:var(--mono);font-size:10px;color:#93917e;margin-top:2px;">Sätze & Gewichte in Echtzeit</div></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:10px;">
-      ${GYM_DAYS.map(d=>`<button onclick="startGym('${d}')" style="flex:1;background:transparent;border:1px solid rgba(78,224,199,.4);color:#4ee0c7;border-radius:99px;padding:9px 6px;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.5px;cursor:pointer;">${gymTpl(d).short}</button>`).join("")}
+      ${GYM_DAYS.map(d=>`<button onclick="startGym('${d}')" style="flex:1;background:transparent;border:1px solid rgba(224,90,31,.4);color:#e05a1f;border-radius:99px;padding:9px 6px;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.5px;cursor:pointer;">${gymTpl(d).short}</button>`).join("")}
     </div>
 
     <div style="height:22px"></div>
     ${eyebrow("Aktivitäten")}
     <div style="display:flex;gap:8px;margin-bottom:10px;">
-      <button onclick="openRide(${cur},'rad')" style="flex:1;background:transparent;border:1px solid rgba(78,224,199,.4);color:#4ee0c7;border-radius:99px;padding:9px 6px;font-family:var(--mono);font-size:11px;font-weight:600;cursor:pointer;">+ Rad-Fahrt</button>
-      <button onclick="openGymTpl('push')" style="flex:1;background:transparent;border:1px solid rgba(255,255,255,.1);color:#7e848c;border-radius:99px;padding:9px 6px;font-family:var(--mono);font-size:11px;font-weight:600;cursor:pointer;">Vorlagen</button>
+      <button onclick="openRide(${cur},'rad')" style="flex:1;background:transparent;border:1px solid rgba(224,90,31,.4);color:#e05a1f;border-radius:99px;padding:9px 6px;font-family:var(--mono);font-size:11px;font-weight:600;cursor:pointer;">+ Rad-Fahrt</button>
+      <button onclick="openGymTpl('push')" style="flex:1;background:transparent;border:1px solid rgba(255,255,255,.1);color:#93917e;border-radius:99px;padding:9px 6px;font-family:var(--mono);font-size:11px;font-weight:600;cursor:pointer;">Vorlagen</button>
     </div>
     ${acts.length? acts.slice(0,25).map(actRow).join("")
-      : `<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:14px 16px;font-size:13px;color:#7e848c;text-align:center;">Krafttraining und importierte Aktivitäten (Padel, Rad …) landen hier.</div>`}
+      : `<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:16px;padding:14px 16px;font-size:13px;color:#93917e;text-align:center;">Krafttraining und importierte Aktivitäten (Padel, Rad …) landen hier.</div>`}
   </div>`;
 }
 function actRow(a){
@@ -2754,35 +2761,35 @@ function viewStats(){
   const estNow=marathonEstimate(series);
   const est3=marathonEstimate(series, new Date(+today()-21*MS));
   const est6=marathonEstimate(series, new Date(+today()-42*MS));
-  const dotsArr=[{e:est6,c:"#3a3f46",s:9},{e:est3,c:"#565c64",s:9},{e:estNow,c:"#4ee0c7",s:11,glow:true}].filter(d=>d.e);
+  const dotsArr=[{e:est6,c:"#d5cfc0",s:9},{e:est3,c:"#b6b4a4",s:9},{e:estNow,c:"#e05a1f",s:11,glow:true}].filter(d=>d.e);
   let trendStr="";
   if(estNow&&est3){ const dd=Math.round(estNow)-Math.round(est3); const mm=Math.floor(Math.abs(dd)/60),ss=Math.abs(dd)%60; trendStr=(dd<=0?"↓ −":"↑ +")+mm+":"+String(ss).padStart(2,"0")+" / 3 Wo"; }
   const predStr=estNow?hms(Math.round(estNow)):"—";
   let deltaStr="", under=true;
   if(estNow){ const dd=Math.round(estNow)-GOAL; under=dd<=0; const mm=Math.floor(Math.abs(dd)/60),ss=Math.abs(dd)%60; deltaStr=(under?"−":"+")+mm+":"+String(ss).padStart(2,"0")+(under?" ✓":""); }
-  const prog=`<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:18px 20px 20px;">
+  const prog=`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:24px;padding:18px 20px 20px;">
     <div style="display:flex;justify-content:space-between;align-items:baseline;">
-      <span style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;">Marathon-Prognose</span>
-      ${trendStr?`<span style="font-family:var(--mono);font-size:10px;color:#4ee0c7;">${trendStr}</span>`:""}
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;">Marathon-Prognose</span>
+      ${trendStr?`<span style="font-family:var(--mono);font-size:10px;color:#e05a1f;">${trendStr}</span>`:""}
     </div>
     <div style="position:relative;height:30px;margin:16px 0 4px;">
       <div style="position:absolute;top:6px;left:0;right:0;height:1px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 5px,transparent 5px 10px);"></div>
-      <div style="position:absolute;top:-7px;right:0;font-family:var(--mono);font-size:9px;color:#7e848c;">SUB ${goalStr()}</div>
-      ${dotsArr.map(d=>`<div style="position:absolute;top:${d.glow?"15px":"16px"};left:${xOf(d.e)}%;width:${d.s}px;height:${d.s}px;border-radius:99px;background:${d.c};${d.glow?"box-shadow:0 0 10px rgba(78,224,199,.7);":""}transform:translateX(-50%);"></div>`).join("")}
+      <div style="position:absolute;top:-7px;right:0;font-family:var(--mono);font-size:9px;color:#93917e;">SUB ${goalStr()}</div>
+      ${dotsArr.map(d=>`<div style="position:absolute;top:${d.glow?"15px":"16px"};left:${xOf(d.e)}%;width:${d.s}px;height:${d.s}px;border-radius:99px;background:${d.c};${d.glow?"":""}transform:translateX(-50%);"></div>`).join("")}
     </div>
     <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:6px;">
-      <div style="font-size:34px;font-weight:700;letter-spacing:-1.5px;color:#f2f3f4;line-height:1;">${predStr}</div>
-      ${deltaStr?`<div style="font-family:var(--mono);font-size:12px;color:${under?"#4ee0c7":"#e0a53b"};padding-bottom:3px;">${deltaStr}</div>`:""}
+      <div style="font-size:34px;font-weight:700;letter-spacing:-1.5px;color:#16294d;line-height:1;">${predStr}</div>
+      ${deltaStr?`<div style="font-family:var(--mono);font-size:12px;color:${under?"#e05a1f":"#c98f14"};padding-bottom:3px;">${deltaStr}</div>`:""}
     </div>
   </div>`;
 
   // 2) Recovery · Garmin (tippbar)
   const d=latestWellness(); const score=d?recoveryScore(d):null; const hv=hrvTrend();
-  const rtile=(v,l,acc)=>`<div style="flex:1;text-align:center;background:#0f1216;border-radius:12px;padding:11px 6px;"><div style="font-size:16px;font-weight:700;color:${acc?"#4ee0c7":"#f2f3f4"};">${v}</div><div style="font-family:var(--mono);font-size:8px;color:#7e848c;margin-top:3px;">${l}</div></div>`;
-  const recCard = d ? `<div onclick="openRecoveryDetail()" style="cursor:pointer;background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:18px 20px;">
+  const rtile=(v,l,acc)=>`<div style="flex:1;text-align:center;background:#f0e9da;border-radius:12px;padding:11px 6px;"><div style="font-size:16px;font-weight:700;color:${acc?"#e05a1f":"#16294d"};">${v}</div><div style="font-family:var(--mono);font-size:8px;color:#93917e;margin-top:3px;">${l}</div></div>`;
+  const recCard = d ? `<div onclick="openRecoveryDetail()" style="cursor:pointer;background:#ffffff;border:1px solid #e8e1d2;border-radius:24px;padding:18px 20px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <span style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;">Recovery · Garmin</span>
-      <span style="display:flex;align-items:center;gap:8px;"><span style="font-size:26px;font-weight:700;color:#4ee0c7;letter-spacing:-1px;">${score}</span><span style="font-family:var(--mono);font-size:9px;color:#7e848c;line-height:1.1;">${score>=67?"grünes<br>Licht":score>=34?"gelbes<br>Licht":"rotes<br>Licht"}</span></span>
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;">Recovery · Garmin</span>
+      <span style="display:flex;align-items:center;gap:8px;"><span style="font-size:26px;font-weight:700;color:#e05a1f;letter-spacing:-1px;">${score}</span><span style="font-family:var(--mono);font-size:9px;color:#93917e;line-height:1.1;">${score>=67?"grünes<br>Licht":score>=34?"gelbes<br>Licht":"rotes<br>Licht"}</span></span>
     </div>
     <div style="display:flex;gap:8px;">
       ${rtile(fmtH(d.sleepSeconds),"SCHLAF",false)}
@@ -2790,25 +2797,25 @@ function viewStats(){
       ${rtile(d.restingHr||"–","RHR",false)}
       ${rtile(d.bodyBatteryLast!=null?d.bodyBatteryLast:"–","BATTERY",false)}
     </div>
-  </div>` : `<div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:24px;padding:18px 20px;"><div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:6px;">Recovery · Garmin</div><div style="font-size:13px;color:#7e848c;">Noch keine Garmin-Daten — verbinde Garmin unter „Mehr".</div></div>`;
+  </div>` : `<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:24px;padding:18px 20px;"><div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;margin-bottom:6px;">Recovery · Garmin</div><div style="font-size:13px;color:#93917e;">Noch keine Garmin-Daten — verbinde Garmin unter „Mehr".</div></div>`;
 
   // 3) Pflichtläufe (Vorwoche) + 4) Form · TSB
   const pw=Math.max(1,curW-1); let pl=0,dn=0; RUNS.forEach(R=>{ if(runIsRest(pw,R.slot))return; pl++; if(DB.logs[runId(pw,R.slot)])dn++; });
-  const cpct=pl?Math.round(dn/pl*100):0; const cCol=cpct>=100?"#4ee0c7":"#e0a53b";
+  const cpct=pl?Math.round(dn/pl*100):0; const cCol=cpct>=100?"#e05a1f":"#c98f14";
   const f=currentForm(); const tsb=Math.round(f.tsb); const fl=formLabel(f.tsb);
   const tsbX=Math.max(8,Math.min(92,50+f.tsb*1.6));
   const half=`<div style="display:flex;gap:13px;">
-    <div style="flex:1;background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:16px 17px;">
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:#7e848c;text-transform:uppercase;">Pflichtläufe</div>
-      <div style="font-size:28px;font-weight:700;color:#f2f3f4;letter-spacing:-1px;margin-top:6px;">${dn}<span style="font-size:16px;color:#7e848c;">/${pl}</span></div>
+    <div style="flex:1;background:#ffffff;border:1px solid #e8e1d2;border-radius:20px;padding:16px 17px;">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:#93917e;text-transform:uppercase;">Pflichtläufe</div>
+      <div style="font-size:28px;font-weight:700;color:#16294d;letter-spacing:-1px;margin-top:6px;">${dn}<span style="font-size:16px;color:#93917e;">/${pl}</span></div>
       <div style="height:4px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:8px;"><div style="width:${cpct}%;height:100%;background:${cCol};border-radius:99px;"></div></div>
-      <div style="font-family:var(--mono);font-size:9px;color:#7e848c;margin-top:6px;">Vorwoche · ${cpct}%</div>
+      <div style="font-family:var(--mono);font-size:9px;color:#93917e;margin-top:6px;">Vorwoche · ${cpct}%</div>
     </div>
-    <div style="flex:1;background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:20px;padding:16px 17px;">
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:#7e848c;text-transform:uppercase;">Form · TSB</div>
-      <div style="font-size:28px;font-weight:700;color:#4ee0c7;letter-spacing:-1px;margin-top:6px;">${tsb>=0?"+":""}${tsb}</div>
-      <div style="height:4px;border-radius:99px;background:rgba(255,255,255,.08);margin-top:8px;position:relative;"><div style="position:absolute;left:${tsbX}%;top:-3px;width:3px;height:10px;background:#4ee0c7;"></div></div>
-      <div style="font-family:var(--mono);font-size:9px;color:#4ee0c7;margin-top:6px;">${fl.label}</div>
+    <div style="flex:1;background:#ffffff;border:1px solid #e8e1d2;border-radius:20px;padding:16px 17px;">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:#93917e;text-transform:uppercase;">Form · TSB</div>
+      <div style="font-size:28px;font-weight:700;color:#e05a1f;letter-spacing:-1px;margin-top:6px;">${tsb>=0?"+":""}${tsb}</div>
+      <div style="height:4px;border-radius:99px;background:rgba(255,255,255,.08);margin-top:8px;position:relative;"><div style="position:absolute;left:${tsbX}%;top:-3px;width:3px;height:10px;background:#e05a1f;"></div></div>
+      <div style="font-family:var(--mono);font-size:9px;color:#e05a1f;margin-top:6px;">${fl.label}</div>
     </div>
   </div>`;
 
@@ -2817,10 +2824,10 @@ function viewStats(){
   return `<div class="wrap" style="display:flex;flex-direction:column;gap:13px;">
     <div>
       <div class="ln-title"><b>Analyse</b><span class="ln-line"></span></div>
-      <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;">Plan vs. Realität</div>
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;">Plan vs. Realität</div>
     </div>
     ${prog}${recCard}${half}
-    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-top:10px;">Weitere Analyse</div>
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;margin-top:10px;">Weitere Analyse</div>
     ${extras}
   </div>`;
 }
@@ -3374,37 +3381,37 @@ function cardCloud(){
 function viewMehr(){
   const garminOn=!!(DB.garmin && DB.garmin.gistId);
   const stravaOn=stravaConnected();
-  const goal=`<div style="background:#14171b;border:1px solid rgba(78,224,199,.25);border-radius:20px;padding:18px 20px;">
-    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;">Mein Ziel</div>
-    <div style="font-size:30px;font-weight:700;letter-spacing:-1px;color:#f2f3f4;margin-top:8px;">Sub ${goalShort()}</div>
-    <div style="font-family:var(--mono);font-size:11px;color:#7e848c;margin-top:4px;">${raceLabel()} · ${raceDateStr()} · 42,195 km</div>
+  const goal=`<div style="background:#ffffff;border:1px solid rgba(224,90,31,.25);border-radius:20px;padding:18px 20px;">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#e05a1f;text-transform:uppercase;">Mein Ziel</div>
+    <div style="font-size:30px;font-weight:700;letter-spacing:-1px;color:#16294d;margin-top:8px;">Sub ${goalShort()}</div>
+    <div style="font-family:var(--mono);font-size:11px;color:#93917e;margin-top:4px;">${raceLabel()} · ${raceDateStr()} · 42,195 km</div>
   </div>`;
   const connRow=(label,on,last)=>`<div onclick="openSettings()" style="display:flex;align-items:center;gap:13px;padding:14px 16px;${last?"":"border-bottom:1px solid rgba(255,255,255,.05);"}cursor:pointer;">
-    <div style="font-size:14px;font-weight:600;color:#f2f3f4;flex:1;">${label}</div>
-    ${on?`<span style="font-family:var(--mono);font-size:10px;color:#4ee0c7;display:flex;align-items:center;gap:5px;"><span style="width:6px;height:6px;border-radius:99px;background:#4ee0c7;box-shadow:0 0 6px #4ee0c7;"></span>verbunden</span>`:`<span style="font-family:var(--mono);font-size:11px;color:#7e848c;">verbinden ›</span>`}
+    <div style="font-size:14px;font-weight:600;color:#16294d;flex:1;">${label}</div>
+    ${on?`<span style="font-family:var(--mono);font-size:10px;color:#e05a1f;display:flex;align-items:center;gap:5px;"><span style="width:6px;height:6px;border-radius:99px;background:#e05a1f;"></span>verbunden</span>`:`<span style="font-family:var(--mono);font-size:11px;color:#93917e;">verbinden ›</span>`}
   </div>`;
-  const conn=`<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:11px;">Verbindungen</div>
-    <div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:16px;overflow:hidden;margin-bottom:18px;">
+  const conn=`<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;margin-bottom:11px;">Verbindungen</div>
+    <div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:16px;overflow:hidden;margin-bottom:18px;">
       ${connRow("Garmin · Schlaf & HRV", garminOn, false)}
       ${connRow("Strava · Aktivitäten", stravaOn, true)}
     </div>`;
   const fu=DB.activities.map((a,i)=>{ const freq=a.optional?"optional":(a.target||0)+"×/Woche"; const last=i===DB.activities.length-1;
-    return `<div onclick="openActEdit(${i})" style="display:flex;align-items:center;padding:13px 16px;${last?"":"border-bottom:1px solid rgba(255,255,255,.05);"}cursor:pointer;"><span style="font-size:14px;color:#f2f3f4;flex:1;">${a.name}</span><span style="font-family:var(--mono);font-size:10px;color:#7e848c;">${freq} ›</span></div>`;
+    return `<div onclick="openActEdit(${i})" style="display:flex;align-items:center;padding:13px 16px;${last?"":"border-bottom:1px solid rgba(255,255,255,.05);"}cursor:pointer;"><span style="font-size:14px;color:#16294d;flex:1;">${a.name}</span><span style="font-family:var(--mono);font-size:10px;color:#93917e;">${freq} ›</span></div>`;
   }).join("");
-  const freeUnits=`<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#7e848c;text-transform:uppercase;margin-bottom:11px;">Freie Einheiten</div>
-    <div style="background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:16px;overflow:hidden;">${fu}</div>
-    <div onclick="openActEdit(-1)" style="text-align:center;margin-top:12px;font-family:var(--mono);font-size:11px;color:#4ee0c7;cursor:pointer;">+ Einheit hinzufügen</div>`;
+  const freeUnits=`<div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#93917e;text-transform:uppercase;margin-bottom:11px;">Freie Einheiten</div>
+    <div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:16px;overflow:hidden;">${fu}</div>
+    <div onclick="openActEdit(-1)" style="text-align:center;margin-top:12px;font-family:var(--mono);font-size:11px;color:#e05a1f;cursor:pointer;">+ Einheit hinzufügen</div>`;
   return `<div class="wrap">
     <div class="ln-title"><b>Mehr</b><span class="ln-line"></span></div>
     <div style="height:16px"></div>
     ${goal}
     <div style="height:14px"></div>
-    <div onclick="openPlanEditor()" style="cursor:pointer;background:#14171b;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:15px 16px;display:flex;align-items:center;gap:13px;">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ee0c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-      <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:#f2f3f4;">Trainingsplan bearbeiten</div><div style="font-family:var(--mono);font-size:10px;color:#7e848c;margin-top:2px;">Per Chat anpassen — absolvierte Einheiten bleiben</div></div>
-      <span style="color:#565c64;flex:none;">›</span>
+    <div onclick="openPlanEditor()" style="cursor:pointer;background:#ffffff;border:1px solid #e8e1d2;border-radius:16px;padding:15px 16px;display:flex;align-items:center;gap:13px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e05a1f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+      <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:#16294d;">Trainingsplan bearbeiten</div><div style="font-family:var(--mono);font-size:10px;color:#93917e;margin-top:2px;">Per Chat anpassen — absolvierte Einheiten bleiben</div></div>
+      <span style="color:#b6b4a4;flex:none;">›</span>
     </div>
-    ${hasRaceOverride()?`<div onclick="resetRaceConfig()" style="cursor:pointer;text-align:center;margin-top:10px;font-family:var(--mono);font-size:10px;letter-spacing:.5px;color:#7e848c;">Eckdaten auf Original (München · 11.10.2026) zurücksetzen ›</div>`:""}
+    ${hasRaceOverride()?`<div onclick="resetRaceConfig()" style="cursor:pointer;text-align:center;margin-top:10px;font-family:var(--mono);font-size:10px;letter-spacing:.5px;color:#93917e;">Eckdaten auf Original (München · 11.10.2026) zurücksetzen ›</div>`:""}
     <div style="height:18px"></div>
     ${conn}
     ${freeUnits}
@@ -3623,28 +3630,28 @@ function openLog(w,slot){
   const sollShort=(c.det||"").split(/[:(]/)[0].trim();
   const segBtn=(v,label)=>`<button onclick="selSeg('lg_feel',this,${v})" class="${rpe===v?"on":""}" style="flex:1;text-align:center;border-radius:11px;padding:10px;font-size:13px;font-weight:600;">${label}</button>`;
   sheet(`
-    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#4ee0c7;text-transform:uppercase;">Lauf eintragen</div>
-    <div style="font-size:21px;font-weight:700;color:#f2f3f4;margin-top:6px;letter-spacing:-.3px;">${c.title.replace(/^Lauf · /,"")}</div>
-    <div style="font-family:var(--mono);font-size:11px;color:#7e848c;margin-top:3px;margin-bottom:20px;">${fmtD(dt)}${sollShort&&sollShort!=="–"?" · Soll "+sollShort:""}</div>
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#e05a1f;text-transform:uppercase;">Lauf eintragen</div>
+    <div style="font-size:21px;font-weight:700;color:#16294d;margin-top:6px;letter-spacing:-.3px;">${c.title.replace(/^Lauf · /,"")}</div>
+    <div style="font-family:var(--mono);font-size:11px;color:#93917e;margin-top:3px;margin-bottom:20px;">${fmtD(dt)}${sollShort&&sollShort!=="–"?" · Soll "+sollShort:""}</div>
     <div style="display:flex;gap:10px;margin-bottom:11px;">
-      <div style="flex:1;background:#0f1216;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:12px 14px;">
-        <div style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#7e848c;text-transform:uppercase;">Distanz</div>
-        <div style="display:flex;align-items:baseline;gap:4px;margin-top:4px;"><input id="lg_dist" inputmode="decimal" value="${distVal}" placeholder="0,0" oninput="lgPace()" style="font-size:24px;font-weight:700;color:#f2f3f4;background:transparent;border:none;outline:none;width:100%;padding:0;"><span style="font-size:12px;color:#7e848c;">km</span></div>
+      <div style="flex:1;background:#f0e9da;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:12px 14px;">
+        <div style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#93917e;text-transform:uppercase;">Distanz</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-top:4px;"><input id="lg_dist" inputmode="decimal" value="${distVal}" placeholder="0,0" oninput="lgPace()" style="font-size:24px;font-weight:700;color:#16294d;background:transparent;border:none;outline:none;width:100%;padding:0;"><span style="font-size:12px;color:#93917e;">km</span></div>
       </div>
-      <div style="flex:1;background:#0f1216;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:12px 14px;">
-        <div style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#7e848c;text-transform:uppercase;">Zeit</div>
-        <div style="display:flex;align-items:baseline;gap:4px;margin-top:4px;"><input id="lg_time" inputmode="numeric" value="${timeVal}" placeholder="mm:ss" oninput="lgPace()" style="font-size:24px;font-weight:700;color:#f2f3f4;background:transparent;border:none;outline:none;width:100%;padding:0;"><span style="font-size:12px;color:#7e848c;">min</span></div>
+      <div style="flex:1;background:#f0e9da;border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:12px 14px;">
+        <div style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#93917e;text-transform:uppercase;">Zeit</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-top:4px;"><input id="lg_time" inputmode="numeric" value="${timeVal}" placeholder="mm:ss" oninput="lgPace()" style="font-size:24px;font-weight:700;color:#16294d;background:transparent;border:none;outline:none;width:100%;padding:0;"><span style="font-size:12px;color:#93917e;">min</span></div>
       </div>
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(78,224,199,.08);border:1px solid rgba(78,224,199,.25);border-radius:14px;padding:12px 16px;margin-bottom:20px;">
-      <span style="font-family:var(--mono);font-size:10px;color:#7e848c;text-transform:uppercase;letter-spacing:1px;">Schnitt-Pace</span>
-      <span style="font-size:17px;font-weight:700;color:#4ee0c7;"><span id="lg_pace">${paceInit}</span><span style="font-size:11px;color:#7e848c;">/km</span></span>
+    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(224,90,31,.08);border:1px solid rgba(224,90,31,.25);border-radius:14px;padding:12px 16px;margin-bottom:20px;">
+      <span style="font-family:var(--mono);font-size:10px;color:#93917e;text-transform:uppercase;letter-spacing:1px;">Schnitt-Pace</span>
+      <span style="font-size:17px;font-weight:700;color:#e05a1f;"><span id="lg_pace">${paceInit}</span><span style="font-size:11px;color:#93917e;">/km</span></span>
     </div>
-    <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:#7e848c;text-transform:uppercase;margin-bottom:9px;">Empfinden</div>
+    <div style="font-family:var(--mono);font-size:9px;letter-spacing:1px;color:#93917e;text-transform:uppercase;margin-bottom:9px;">Empfinden</div>
     <div class="seg" id="lg_feel" style="display:flex;gap:8px;margin-bottom:22px;">${segBtn(4,"Locker")}${segBtn(6,"Moderat")}${segBtn(8,"Hart")}</div>
-    <div onclick="saveLog(${w},'${slot}')" style="cursor:pointer;text-align:center;background:#4ee0c7;border-radius:14px;padding:15px;font-size:15px;font-weight:700;color:#0a0b0d;">Lauf speichern</div>
-    ${L.dist?`<div onclick="closeModal();openRunAnalysis(${w},'${slot}')" style="cursor:pointer;text-align:center;margin-top:14px;font-size:13px;font-weight:600;color:#4ee0c7;">Analyse ansehen ›</div>`:""}
-    <div onclick="closeModal();openRun(${w},'${slot}')" style="cursor:pointer;text-align:center;margin-top:12px;font-family:var(--mono);font-size:11px;letter-spacing:.5px;color:#7e848c;">Mehr Details — HF · Notiz · GPX ›</div>`);
+    <div onclick="saveLog(${w},'${slot}')" style="cursor:pointer;text-align:center;background:#e05a1f;border-radius:14px;padding:15px;font-size:15px;font-weight:700;color:#faf5ee;">Lauf speichern</div>
+    ${L.dist?`<div onclick="closeModal();openRunAnalysis(${w},'${slot}')" style="cursor:pointer;text-align:center;margin-top:14px;font-size:13px;font-weight:600;color:#e05a1f;">Analyse ansehen ›</div>`:""}
+    <div onclick="closeModal();openRun(${w},'${slot}')" style="cursor:pointer;text-align:center;margin-top:12px;font-family:var(--mono);font-size:11px;letter-spacing:.5px;color:#93917e;">Mehr Details — HF · Notiz · GPX ›</div>`);
 }
 function saveLog(w,slot){
   const id=runId(w,slot), L=DB.logs[id]||{};
