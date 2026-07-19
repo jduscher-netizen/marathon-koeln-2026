@@ -359,9 +359,9 @@ const WEEKS = [
  {w:17, dr:"31.08.–06.09.", ph:"Peak", km:70, lr:28, di:"16 km Tempo-DL Z4 (5:15) + Ein/Aus", do:"14 km Z2 (5:55)", fr:"7 km Z1 (6:30)", so:"28 km · 18 km MP am Ende"},
  {w:18, dr:"07.09.–13.09.", ph:"Peak · Entlastung", km:48, lr:20, di:"4×1000m Z4 (4:50) Tp 2min + Ein/Aus", do:"10 km Z2 (5:55)", fr:"6 km Z1 (6:35)", so:"20 km Z2 (5:55)"},
  {w:19, dr:"14.09.–20.09.", ph:"Taper", km:50, lr:22, di:"6 km MP (5:40) + Ein/Aus", do:"12 km Z2 (5:55)", fr:"6 km Z1 (6:35)", so:"22 km · 8 km MP am Ende"},
- {w:20, dr:"21.09.–27.09.", ph:"Taper", km:38, lr:16, di:"4×1000m Z4 (4:55) Tp 2min + Ein/Aus", do:"10 km Z2 (6:00)", fr:"5 km Z1 (6:35)", so:"16 km · 4 km MP"},
- {w:21, dr:"28.09.–04.10.", ph:"Taper", km:34, lr:14, di:"6 km Z2 + 4×100m Steigerungen", do:"8 km Z2 (6:00)", fr:"5 km Z1 (6:35)", so:"12 km Z2 locker · letzter längerer Lauf vor München"},
- {w:22, dr:"05.10.–11.10.", ph:"Rennwoche", km:57, lr:42, di:"5 km Z2 + 4×100m Steigerungen", do:"6 km Z2 · 3×2min MP (5:40)", fr:"4 km Z1 ganz locker – oder frei", so:"MARATHON MÜNCHEN · 42,195 km @ MP 5:40 — dein Tag"},
+ {w:20, dr:"21.09.–27.09.", ph:"Taper · HM-Woche", km:42, lr:21, race:"HALBMARATHON", raceDist:"21,1 km", di:"3×1000m Z4 (4:55) Tp 2min + Ein/Aus", do:"8 km Z2 (6:00)", fr:"5 km Z1 (6:35)", so:"HALBMARATHON (Wettkampf) · 21,1 km kontrolliert @ 5:30–5:40 — Generalprobe München"},
+ {w:21, dr:"28.09.–04.10.", ph:"Taper", km:30, lr:12, di:"5 km Z1 ganz locker — Recovery nach HM", do:"8 km Z2 (6:00)", fr:"5 km Z1 (6:35)", so:"12 km Z2 locker · letzter längerer Lauf vor München"},
+ {w:22, dr:"05.10.–11.10.", ph:"Rennwoche", km:57, lr:42, race:"MARATHON · MÜNCHEN", raceDist:"42,195 km", di:"5 km Z2 + 4×100m Steigerungen", do:"6 km Z2 · 3×2min MP (5:40)", fr:"4 km Z1 ganz locker – oder frei", so:"MARATHON MÜNCHEN · 42,195 km @ MP 5:40 — dein Tag"},
 ];
 const TOTAL_W=WEEKS.length; // 22 — W22 = Rennwoche München (11.10.)
 
@@ -2445,12 +2445,25 @@ function openChangeFeed(){
 }
 /* ============ RENNWOCHEN-MODUS ============ */
 function raceWeekBlock(){
-  const dRace=Math.ceil((raceDate()-today())/MS);
-  if(dRace>7||dRace<0)return "";
-  const pace=goalSec()/42.195;
-  const marks=[[10,"KM 10"],[21.1,"HALB"],[30,"KM 30"],[42.195,"ZIEL"]];
+  const events=[
+    {d:parseLocalDate("2026-09-27"), label:"Halbmarathon · Generalprobe", pace:335, hm:true,
+     marks:[[5,"KM 5"],[10,"KM 10"],[15,"KM 15"],[21.0975,"ZIEL"]]},
+    {d:raceDate(), label:raceLabel(), pace:goalSec()/42.195, hm:false,
+     marks:[[10,"KM 10"],[21.1,"HALB"],[30,"KM 30"],[42.195,"ZIEL"]]}
+  ];
+  const ev=events.find(e=>Math.ceil((e.d-today())/MS)>=0);
+  if(!ev)return "";
+  const dRace=Math.ceil((ev.d-today())/MS);
+  if(dRace>7)return "";
+  const pace=ev.pace;
+  const marks=ev.marks;
   const tile=(km,l)=>`<div style="flex:1;text-align:center;background:#20355c;border-radius:10px;padding:11px 4px;"><div style="font-family:var(--display);font-size:15px;font-weight:600;color:${l==="ZIEL"?"#f0824e":"#faf5ee"};">${hms(Math.round(km*pace))}</div><div style="font-size:9px;font-weight:600;letter-spacing:1px;color:#7d90b3;margin-top:3px;">${l}</div></div>`;
-  const check=[
+  const check=ev.hm?[
+    "Generalprobe: Gels, Frühstück, Schuhe — alles wie am Marathontag testen",
+    "Kontrolliert @ 5:30–5:40 — NICHT all-out, München ist in 2 Wochen",
+    "Startunterlagen und Outfit am Vorabend richten",
+    dRace<=1?"Beine hoch, früh ins Bett":"Woche bleibt kurz und locker"
+  ]:[
     "Ab 3 Tage vorher: Kohlenhydrate rauf, Ballaststoffe runter",
     "Nichts Neues am Renntag — Schuhe, Gels, Frühstück: alles erprobt",
     "Startunterlagen und Outfit am Vorabend richten",
@@ -2458,9 +2471,9 @@ function raceWeekBlock(){
   ];
   return `<div style="background:#16294d;border-radius:18px;padding:20px 22px;">
     <div style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:2px;color:#f0824e;text-transform:uppercase;margin-bottom:6px;">Rennwoche · ${dRace===0?"Heute ist Renntag":"noch "+dRace+" Tag"+(dRace>1?"e":"")}</div>
-    <div style="font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:.5px;color:#faf5ee;text-transform:uppercase;">${raceLabel()}</div>
+    <div style="font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:.5px;color:#faf5ee;text-transform:uppercase;">${ev.label}</div>
     <div style="display:flex;gap:8px;margin-top:14px;">${marks.map(([km,l])=>tile(km,l)).join("")}</div>
-    <div style="font-size:11px;color:#a8b3c7;margin-top:9px;">Ziel-Pace ${pace5(pace)} /km — die ersten Kilometer bewusst nicht schneller.</div>
+    <div style="font-size:11px;color:#a8b3c7;margin-top:9px;">${ev.hm?"Generalprobe-Pace ~"+pace5(pace)+" /km — kontrolliert, nicht all-out.":"Ziel-Pace "+pace5(pace)+" /km — die ersten Kilometer bewusst nicht schneller."}</div>
     <div style="margin-top:12px;border-top:1px solid #233a63;padding-top:8px;">
       ${check.map(c=>`<div style="display:flex;gap:9px;padding:6px 0;font-size:12.5px;color:#a8b3c7;line-height:1.4;"><span style="color:#f0824e;flex:none;">✓</span>${c}</div>`).join("")}
     </div>
@@ -2658,7 +2671,7 @@ function viewWoche(){
     const done=runDoneKm(w);
     const pct=Math.round(Math.min(100, W.km?done/W.km*100:0));
     let pl=0, dn=0; RUNS.forEach(R=>{ if(runIsRest(w,R.slot)) return; pl++; if(DB.logs[runId(w,R.slot)]) dn++; });
-    const isCur=w===curW, isPast=w<curW, isRace=w===TOTAL_W, open=(w===wocheOpen);
+    const isCur=w===curW, isPast=w<curW, isRace=!!W.race, open=(w===wocheOpen);
     const chev=`<span style="color:#b6b4a4;font-size:12px;line-height:1;flex:none;">${open?"▾":"▸"}</span>`;
 
     if(isCur){
@@ -2682,9 +2695,9 @@ function viewWoche(){
       rows += `<div id="wk${w}">
         <div onclick="wocheToggle(${w})" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:2px solid #e8e1d2;">
           ${numSq(w,"race")}
-          <div style="min-width:0;"><div style="font-family:var(--display);font-size:15px;font-weight:600;letter-spacing:.5px;color:#16294d;text-transform:uppercase;">Renntag · ${raceCity()}</div>
+          <div style="min-width:0;"><div style="font-family:var(--display);font-size:15px;font-weight:600;letter-spacing:.5px;color:#16294d;text-transform:uppercase;">Renntag · ${W.race}</div>
           <div style="font-size:11px;color:#b6b4a4;margin-top:1px;">${weekRange(w)}</div></div>
-          <div style="margin-left:auto;display:flex;align-items:center;gap:9px;"><span style="font-size:12px;font-weight:600;color:#16294d;">42,195 km</span>${chev}</div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:9px;"><span style="font-size:12px;font-weight:600;color:#16294d;">${W.raceDist}</span>${chev}</div>
         </div>
         ${open?`<div style="background:#ffffff;border:1px solid #e8e1d2;border-radius:14px;padding:6px 16px 14px;margin:10px 0;">${dayList(w,false)}</div>`:""}</div>`;
     } else {

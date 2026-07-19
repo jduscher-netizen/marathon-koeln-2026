@@ -22,7 +22,7 @@ export const PLAN = [
   { w:17, ph:"Peak",                 di:"16 km Tempo-DL Z4 (5:15) + Ein/Aus",            do:"14 km Z2 (5:55)",      fr:"7 km Z1 (6:30)",       so:"28 km · 18 km MP am Ende" },
   { w:18, ph:"Peak · Entlastung",    di:"4×1000m Z4 (4:50) Tp 2min + Ein/Aus",           do:"10 km Z2 (5:55)",      fr:"6 km Z1 (6:35)",       so:"20 km Z2 (5:55)" },
   { w:19, ph:"Taper",                di:"6 km MP (5:40) + Ein/Aus",                       do:"12 km Z2 (5:55)",      fr:"6 km Z1 (6:35)",       so:"22 km · 8 km MP am Ende" },
-  { w:20, ph:"Taper",                di:"4×1000m Z4 (4:55) Tp 2min + Ein/Aus",           do:"10 km Z2 (6:00)",      fr:"5 km Z1 (6:35)",       so:"16 km · 4 km MP" },
-  { w:21, ph:"Taper",                di:"6 km Z2 + 4×100m Steigerungen",                  do:"8 km Z2 (6:00)",       fr:"5 km Z1 (6:35)",       so:"12 km Z2 locker · letzter längerer Lauf" },
+  { w:20, ph:"Taper · HM-Woche",     di:"3×1000m Z4 (4:55) Tp 2min + Ein/Aus",           do:"8 km Z2 (6:00)",       fr:"5 km Z1 (6:35)",       so:"🏁 27.09. HALBMARATHON · kontrolliert @ 5:30–5:40 (Generalprobe)" },
+  { w:21, ph:"Taper",                di:"5 km Z1 ganz locker — Recovery nach HM",         do:"8 km Z2 (6:00)",       fr:"5 km Z1 (6:35)",       so:"12 km Z2 locker · letzter längerer Lauf" },
  { w:22, ph:"Rennwoche",            di:"5 km Z2 + 4×100m Steigerungen",                  do:"6 km Z2 · 3×2min MP (5:40)", fr:"4 km Z1 ganz locker – oder frei", so:"🏁 11.10. MARATHON MÜNCHEN" },
 ];
