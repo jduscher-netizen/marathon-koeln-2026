@@ -1,4 +1,4 @@
-// Trainingsplan v2 (Marathon Köln 04.10.2026) — synchronisiert mit App
+// Trainingsplan v2 (Marathon München 11.10.2026) — synchronisiert mit App
 // Bei Plan-Änderungen hier UND in index.html aktualisieren
 export const PLAN_START = Date.UTC(2026, 4, 11); // Mo 11.05.2026 UTC
 
@@ -23,5 +23,6 @@ export const PLAN = [
   { w:18, ph:"Peak · Entlastung",    di:"4×1000m Z4 (4:50) Tp 2min + Ein/Aus",           do:"10 km Z2 (5:55)",      fr:"6 km Z1 (6:35)",       so:"20 km Z2 (5:55)" },
   { w:19, ph:"Taper",                di:"6 km MP (5:40) + Ein/Aus",                       do:"12 km Z2 (5:55)",      fr:"6 km Z1 (6:35)",       so:"22 km · 8 km MP am Ende" },
   { w:20, ph:"Taper",                di:"4×1000m Z4 (4:55) Tp 2min + Ein/Aus",           do:"10 km Z2 (6:00)",      fr:"5 km Z1 (6:35)",       so:"16 km · 4 km MP" },
-  { w:21, ph:"Wettkampf",            di:"5 km Z2 + 4×100m Steigerungen",                  do:"6 km Z1 (6:30)",       fr:"–",                    so:"🏁 04.10. MARATHON KÖLN" },
+  { w:21, ph:"Taper",                di:"6 km Z2 + 4×100m Steigerungen",                  do:"8 km Z2 (6:00)",       fr:"5 km Z1 (6:35)",       so:"12 km Z2 locker · letzter längerer Lauf" },
+ { w:22, ph:"Rennwoche",            di:"5 km Z2 + 4×100m Steigerungen",                  do:"6 km Z2 · 3×2min MP (5:40)", fr:"4 km Z1 ganz locker – oder frei", so:"🏁 11.10. MARATHON MÜNCHEN" },
 ];

@@ -360,8 +360,10 @@ const WEEKS = [
  {w:18, dr:"07.09.–13.09.", ph:"Peak · Entlastung", km:48, lr:20, di:"4×1000m Z4 (4:50) Tp 2min + Ein/Aus", do:"10 km Z2 (5:55)", fr:"6 km Z1 (6:35)", so:"20 km Z2 (5:55)"},
  {w:19, dr:"14.09.–20.09.", ph:"Taper", km:50, lr:22, di:"6 km MP (5:40) + Ein/Aus", do:"12 km Z2 (5:55)", fr:"6 km Z1 (6:35)", so:"22 km · 8 km MP am Ende"},
  {w:20, dr:"21.09.–27.09.", ph:"Taper", km:38, lr:16, di:"4×1000m Z4 (4:55) Tp 2min + Ein/Aus", do:"10 km Z2 (6:00)", fr:"5 km Z1 (6:35)", so:"16 km · 4 km MP"},
- {w:21, dr:"28.09.–04.10.", ph:"Taper · Rennwoche", km:34, lr:14, di:"6 km Z2 + 4×100m Steigerungen", do:"8 km Z2 (6:00)", fr:"5 km Z1 (6:35)", so:"12 km Z2 locker · letzter längerer Lauf vor München (Marathon 11.10.)"},
+ {w:21, dr:"28.09.–04.10.", ph:"Taper", km:34, lr:14, di:"6 km Z2 + 4×100m Steigerungen", do:"8 km Z2 (6:00)", fr:"5 km Z1 (6:35)", so:"12 km Z2 locker · letzter längerer Lauf vor München"},
+ {w:22, dr:"05.10.–11.10.", ph:"Rennwoche", km:57, lr:42, di:"5 km Z2 + 4×100m Steigerungen", do:"6 km Z2 · 3×2min MP (5:40)", fr:"4 km Z1 ganz locker – oder frei", so:"MARATHON MÜNCHEN · 42,195 km @ MP 5:40 — dein Tag"},
 ];
+const TOTAL_W=WEEKS.length; // 22 — W22 = Rennwoche München (11.10.)
 
 const DOW = ["Mo","Di","Mi","Do","Fr","Sa","So"];
 const DOWL = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
@@ -1034,7 +1036,7 @@ function locate(d){
   if(diff<0) return {pre:true};
   if(du>Date.UTC(rd.getFullYear(),rd.getMonth(),rd.getDate())) return {post:true}; // erst NACH dem Rennen "beendet"
   let w=Math.floor(diff/7)+1, day=diff%7;
-  if(w>21) w=21;   // Tage zwischen Plan-Ende (W21) und Rennen als Renn-Woche (W21) zeigen
+  if(w>TOTAL_W) w=TOTAL_W; // Tage nach Plan-Ende als letzte Woche zeigen
   return {week:w, dayIdx:day};
 }
 
@@ -1495,7 +1497,7 @@ function parseStravaCSV(text){
 }
 function matchRunSlot(date){
   const k=dkey(date);
-  for(let w=1;w<=21;w++) for(const R of RUNS){
+  for(let w=1;w<=TOTAL_W;w++) for(const R of RUNS){
     if(runIsRest(w,R.slot)) continue;
     if(dkey(dateOf(w,effDay(w,R.slot)))===k) return {w,slot:R.slot};
   }
@@ -1795,7 +1797,7 @@ function buildCoachContext(){
   const loc=locate(today()); const L=[];
   if(loc.week){
     const W=WEEKS[loc.week-1];
-    L.push(`Datum: ${fmtD(today())} (${DOWL[loc.dayIdx]}), Woche ${loc.week}/21 — Phase ${W.ph}.`);
+    L.push(`Datum: ${fmtD(today())} (${DOWL[loc.dayIdx]}), Woche ${loc.week}/${TOTAL_W} — Phase ${W.ph}.`);
     L.push(`Diese Woche: Di ${W.di} | Do ${W.do} | Fr ${W.fr} | So ${W.so}. Soll-Umfang ${W.km} km, Long Run ${W.lr} km.`);
     let pn=0,dn=0; RUNS.forEach(R=>{ if(runIsRest(loc.week,R.slot))return; const dt=dateOf(loc.week,effDay(loc.week,R.slot)); if(dt>today())return; pn++; if(DB.logs[runId(loc.week,R.slot)])dn++; });
     if(pn) L.push(`Diese Woche bisher ${dn}/${pn} fällige Läufe erledigt.`);
@@ -1945,14 +1947,14 @@ function buildPlanEditContext(){
   L.push("ROLLE: Du bist der Trainingsplan-Editor der Lauf-App SUB4 (Marathon Köln, Ziel Sub 4:00). Der Nutzer beschreibt auf Deutsch, was er am Plan ändern möchte. Antworte kurz, freundlich und konkret auf Deutsch.");
   L.push("AUSGABE: Wenn — und nur wenn — eine konkrete Änderung gewünscht ist, hänge ans ENDE deiner Antwort GENAU EINEN Code-Block an:");
   L.push("```json\n{\"changes\":[{\"week\":9,\"slot\":\"di\",\"title\":\"Lauf · Qualität\",\"det\":\"10 km: 3 km Z1 + 5×1000m Z5 (4:40) Tr 90s + 2 km Z1\",\"day\":1}]}\n```");
-  L.push("FELDER (changes): week=1–21, slot=di(Qualität)|do(GA1)|fr(Recovery)|so(Long Run), det=Beschreibung der Einheit (km + Inhalt + Zielpace in /km), title optional, day optional (0=Mo … 6=So, nur zum Verschieben). Für einen Ruhetag det=\"–\".");
+  L.push("FELDER (changes): week=1–22, slot=di(Qualität)|do(GA1)|fr(Recovery)|so(Long Run), det=Beschreibung der Einheit (km + Inhalt + Zielpace in /km), title optional, day optional (0=Mo … 6=So, nur zum Verschieben). Für einen Ruhetag det=\"–\".");
   L.push("ECKDATEN ändern: Für Renndatum, Renn-Ort oder Zielzeit gib im selben json zusätzlich ein \"config\"-Objekt an, z. B. {\"config\":{\"raceDate\":\"2026-11-15\",\"raceCity\":\"Berlin\",\"goalTime\":\"3:45:00\"}}. raceDate=YYYY-MM-DD, goalTime=H:MM:SS, raceCity=Stadt.");
   L.push("RENNDATUM-LOGIK: Der Trainingsstart ist fix — die Wochen-Nummerierung und alle bereits eingetragenen/absolvierten Läufe bleiben immer exakt ausgerichtet, ein Renndatum-Wechsel ändert nur den Countdown (und schiebt die Wochen NICHT). Einzelne Einheiten passt du über \"changes\" an.");
   L.push("REGELN: Ändere ausschließlich das ausdrücklich Gewünschte. Bei Unklarheit frage nach (dann KEIN json-Block). Nenne im Text kurz, was du änderst.");
   const _ps=planStart(); const psISO=`${_ps.getFullYear()}-${String(_ps.getMonth()+1).padStart(2,"0")}-${String(_ps.getDate()).padStart(2,"0")}`;
   L.push(`\nAKTUELLE ECKDATEN: ${raceLabel()} am ${raceDateStr()} · Zielzeit ${goalStr()} · Trainingsstart ${psISO} (aktuelle Woche ${locate(today()).week||"–"}).`);
   L.push("\nAKTUELLER PLAN (W = Woche · Phase · Di | Do | Fr | So · Umfang/LongRun):");
-  for(let w=1; w<=21; w++){ const W=WEEKS[w-1]; const g=s=>runContent(w,s).det;
+  for(let w=1; w<=TOTAL_W; w++){ const W=WEEKS[w-1]; const g=s=>runContent(w,s).det;
     L.push(`W${w} ${W.ph}: Di=${g("di")} | Do=${g("do")} | Fr=${g("fr")} | So=${g("so")} · ${W.km}km LR${W.lr}`); }
   const loc=locate(today()); if(loc.week) L.push(`\nAktuelle Woche: ${loc.week}.`);
   const done=Object.keys(DB.logs||{}).filter(id=>DB.logs[id]&&DB.logs[id].dist);
@@ -1968,7 +1970,7 @@ function applyPlanChangesFromText(text){
   if(!obj) return applied;
   if(Array.isArray(obj.changes)) obj.changes.forEach(ch=>{
     const w=+ch.week, slot=String(ch.slot||"").toLowerCase();
-    if(!(w>=1&&w<=21) || !["di","do","fr","so"].includes(slot)) return;
+    if(!(w>=1&&w<=TOTAL_W) || !["di","do","fr","so"].includes(slot)) return;
     const id=runId(w,slot), cur=runContent(w,slot);
     const title=(ch.title!=null&&String(ch.title).trim())?String(ch.title).trim():cur.title;
     const det=(ch.det!=null&&String(ch.det).trim())?String(ch.det).trim():cur.det;
@@ -2160,7 +2162,7 @@ function briefingExplanationHtml(it){
   if(k==="today"){
     const d=it.data;
     return `<h3 style="font-size:.95rem;margin:14px 0 6px">Heutiger Workout</h3>
-      <p>Aus dem SUB4-Plan (v2, 21-Wochen-Aufbau, polarisiert):</p>
+      <p>Aus dem SUB4-Plan (v2, 22-Wochen-Aufbau, polarisiert):</p>
       <p><b>${d.c.title}</b><br><span class="muted">${d.c.det}</span></p>
       <h3 style="font-size:.95rem;margin:14px 0 6px">Einheit-Typ</h3>
       <p>${kindExplanation(d.kind)}</p>
@@ -2474,7 +2476,7 @@ function viewHeute(){
   const W=WEEKS[loc.week-1];
   const dRace=Math.ceil((raceDate()-td)/MS);
   const done=runDoneKm(W.w);
-  const fillPct=Math.round(loc.week/21*100);
+  const fillPct=Math.round(loc.week/TOTAL_W*100);
   const phase=W.ph;
   const raceStr=raceDateStr();
 
@@ -2510,7 +2512,7 @@ function viewHeute(){
       <span style="font-family:var(--display);font-weight:600;font-size:92px;line-height:.95;color:#e05a1f;">${dRace}</span>
       <span style="font-family:var(--display);font-weight:600;font-size:26px;letter-spacing:1px;color:#16294d;">TAGE</span>
     </div>
-    <div style="font-size:13px;font-weight:600;color:#69675c;margin-top:6px;">Woche ${loc.week} von 21 · ${phase} — ${done>0?"auf Kurs.":"bereit."}</div>
+    <div style="font-size:13px;font-weight:600;color:#69675c;margin-top:6px;">Woche ${loc.week} von ${TOTAL_W} · ${phase} — ${done>0?"auf Kurs.":"bereit."}</div>
   </div>`;
 
   // ----- DIE BAHN: Pill-Track mit oranger Füllung -----
@@ -2518,7 +2520,7 @@ function viewHeute(){
   const bahn=`<div>
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;">
       <span style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:2px;color:#16294d;text-transform:uppercase;">Die Bahn</span>
-      <span style="font-size:12px;font-weight:600;color:#93917e;">Runde ${loc.week} von 21</span>
+      <span style="font-size:12px;font-weight:600;color:#93917e;">Runde ${loc.week} von ${TOTAL_W}</span>
     </div>
     <div style="height:18px;border:2px solid #16294d;border-radius:99px;padding:3px;">
       <div style="height:100%;width:${fillPct}%;background:#e05a1f;border-radius:99px;"></div>
@@ -2651,12 +2653,12 @@ function viewWoche(){
     return `<div style="width:36px;height:36px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:15px;font-weight:600;${st}">${w}</div>`;
   };
   let rows="";
-  for(let w=1; w<=21; w++){
+  for(let w=1; w<=TOTAL_W; w++){
     const W=WEEKS[w-1];
     const done=runDoneKm(w);
     const pct=Math.round(Math.min(100, W.km?done/W.km*100:0));
     let pl=0, dn=0; RUNS.forEach(R=>{ if(runIsRest(w,R.slot)) return; pl++; if(DB.logs[runId(w,R.slot)]) dn++; });
-    const isCur=w===curW, isPast=w<curW, isRace=w===21, open=(w===wocheOpen);
+    const isCur=w===curW, isPast=w<curW, isRace=w===TOTAL_W, open=(w===wocheOpen);
     const chev=`<span style="color:#b6b4a4;font-size:12px;line-height:1;flex:none;">${open?"▾":"▸"}</span>`;
 
     if(isCur){
@@ -2705,7 +2707,7 @@ function viewWoche(){
   const doneWeeks=curW-1;
   return `<div class="wrap">
     <div class="ln-title"><b>Wochen</b><span class="ln-line"></span></div>
-    <div style="font-size:12px;font-weight:600;color:#93917e;margin-bottom:14px;">21 RUNDEN · ${doneWeeks} GELAUFEN · ${raceCity().toUpperCase()} ${String(raceDate().getDate()).padStart(2,"0")}.${String(raceDate().getMonth()+1).padStart(2,"0")}.</div>
+    <div style="font-size:12px;font-weight:600;color:#93917e;margin-bottom:14px;">${TOTAL_W} RUNDEN · ${doneWeeks} GELAUFEN · ${raceCity().toUpperCase()} ${String(raceDate().getDate()).padStart(2,"0")}.${String(raceDate().getMonth()+1).padStart(2,"0")}.</div>
     ${rows}
   </div>`;
 }
@@ -2714,7 +2716,7 @@ function viewWoche(){
 function viewTrack(){
   const loc=locate(today()), cur=loc.week||1;
   let open=[];
-  for(let w=1; w<=Math.min(21,cur); w++){
+  for(let w=1; w<=Math.min(TOTAL_W,cur); w++){
     RUNS.forEach(R=>{
       if(runIsRest(w,R.slot))return;
       const dt=dateOf(w,effDay(w,R.slot)); if(dt>today())return;
@@ -3446,7 +3448,7 @@ function cardZonesTotal(){
 function cardVolume(){
   const loc=locate(today()), cur=loc.week||1, from=Math.max(1,cur-7);
   let bars="";
-  for(let w=from;w<=Math.min(21,cur);w++){ const W=WEEKS[w-1],done=runDoneKm(w);
+  for(let w=from;w<=Math.min(TOTAL_W,cur);w++){ const W=WEEKS[w-1],done=runDoneKm(w);
     bars+=`<div class="b"><div style="display:flex;gap:2px;align-items:flex-end;height:110px;width:100%">
       <div style="width:50%;border-radius:4px 4px 0 0;background:var(--accent);height:${Math.max(2,Math.round(done/80*110))}px"></div>
       <div style="width:50%;border-radius:4px 4px 0 0;background:var(--line);height:${Math.max(2,Math.round(W.km/80*110))}px"></div>
@@ -3465,7 +3467,7 @@ function cardVolume(){
 function cardLongRun(){
   const runs=runLogs().filter(r=>r.kind==="long"), loc=locate(today()), cur=loc.week||1;
   let rows="";
-  for(let w=1;w<=Math.min(21,cur);w++){ const W=WEEKS[w-1], L=runs.find(r=>r.week===w); if(!L)continue;
+  for(let w=1;w<=Math.min(TOTAL_W,cur);w++){ const W=WEEKS[w-1], L=runs.find(r=>r.week===w); if(!L)continue;
     rows+=`<tr><td>W${w}</td><td>${W.lr} km</td><td>${L.dist} km</td><td>${pace(L.pace)}/km</td><td>${L.hr||"—"}</td></tr>`; }
   const maxLR=Math.max(0,...runs.map(r=>r.dist));
   return `<div class="card"><h2>Long Run Progression</h2>
@@ -3676,7 +3678,7 @@ function viewMehr(){
       <p>Easy ≠ Schneckentempo: 5:55–6:05/km bei HF &lt;150 ist guter aerober Bereich. Nur Freitag bewusst Recovery (6:30).</p>
     </div></details>
 
-    <details><summary>Phasen-Übersicht (21 Wochen)</summary><div class="dc">
+    <details><summary>Phasen-Übersicht (22 Wochen)</summary><div class="dc">
       <table><tr><th>Phase</th><th>Wo</th><th>LR max</th><th>km max</th></tr>
       <tr><td>Regeneration</td><td>W1</td><td>12</td><td>25</td></tr>
       <tr><td>Base I</td><td>W2–5</td><td>22</td><td>50</td></tr>

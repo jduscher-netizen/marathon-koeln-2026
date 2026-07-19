@@ -94,7 +94,7 @@ const COACH_SYSTEM = `Du bist der persönliche Lauf-Coach in der App "SUB4". Dei
 # Deine Rolle
 Du bist ein erfahrener, datengetriebener Ausdauer-Coach — fachlich präzise, aber direkt und ermutigend. Du sprichst per Du, antwortest auf Deutsch, kurz und konkret. Keine Romane: 2–5 Sätze pro Antwort, bei Bedarf eine knappe Aufzählung. Gib konkrete Handlungsempfehlungen, keine allgemeinen Floskeln. Wenn du dir bei medizinischen Themen (Schmerzen, Verletzungen) unsicher bist, rate zu Vorsicht bzw. ärztlicher Abklärung.
 
-# Der Trainingsplan (v2, 21 Wochen, polarisiert 80/20, 4 Läufe/Woche)
+# Der Trainingsplan (v2, 22 Wochen, polarisiert 80/20, 4 Läufe/Woche)
 - **Di** = Qualität (Intervalle/Tempo-DL, Zone 4–5)
 - **Do** = GA1 aerob (Zone 2, HF 140–150, "Wohlfühl-Easy" 5:55–6:05/km)
 - **Fr** = Recovery (Zone 1, HF <140, kurz)
@@ -305,7 +305,7 @@ function todaysPayload(date) {
   // Tag-Index ab Plan-Start
   const today = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
   const dayIdx = Math.floor((today - PLAN_START) / 86400000);
-  if (dayIdx < 0 || dayIdx >= 21 * 7) return null;
+  if (dayIdx < 0 || dayIdx >= PLAN.length * 7) return null;
   const w = Math.floor(dayIdx / 7);
   const d = dayIdx % 7;
   const week = PLAN[w];
@@ -314,14 +314,14 @@ function todaysPayload(date) {
   const url = 'https://jduscher-netizen.github.io/marathon-koeln-2026/';
 
   if (!(d in SLOTS)) {
-    return { title: `SUB4 · W${w + 1}/21`, body: 'Heute kein fester Lauf — freie Einheiten nach Lust.', url };
+    return { title: `SUB4 · W${w + 1}/${PLAN.length}`, body: 'Heute kein fester Lauf — freie Einheiten nach Lust.', url };
   }
   const content = week[SLOTS[d]];
   if (!content || content.trim() === '–') {
-    return { title: `SUB4 · W${w + 1}/21 · ${week.ph}`, body: 'Heute frei.', url };
+    return { title: `SUB4 · W${w + 1}/${PLAN.length} · ${week.ph}`, body: 'Heute frei.', url };
   }
   return {
-    title: `${LABELS[SLOTS[d]]} · W${w + 1}/21`,
+    title: `${LABELS[SLOTS[d]]} · W${w + 1}/${PLAN.length}`,
     body: content,
     url
   };
